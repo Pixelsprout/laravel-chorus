@@ -1,0 +1,16 @@
+
+// Add
+User::create([
+    'name' => 'Alice',
+    'email' => 'alice@example.com',
+    'password' => 'password123'
+])
+
+// Update
+User::where('email', 'test@example.com')->first()->update([
+    'email' => 'joe@example.com'
+])
+
+// delete
+$user = User::where('email', 'alice@example.com')->first();
+$user->delete()
