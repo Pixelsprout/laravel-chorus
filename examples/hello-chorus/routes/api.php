@@ -22,7 +22,7 @@ Route::get('/user', function (Request $request) {
 });
 
 // Message actions
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['web', 'auth'])->group(function () {
     Route::post('/messages', function (Request $request, CreateMessage $action) {
         $validator = Validator::make($request->all(), [
             'body' => 'required|string|max:1000',

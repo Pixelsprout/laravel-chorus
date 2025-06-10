@@ -12,13 +12,13 @@ interface Message {
     id: string;
     body: string;
     user_id: string;
-    platform_id: number;
+    platform_id: string; // UUID from Platform model
     created_at: Date;
     updated_at: Date;
 }
 
 interface Platform {
-    id: number;
+    id: string; // UUID from the database
     name: string;
 }
 
@@ -31,7 +31,7 @@ const db = createChorusDb('ChorusDatabase') as ChorusDatabase & {
 db.initializeSchema({
     users: '++id,name,email,created_at',
     messages: 'id,body,user_id,platform_id,created_at,updated_at',
-    platforms: '++id,name',
+    platforms: 'id,name',
 });
 
 export { db };

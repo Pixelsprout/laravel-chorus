@@ -31,10 +31,6 @@ class User extends Authenticatable {
         'email',
     ];
 
-    protected function syncFilter(): Builder {
-        return static::query()->where('id', auth()->id());
-    }
-
     /**
      * The attributes that should be hidden for serialization.
      *
