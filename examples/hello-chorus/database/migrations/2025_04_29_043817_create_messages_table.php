@@ -13,9 +13,9 @@ return new class extends Migration {
             $table->uuid('id')->primary();
             $table->string('body');
             $table->uuid('user_id');
-            $table->foreignId('platform_id')->constrained();
+            $table->uuid('platform_id')->constrained('platforms');
             $table->timestamps();
-            
+
             $table->foreign('user_id')->references('id')->on('users');
         });
     }

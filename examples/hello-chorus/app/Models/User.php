@@ -3,6 +3,8 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -29,6 +31,10 @@ class User extends Authenticatable {
         'email',
     ];
 
+    protected function syncFilter(): Builder {
+        return static::query()->where('id', auth()->id());
+    }
+
     /**
      * The attributes that should be hidden for serialization.
      *
@@ -50,6 +56,8 @@ class User extends Authenticatable {
             'password' => 'hashed',
         ];
     }
+
+
 
     public function messages(): HasMany {
         return $this->hasMany(Message::class);
