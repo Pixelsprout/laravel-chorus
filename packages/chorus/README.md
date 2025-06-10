@@ -67,6 +67,13 @@ class User extends Model
         
         return $fields;
     }
+    
+    // Define a filter to limit which records get synced to the client
+    public function syncFilter()
+    {
+        // Only sync records owned by the current user
+        return $this->where('user_id', auth()->id());
+    }
 }
 ```
 
@@ -218,6 +225,32 @@ This will create a `config/chorus.php` file where you can customize settings.
 3. Laravel Reverb broadcasts these events to connected WebSocket clients.
 4. Clients listen for these events and update their local state accordingly.
 5. When a new client connects, they can fetch the latest state from the harmonics table.
+
+## Filtering Synced Records
+
+You can control which records get synced to clients using the `syncFilter` method:
+
+```php
+class Message extends Model
+{
+    use Harmonics;
+    
+    protected $syncFields = ['content', 'user_id', 'is_read'];
+    
+    // Only sync messages that belong to the authenticated user
+    public function syncFilter()
+    {
+        return $this->where(function($query) {
+            $query->where('user_id', auth()->id())
+                  ->orWhere('recipient_id', auth()->id());
+        });
+    }
+}
+```
+
+The `syncFilter` method should return a query builder instance that filters the records to be synced. This applies to both initial data loading and incremental updates.
+
+For example, if you want to sync only user-specific data, you can filter based on the authenticated user's ID. This ensures that clients only receive data relevant to them, reducing bandwidth usage and improving security.
 
 ## Contributing
 

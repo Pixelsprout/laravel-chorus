@@ -5,12 +5,8 @@ declare(strict_types=1);
 namespace Pixelsprout\LaravelChorus\Traits;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
-use Illuminate\Support\Facades\Redis;
-use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\DB;
 use \Illuminate\Support\Str;
-use Illuminate\Support\Facades\Log;
 use Pixelsprout\LaravelChorus\Events\HarmonicCreated;
 use Pixelsprout\LaravelChorus\Models\Harmonic;
 
@@ -67,6 +63,28 @@ trait Harmonics {
     }
 
     return $syncFields;
+  }
+  
+  /**
+   * Get a query that filters which records should be synced to the client
+   * 
+   * Override this method in your model to define a query filter for syncing
+   * For example:
+   * public function getSyncFilter()
+   * {
+   *     return $this->where('user_id', auth()->id());
+   * }
+   * 
+   * Return null to sync all records (default behavior)
+   */
+  public function getSyncFilter() {
+    // Check if the model has a syncFilter() method, use that
+    if (method_exists($this, 'syncFilter')) {
+      return $this->syncFilter();
+    }
+    
+    // Default to no filter (sync all records)
+    return null;
   }
 
   /**

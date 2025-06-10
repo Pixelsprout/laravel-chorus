@@ -51,10 +51,20 @@ class SyncController extends Controller
                 // Get pagination parameters
                 $limit = (int)$request->query('limit', 1000);
                 
-                // Query records for the initial sync with pagination
-                $records = $modelClass::select($syncFields)
-                    ->take($limit)
-                    ->get();
+                // Get the sync filter if defined
+                $syncFilter = $instance->getSyncFilter();
+                
+                // Start query with the model class
+                $query = $modelClass::select($syncFields);
+                
+                // Apply sync filter if one is provided by the model
+                if ($syncFilter !== null) {
+                    // Apply the filter constraints to our query
+                    $query = $syncFilter;
+                }
+                
+                // Get records with pagination
+                $records = $query->take($limit)->get();
                 
                 // Get the latest harmonic ID for this table
                 $latestHarmonic = Harmonic::where('table_name', $table)
@@ -73,6 +83,18 @@ class SyncController extends Controller
             
             if ($afterHarmonicId) {
                 $harmonicsQuery->where('id', '>', $afterHarmonicId);
+            }
+            
+            // Get the sync filter if defined
+            $syncFilter = $instance->getSyncFilter();
+            
+            // If there's a filter defined, we need to filter harmonics by record_id
+            if ($syncFilter !== null) {
+                // Get the filtered record IDs
+                $filteredRecordIds = $syncFilter->pluck($instance->getKeyName());
+                
+                // Filter harmonics to only those matching the filter
+                $harmonicsQuery->whereIn('record_id', $filteredRecordIds);
             }
             
             // Add a reasonable limit to prevent huge responses
