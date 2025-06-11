@@ -34,8 +34,8 @@ const ChorusContext = createContext<ChorusContextState>({
   tables: {},
 });
 
-// Storage keys
-const LATEST_HARMONIC_ID_PREFIX = 'chorus_latest_harmonic_id_';
+// Storage key
+const LATEST_HARMONIC_ID_KEY = 'chorus_latest_harmonic_id';
 
 // Simple logging utility
 const log = (message: string, data?: any) => {
@@ -57,12 +57,12 @@ class SyncError extends Error {
 }
 
 // Helper functions
-const getLatestHarmonicId = (tableName: string): string | null => {
-  return localStorage.getItem(`${LATEST_HARMONIC_ID_PREFIX}${tableName}`);
+const getLatestHarmonicId = (): string | null => {
+  return localStorage.getItem(LATEST_HARMONIC_ID_KEY);
 };
 
-const saveLatestHarmonicId = (tableName: string, id: string): void => {
-  localStorage.setItem(`${LATEST_HARMONIC_ID_PREFIX}${tableName}`, id);
+const saveLatestHarmonicId = (id: string): void => {
+  localStorage.setItem(LATEST_HARMONIC_ID_KEY, id);
 };
 
 // Process harmonics
@@ -122,7 +122,7 @@ async function processHarmonics(tableName: string, harmonics: HarmonicEvent[]) {
     }
     
     // Save latest harmonic ID
-    saveLatestHarmonicId(tableName, harmonics[harmonics.length - 1].id);
+    saveLatestHarmonicId(harmonics[harmonics.length - 1].id);
     
     if (errors.length) {
       errors.forEach(error => console.error(error));
@@ -160,7 +160,7 @@ export async function processHarmonic(event: HarmonicEvent) {
     }
     
     // Save the latest harmonic ID
-    saveLatestHarmonicId(tableName, event.id);
+    saveLatestHarmonicId(event.id);
     return true;
   } catch (err) {
     const enhancedError = new SyncError(
@@ -251,11 +251,11 @@ export function ChorusProvider({ children, tables }: ChorusProviderProps) {
       }));
       
       // Initialize each table
+      // Get the latest harmonic ID once for all tables
+      const latestHarmonicId = getLatestHarmonicId();
+      
       for (const tableName of tables) {
         try {
-          // Get the latest harmonic ID
-          const latestHarmonicId = getLatestHarmonicId(tableName);
-          
           // Check if we have data already
           const count = await db.table(tableName).count();
           const isInitialSync = count === 0;
@@ -281,9 +281,13 @@ export function ChorusProvider({ children, tables }: ChorusProviderProps) {
   
           const responseData = await response.json();
           
-          // Save latest harmonic ID
+          // Save latest harmonic ID - only update if it's newer than our current one
           if (responseData.latest_harmonic_id) {
-            saveLatestHarmonicId(tableName, responseData.latest_harmonic_id);
+            const currentId = getLatestHarmonicId();
+            // Save if we don't have an ID yet or if the new one is greater
+            if (!currentId || responseData.latest_harmonic_id > currentId) {
+              saveLatestHarmonicId(responseData.latest_harmonic_id);
+            }
           }
           
           // Process the data
