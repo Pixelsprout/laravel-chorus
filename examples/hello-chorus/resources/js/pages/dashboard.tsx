@@ -1,4 +1,4 @@
-import { useHarmonics } from '@/chorus/use-harmonics';
+import { useHarmonics } from '@/chorus';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -6,12 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import type { Message, Platform } from '@/stores/db';
-import { db } from '@/stores/db';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
-import { useLiveQuery } from 'dexie-react-hooks';
 import { ClockIcon, SendIcon } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -25,20 +23,10 @@ export default function Dashboard() {
     const [platformId, setPlatformId] = useState<string>('');
 
     // Sync messages with the server
-    const { 
-        data: messages, 
-        isLoading: messagesLoading, 
-        error: messagesError, 
-        lastUpdate: messagesLastUpdate 
-    } = useHarmonics<Message>('messages', db);
-    
+    const { data: messages, isLoading: messagesLoading, error: messagesError, lastUpdate: messagesLastUpdate } = useHarmonics<Message>('messages');
+
     // Sync platforms with the server
-    const {
-        data: platforms,
-        isLoading: platformsLoading,
-        error: platformsError,
-        lastUpdate
-    } = useHarmonics<Platform>('platforms', db);
+    const { data: platforms, isLoading: platformsLoading, error: platformsError, lastUpdate } = useHarmonics<Platform>('platforms');
 
     // Format the date in a readable format
     const formatDate = (date: Date) => {
@@ -70,11 +58,11 @@ export default function Dashboard() {
         if (!platforms || platforms.length === 0) {
             return 'Loading...';
         }
-        
+
         // Simple string comparison is most reliable when working with UUIDs
         const platformIdStr = String(platformId);
-        const match = platforms.find(p => String(p.id) === platformIdStr);
-        
+        const match = platforms.find((p) => String(p.id) === platformIdStr);
+
         return match?.name || 'Unknown';
     };
 
@@ -120,7 +108,7 @@ export default function Dashboard() {
         if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
         return null;
     };
-    
+
     // Auto-select the first platform when platforms load
     useEffect(() => {
         if (platforms?.length && !platformId) {
@@ -154,17 +142,15 @@ export default function Dashboard() {
                         <form id="new-message-form" onSubmit={handleSubmit} className="space-y-4">
                             <div className="space-y-2">
                                 <Label htmlFor="platform">Platform</Label>
-                                <Select 
-                                    value={platformId} 
-                                    onValueChange={setPlatformId}
-                                    disabled={platformsLoading}
-                                >
+                                <Select value={platformId} onValueChange={setPlatformId} disabled={platformsLoading}>
                                     <SelectTrigger>
-                                        <SelectValue placeholder={platformsLoading ? "Loading platforms..." : "Select a platform"} />
+                                        <SelectValue placeholder={platformsLoading ? 'Loading platforms...' : 'Select a platform'} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {platformsError ? (
-                                            <SelectItem value="error" disabled>Error loading platforms</SelectItem>
+                                            <SelectItem value="error" disabled>
+                                                Error loading platforms
+                                            </SelectItem>
                                         ) : platforms?.length ? (
                                             platforms.map((platform) => (
                                                 <SelectItem key={platform.id} value={platform.id}>
@@ -172,7 +158,9 @@ export default function Dashboard() {
                                                 </SelectItem>
                                             ))
                                         ) : (
-                                            <SelectItem value="none" disabled>No platforms available</SelectItem>
+                                            <SelectItem value="none" disabled>
+                                                No platforms available
+                                            </SelectItem>
                                         )}
                                     </SelectContent>
                                 </Select>
@@ -191,9 +179,9 @@ export default function Dashboard() {
                         </form>
                     </CardContent>
                     <CardFooter>
-                        <Button 
-                            type="submit" 
-                            form="new-message-form" 
+                        <Button
+                            type="submit"
+                            form="new-message-form"
                             disabled={!newMessage.trim() || !platformId || platformsLoading || platformsError}
                         >
                             <SendIcon className="mr-2 h-4 w-4" />
@@ -225,9 +213,7 @@ export default function Dashboard() {
                                     <CardHeader className="pb-3">
                                         <CardTitle>
                                             {getPlatformName(platformId)}
-                                            <span className="text-xs text-muted-foreground ml-2">
-                                                (ID: {platformId})
-                                            </span>
+                                            <span className="text-muted-foreground ml-2 text-xs">(ID: {platformId})</span>
                                         </CardTitle>
                                     </CardHeader>
                                     <CardContent className="p-0">

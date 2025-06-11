@@ -15,12 +15,15 @@ createInertiaApp({
         const root = createRoot(el);
 
         root.render(<App {...props} />);
+
+        console.log(`Inertia App initialized with name: ${appName}`);
     },
     progress: {
         color: '#4B5563',
     },
 });
 
+// Configure Laravel Echo for WebSockets
 configureEcho({
     broadcaster: 'reverb',
     key: import.meta.env.VITE_REVERB_APP_KEY,
@@ -29,7 +32,7 @@ configureEcho({
     wssPort: import.meta.env.VITE_REVERB_PORT,
     forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
     enabledTransports: ['ws', 'wss'],
-    debug: true,
+    debug: process.env.NODE_ENV !== 'production',
     namespace: 'App.Events',
 });
 
