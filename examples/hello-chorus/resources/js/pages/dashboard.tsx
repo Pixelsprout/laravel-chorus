@@ -1,4 +1,5 @@
-import { useHarmonics } from '@/chorus';
+// Import from the chorus package
+import { useHarmonics } from '@/chorus/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';

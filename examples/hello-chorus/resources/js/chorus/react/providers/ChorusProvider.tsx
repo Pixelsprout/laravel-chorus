@@ -1,7 +1,11 @@
 import { useEcho } from '@laravel/echo-react';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '@/stores/db';
+import { createChorusDb } from '../../core/db';
+import { chorusSchema } from '@/_generated/schema';
+
+// Create a new database instance with the generated schema
+const db = createChorusDb();
 
 // Define the HarmonicEvent interface
 export interface HarmonicEvent {
@@ -177,16 +181,23 @@ export async function processHarmonic(event: HarmonicEvent) {
   }
 }
 
+// Initialize the database
+function initializeDatabase() {
+  log('Initializing database with schema', chorusSchema);
+  db.initializeSchema(chorusSchema);
+}
+
 // Global initialization flag to ensure we only initialize once across rerenders
 let isGloballyInitialized = false;
 
 // The Provider component
 interface ChorusProviderProps {
   children: React.ReactNode;
-  tables: string[];
 }
 
-export function ChorusProvider({ children, tables }: ChorusProviderProps) {
+export function ChorusProvider({ children }: ChorusProviderProps) {
+  // Get table names from the schema, ensuring we have an array even if schema is empty
+  const tableNames = Object.keys(chorusSchema || {});
   // State to track syncing status across tables
   const [state, setState] = useState<ChorusContextState>({
     isInitialized: isGloballyInitialized, // Start with global flag
@@ -195,8 +206,14 @@ export function ChorusProvider({ children, tables }: ChorusProviderProps) {
 
   // Setup Echo listeners for each table
   const setupEchoListeners = () => {
+    // Skip if no tables are defined
+    if (tableNames.length === 0) {
+      log('No tables defined in schema. Run php artisan chorus:generate to generate schema.');
+      return;
+    }
+    
     // For each table, set up a separate useEcho hook
-    tables.forEach(tableName => {
+    tableNames.forEach(tableName => {
       useEcho<HarmonicEvent>(
         `chorus.table.${tableName}`,
         '.harmonic.created',
@@ -229,15 +246,32 @@ export function ChorusProvider({ children, tables }: ChorusProviderProps) {
   
   // Initialize the data sync
   useEffect(() => {
+    // Initialize the database schema
+    initializeDatabase();
+    
     // Skip if already initialized globally
     if (isGloballyInitialized) {
       return;
     }
 
     const initializeTables = async () => {
+      // Skip if no tables are defined
+      if (tableNames.length === 0) {
+        log('No tables defined in schema. Run php artisan chorus:generate to generate schema.');
+        
+        // Mark as initialized to prevent repeated attempts
+        isGloballyInitialized = true;
+        setState(prev => ({
+          ...prev,
+          isInitialized: true
+        }));
+        
+        return;
+      }
+      
       // Set up initial state for all tables
       const initialTableState: Record<string, TableState> = {};
-      tables.forEach(tableName => {
+      tableNames.forEach(tableName => {
         initialTableState[tableName] = {
           lastUpdate: null,
           isLoading: true,
@@ -254,7 +288,7 @@ export function ChorusProvider({ children, tables }: ChorusProviderProps) {
       // Get the latest harmonic ID once for all tables
       const latestHarmonicId = getLatestHarmonicId();
       
-      for (const tableName of tables) {
+      for (const tableName of tableNames) {
         try {
           // Check if we have data already
           const count = await db.table(tableName).count();
