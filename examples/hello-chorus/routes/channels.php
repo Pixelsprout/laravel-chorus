@@ -7,6 +7,6 @@ Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
 });
 
 // Chorus channels
-Broadcast::channel('chorus.table.{table}', function () {
-    return true;
+Broadcast::channel('chorus.user.{id}', function ($user, $id) {
+    return (int) $user->id === (int) $id;
 });
