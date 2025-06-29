@@ -162,21 +162,26 @@ function MessagesList() {
 
 #### Advanced Permission System
 - **Granular Permissions**: Row-level and column-level access control
-- **Role-based Access**: Integration with Laravel's authorization system
+- **Role-based Access**: Integration with Laravel's authorisation system
 - **Dynamic Filtering**: Runtime permission evaluation
 
 #### Additional Framework Support
+- **Harmonics base class**: For data that is not coupled to a model, we could have a base Harmonic class where data can be defined/fetched and then synced to the client.
 - **Vue.js Integration**: Vue 3 composition API support
 - **Vanilla JavaScript**: Framework-agnostic core library
 - **Alpine.js**: Lightweight integration option
+- **NPM package**: The core JavaScript library/Dexie.js library could eventually be an NPM package. For now, we are publishing the assets to the project.
 
 #### Enhanced Features
 - **Conflict Resolution**: Handle concurrent edits gracefully
 - **Batch Operations**: Optimize multiple changes
-- **Schema Migrations**: Handle database schema changes
+- **Schema Migrations**: Handle database schema changes (solution: Could wipe local dbs and reinstantiate local db when this happens).
 - **Performance Monitoring**: Track sync performance and bottlenecks
 
-## Debug Commands
+#### Testing
+- Currently, no tests have been added. Once the API has stabilised, it will be a good idea to start adding tests.
+
+## Commands
 
 ```bash
 # Check active connections and channel status
@@ -191,7 +196,7 @@ php artisan chorus:install
 
 ## Contributing
 
-This project is in active development. Contributions are welcome! Please see the issues for areas that need work.
+This project is in active development. Contributions are welcome! Please take a look at the issues for areas that need work.
 
 ## License
 
