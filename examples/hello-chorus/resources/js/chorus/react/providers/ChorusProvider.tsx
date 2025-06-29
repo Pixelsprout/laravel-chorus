@@ -24,11 +24,10 @@ let isGloballyInitialized = false;
 // The Provider component
 interface ChorusProviderProps {
     children: React.ReactNode;
+    userId?: number;
 }
 
-export function ChorusProvider({ children }: ChorusProviderProps) {
-    // Get table names from the schema
-    const tableNames = Object.keys(chorusCore.getAllTableStates());
+export function ChorusProvider({ children, userId }: ChorusProviderProps) {
 
     // State to track syncing status across tables
     const [state, setState] = useState<ChorusContextState>({
@@ -44,19 +43,12 @@ export function ChorusProvider({ children }: ChorusProviderProps) {
         });
     };
 
-    // Setup Echo listeners for each table
-    // Skip if no tables are defined
-    if (tableNames.length === 0) {
-        return;
-    }
-
-    // For each table, set up a separate useEcho hook
-    for (let i = 0; i < tableNames.length; i++) {
-        const tableName = tableNames[i];
-        useEcho<HarmonicEvent>(`chorus.table.${tableName}`, '.harmonic.created', async (event) => {
+    // Setup Echo listener for user channel (only if userId is provided)
+    if (userId) {
+        useEcho<HarmonicEvent>(`chorus.user.${userId}`, '.harmonic.created', async (event) => {
             if (isGloballyInitialized) {
                 // Only process events after initialization
-                console.log(`[Chorus] Real-time update received for ${tableName}`, event);
+                console.log(`[Chorus] Real-time update received for user ${userId}`, event);
 
                 // Process the harmonic using ChorusCore
                 await chorusCore.processHarmonic(event);
