@@ -26,9 +26,13 @@ final class ChorusInstall extends Command {
     // Step 3: Configure broadcasting
     $this->configureBroadcasting();
 
+    // Step 4: Create _generated directory with default schema
+    $this->createGeneratedDirectory();
+
     $this->info('Laravel Chorus has been installed successfully!');
     $this->info('Run the migrations with: php artisan migrate');
     $this->info('Start the Chorus server with: php artisan chorus:start');
+    $this->info('Generate IndexedDB schema with: php artisan chorus:generate');
   }
 
   private function publishAssets(): void {
@@ -90,6 +94,34 @@ final class ChorusInstall extends Command {
       } else if (preg_match('/App\\\\Providers\\\\BroadcastServiceProvider::class/', $appConfig)) {
         $this->info('BroadcastServiceProvider is already enabled.');
       }
+    }
+  }
+  
+  private function createGeneratedDirectory(): void {
+    // Create _generated directory
+    $directory = resource_path('js/_generated');
+    
+    if (!File::exists($directory)) {
+      File::makeDirectory($directory, 0755, true);
+      $this->info('Created directory: resources/js/_generated');
+    }
+    
+    // Create default schema file
+    $schemaPath = $directory . '/schema.ts';
+    
+    if (!File::exists($schemaPath)) {
+      $content = <<<'TS'
+// Default empty schema - run php artisan chorus:generate to populate this file
+export const chorusSchema: Record<string, string> = {
+  // Schema will be auto-populated when you run php artisan chorus:generate
+  // Example format:
+  // 'users': 'id, name, email', 
+  // 'messages': 'id, user_id, content, created_at'
+};
+TS;
+      
+      File::put($schemaPath, $content);
+      $this->info('Created default schema file: resources/js/_generated/schema.ts');
     }
   }
 }

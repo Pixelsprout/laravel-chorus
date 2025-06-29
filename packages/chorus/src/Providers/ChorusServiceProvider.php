@@ -4,51 +4,83 @@ declare(strict_types=1);
 
 namespace Pixelsprout\LaravelChorus\Providers;
 
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Reverb\Events\ChannelCreated;
+use Laravel\Reverb\Events\ChannelRemoved;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusStart;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusInstall;
+use Pixelsprout\LaravelChorus\Console\Commands\ChorusGenerate;
+use Pixelsprout\LaravelChorus\Console\Commands\ChorusDebug;
+use Pixelsprout\LaravelChorus\Listeners\TrackChannelConnections;
 
-final class ChorusServiceProvider extends ServiceProvider {
-  public function boot(): void {
-    // Register API routes with configuration from config/chorus.php
-    $this->app->booted(function () {
-      $routeConfig = config('chorus.routes', ['prefix' => 'api', 'middleware' => ['api']]);
-      
-      Route::prefix($routeConfig['prefix'])
-          ->middleware($routeConfig['middleware'])
-          ->group(__DIR__ . '/../Routes/api.php');
-    });
+final class ChorusServiceProvider extends ServiceProvider
+{
+    public function boot(): void
+    {
+        // Register Reverb channel tracking events
+        Event::listen(ChannelCreated::class, [TrackChannelConnections::class, 'handleChannelCreated']);
+        Event::listen(ChannelRemoved::class, [TrackChannelConnections::class, 'handleChannelRemoved']);
 
-    // Register commands
-    if ($this->app->runningInConsole()) {
-      $this->commands([
-        ChorusStart::class,
-        ChorusInstall::class,
-      ]);
+        // Register API routes with configuration from config/chorus.php
+        $this->app->booted(function () {
+            $routeConfig = config("chorus.routes", [
+                "prefix" => "api",
+                "middleware" => ["api"],
+            ]);
 
-      // Publish migrations
-      $this->publishes([
-        __DIR__ . '/../Database/Migrations' => database_path('migrations'),
-      ], 'chorus-migrations');
+            Route::prefix($routeConfig["prefix"])
+                ->middleware($routeConfig["middleware"])
+                ->group(__DIR__ . "/../Routes/api.php");
 
-      // Publish config
-      $this->publishes([
-        __DIR__ . '/../Config/chorus.php' => config_path('chorus.php'),
-      ], 'chorus-config');
+            require __DIR__ . "/../Routes/channels.php";
+        });
 
-      // Publish JavaScript resources
-      $this->publishes([
-        __DIR__ . '/../../resources/js' => resource_path('js/chorus'),
-      ], 'chorus-js');
+        // Register commands
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                ChorusStart::class,
+                ChorusInstall::class,
+                ChorusGenerate::class,
+                ChorusDebug::class,
+            ]);
+
+            // Publish migrations
+            $this->publishes(
+                [
+                    __DIR__ . "/../Database/Migrations" => database_path(
+                        "migrations"
+                    ),
+                ],
+                "chorus-migrations"
+            );
+
+            // Publish config
+            $this->publishes(
+                [
+                    __DIR__ . "/../Config/chorus.php" => config_path(
+                        "chorus.php"
+                    ),
+                ],
+                "chorus-config"
+            );
+
+            // Publish JavaScript resources
+            $this->publishes(
+                [
+                    __DIR__ . "/../../resources" => resource_path(
+                        "js/chorus"
+                    ),
+                ],
+                "chorus-js"
+            );
+        }
     }
-  }
 
-  public function register(): void {
-    // Register services if needed
-    $this->mergeConfigFrom(
-      __DIR__ . '/../Config/chorus.php',
-      'chorus'
-    );
-  }
+    public function register(): void
+    {
+        // Register services if needed
+        $this->mergeConfigFrom(__DIR__ . "/../Config/chorus.php", "chorus");
+    }
 }

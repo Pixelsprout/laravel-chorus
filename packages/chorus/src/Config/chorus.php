@@ -73,4 +73,33 @@ return [
         'prefix' => 'api',
         'middleware' => ['api'],
     ],
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Frontend Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration options for the JavaScript client. These settings are used
+    | by the frontend adapters to customize the behavior of the client.
+    |
+    */
+    'frontend' => [
+        'db_name' => env('CHORUS_DB_NAME', 'chorus-db'),
+        'storage_prefix' => env('CHORUS_STORAGE_PREFIX', 'chorus_'),
+        'broadcast_channel_format' => env('CHORUS_BROADCAST_FORMAT', 'chorus.table.{table}'),
+        'echo_event_name' => env('CHORUS_ECHO_EVENT', 'harmonic.created'),
+    ],
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Pagination Limits
+    |--------------------------------------------------------------------------
+    |
+    | Configure the maximum number of records to return in a single sync request.
+    |
+    */
+    'pagination' => [
+        'initial_sync_limit' => env('CHORUS_INITIAL_SYNC_LIMIT', 1000),
+        'incremental_sync_limit' => env('CHORUS_INCREMENTAL_SYNC_LIMIT', 500),
+    ],
 ];
