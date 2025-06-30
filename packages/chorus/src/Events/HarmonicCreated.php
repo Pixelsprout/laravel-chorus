@@ -10,7 +10,6 @@ use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
-use Pixelsprout\LaravelChorus\Listeners\TrackChannelConnections;
 
 class HarmonicCreated implements ShouldBroadcastNow
 {
@@ -19,7 +18,10 @@ class HarmonicCreated implements ShouldBroadcastNow
     /**
      * Create a new event instance.
      */
-    public function __construct(public array $harmonic) {}
+    public function __construct(
+        public array $harmonic,
+        public array $channels = []
+    ) {}
 
     /**
      * The event's broadcast name.
@@ -39,16 +41,6 @@ class HarmonicCreated implements ShouldBroadcastNow
 
     public function broadcastOn(): array
     {
-        // Get all active user IDs from the channel tracker
-        $activeUserIds = TrackChannelConnections::getActiveUserIds();
-
-        // Create channels for all active users
-        $channels = [];
-        foreach ($activeUserIds as $userId) {
-            $channels[] = new PrivateChannel("chorus.user." . $userId);
-        }
-
-        // If no active users, return empty array (don't broadcast)
-        return $channels;
+        return $this->channels;
     }
 }

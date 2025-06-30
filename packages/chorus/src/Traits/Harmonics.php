@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Pixelsprout\LaravelChorus\Traits;
 
+use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use \Illuminate\Support\Str;
 use Pixelsprout\LaravelChorus\Events\HarmonicCreated;
+use Pixelsprout\LaravelChorus\Listeners\TrackChannelConnections;
 use Pixelsprout\LaravelChorus\Models\Harmonic;
 
 trait Harmonics {
@@ -116,8 +118,28 @@ trait Harmonics {
       'created_at' => now()->toDateTimeString(),
     ];
 
-    HarmonicCreated::dispatch($harmonicData);
+    // Dispatch to all active channels
+    $this->dispatchToActiveChannels($harmonicData);
 
     Harmonic::create($harmonicData);
+  }
+
+  /**
+   * Dispatch harmonic event to all active channels
+   */
+  protected function dispatchToActiveChannels(array $harmonicData): void {
+    // Get all active user IDs from the channel tracker
+    $activeUserIds = TrackChannelConnections::getActiveUserIds();
+
+    // Create channels for all active users
+    $channels = [];
+    foreach ($activeUserIds as $userId) {
+      $channels[] = new PrivateChannel("chorus.user." . $userId);
+    }
+
+    // Only dispatch if there are active channels
+    if (!empty($channels)) {
+      HarmonicCreated::dispatch($harmonicData, $channels);
+    }
   }
 }
