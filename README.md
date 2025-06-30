@@ -1,3 +1,8 @@
+
+<p align="center">
+    <img src="https://github.com/user-attachments/assets/78000e05-3615-4e6a-8cb4-b3a6bc28fd2b" width="50%" alt="Laravel Chorus temp logo" />
+</p>
+
 # Laravel Chorus
 
 Laravel Chorus enables seamless real-time synchronization of specific database tables and columns to clients, using database event logging, Redis, Laravel Reverb, and IndexedDB on the frontend.
