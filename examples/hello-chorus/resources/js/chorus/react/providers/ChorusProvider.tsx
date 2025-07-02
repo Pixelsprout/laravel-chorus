@@ -18,9 +18,6 @@ const ChorusContext = createContext<ChorusContextState>({
     tables: {},
 });
 
-// Global initialization flag to ensure we only initialize once across rerenders
-let isGloballyInitialized = false;
-
 // The Provider component
 interface ChorusProviderProps {
     children: React.ReactNode;
@@ -28,11 +25,10 @@ interface ChorusProviderProps {
 }
 
 export function ChorusProvider({ children, userId }: ChorusProviderProps) {
-
     // State to track syncing status across tables
     const [state, setState] = useState<ChorusContextState>({
-        isInitialized: isGloballyInitialized, // Start with global flag
-        tables: chorusCore.getAllTableStates(),
+        isInitialized: false,
+        tables: {},
     });
 
     // Update React state when core state changes
@@ -46,7 +42,7 @@ export function ChorusProvider({ children, userId }: ChorusProviderProps) {
     // Setup Echo listener for user channel (only if userId is provided)
     if (userId) {
         useEcho<HarmonicEvent>(`chorus.user.${userId}`, '.harmonic.created', async (event) => {
-            if (isGloballyInitialized) {
+            if (chorusCore.getIsInitialized()) {
                 // Only process events after initialization
                 console.log(`[Chorus] Real-time update received for user ${userId}`, event);
 
@@ -61,30 +57,29 @@ export function ChorusProvider({ children, userId }: ChorusProviderProps) {
 
     // Initialize the data sync
     useEffect(() => {
-        // Initialize the database schema
-        chorusCore.initializeDatabase();
-
-        // Skip if already initialized globally
-        if (isGloballyInitialized) {
-            return;
-        }
+        let isCancelled = false;
 
         const initialize = async () => {
+            // Reset core for the new user
+            chorusCore.reset();
+            chorusCore.setup(userId);
+
             // Initialize all tables using ChorusCore
             await chorusCore.initializeTables();
 
-            // Mark as initialized globally
-            isGloballyInitialized = true;
-
-            // Update the React state
-            updateReactState();
+            if (!isCancelled) {
+                // Update the React state
+                updateReactState();
+            }
         };
 
-        // Only initialize if not already initialized
-        if (!isGloballyInitialized) {
-            initialize();
-        }
-    }, []); // Empty dependency array means this runs once
+        initialize();
+
+        return () => {
+            isCancelled = true;
+            chorusCore.reset();
+        };
+    }, [userId]); // Re-run when userId changes
 
     return <ChorusContext.Provider value={state}>{children}</ChorusContext.Provider>;
 }
