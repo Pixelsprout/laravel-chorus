@@ -25,4 +25,9 @@ class Platform extends Model
     {
         return $this->hasMany(Message::class);
     }
+
+    public function users(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(User::class);
+    }
 }

@@ -38,7 +38,15 @@ class Message extends Model {
      * Filter messages to only sync those belonging to the current user
      */
     protected function syncFilter(): Builder {
-        return static::query()->where('user_id', auth()->id());
+        $user = auth()->user();
+
+        if (! $user) {
+            return static::query()->whereRaw('1 = 0'); // No user, no messages
+        }
+
+        $allowedPlatformIds = $user->platforms->pluck('id');
+
+        return static::query()->whereIn('platform_id', $allowedPlatformIds);
     }
 
     public function user(): BelongsTo {

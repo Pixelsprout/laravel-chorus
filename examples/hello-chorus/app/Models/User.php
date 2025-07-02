@@ -58,4 +58,8 @@ class User extends Authenticatable {
     public function messages(): HasMany {
         return $this->hasMany(Message::class);
     }
+
+    public function platforms(): \Illuminate\Database\Eloquent\Relations\BelongsToMany {
+        return $this->belongsToMany(Platform::class);
+    }
 }
