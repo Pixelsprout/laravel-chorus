@@ -1,0 +1,32 @@
+{
+  "name": "@chorus/js",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@types/node": "^24.0.10",
+    "@types/react": "^19.1.8",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "dexie": "^4.0.11",
+    "dexie-react-hooks": "^1.1.7"
+  },
+  "peerDependencies": {
+    "@laravel/echo-react": "^2.1.4",
+    "react": "^19.0.0"
+  }
+}

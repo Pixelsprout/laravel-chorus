@@ -1,5 +1,5 @@
 // Auto-generated IndexedDB schema for Chorus tables
-// Generated on 2025-06-17 04:50:21
+// Generated on 2025-07-03 05:10:48
 
 export const chorusSchema: Record<string, string> = {
   'users': 'id, name, email',

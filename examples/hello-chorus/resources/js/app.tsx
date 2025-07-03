@@ -8,6 +8,20 @@ import { initializeTheme } from './hooks/use-appearance';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
+console.log('[ECHO DEBUG] Configuring Echo...');
+configureEcho({
+    broadcaster: 'reverb',
+    key: import.meta.env.VITE_REVERB_APP_KEY,
+    wsHost: import.meta.env.VITE_REVERB_HOST,
+    wsPort: import.meta.env.VITE_REVERB_PORT,
+    wssPort: import.meta.env.VITE_REVERB_PORT,
+    forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
+    enabledTransports: ['ws', 'wss'],
+    debug: process.env.NODE_ENV !== 'production',
+    namespace: 'App.Events',
+});
+console.log('[ECHO DEBUG] Echo configured successfully');
+
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
     resolve: (name) => resolvePageComponent(`./pages/${name}.tsx`, import.meta.glob('./pages/**/*.tsx')),
@@ -21,19 +35,6 @@ createInertiaApp({
     progress: {
         color: '#4B5563',
     },
-});
-
-// Configure Laravel Echo for WebSockets
-configureEcho({
-    broadcaster: 'reverb',
-    key: import.meta.env.VITE_REVERB_APP_KEY,
-    wsHost: import.meta.env.VITE_REVERB_HOST,
-    wsPort: import.meta.env.VITE_REVERB_PORT,
-    wssPort: import.meta.env.VITE_REVERB_PORT,
-    forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
-    enabledTransports: ['ws', 'wss'],
-    debug: process.env.NODE_ENV !== 'production',
-    namespace: 'App.Events',
 });
 
 // This will set light / dark mode on load...

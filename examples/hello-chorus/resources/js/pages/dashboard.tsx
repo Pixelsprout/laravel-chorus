@@ -1,5 +1,4 @@
 // Import from the chorus package
-import { useHarmonics } from '@/chorus/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -8,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import type { Message, Platform } from '@/stores/db';
 import { type BreadcrumbItem } from '@/types';
+import { useHarmonics } from '@chorus/js';
 import { Head } from '@inertiajs/react';
 import { ClockIcon, SendIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
