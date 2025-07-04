@@ -1,8 +1,8 @@
 <p align="center">
     <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/b12cafc7-0558-49bf-843b-121a4226a83a">
-        <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/2cf8b77a-8ec9-45b4-baf8-2c1a861a9224">
-        <img alt="Chorus Logo" width="50%" src="https://github.com/user-attachments/assets/b12cafc7-0558-49bf-843b-121a4226a83a">
+        <source media="(prefers-color-scheme: dark)" srcset="/art/Chorus_logo_Dark.png">
+        <source media="(prefers-color-scheme: light)" srcset="/art/Chorus_logo_Light.png">
+        <img alt="Chorus Logo" width="50%" src="/art/Chorus_logo_Dark.png">
     </picture>
 </p>
 
