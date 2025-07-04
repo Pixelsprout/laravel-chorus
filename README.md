@@ -1,8 +1,8 @@
 <p align="center">
     <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="/art/Chorus_logo_Dark.png">
-        <source media="(prefers-color-scheme: light)" srcset="/art/Chorus_logo_Light.png">
-        <img alt="Chorus Logo" width="50%" src="/art/Chorus_logo_Dark.png">
+        <source media="(prefers-color-scheme: dark)" srcset="https://github.com/braedencrankd/laravel-chorus/blob/main/art/Chorus_Logo_Dark.png?raw=true">
+        <source media="(prefers-color-scheme: light)" srcset="https://github.com/braedencrankd/laravel-chorus/blob/main/art/Chorus_Logo_Light.png?raw=true">
+        <img alt="Chorus Logo" width="50%" src="https://github.com/braedencrankd/laravel-chorus/blob/main/art/Chorus_Logo_Dark.png?raw=true">
     </picture>
 </p>
 
