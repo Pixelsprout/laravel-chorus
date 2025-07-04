@@ -1,6 +1,9 @@
-
 <p align="center">
-    <img src="https://github.com/user-attachments/assets/78000e05-3615-4e6a-8cb4-b3a6bc28fd2b" width="50%" alt="Laravel Chorus temp logo" />
+    <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/93ecbbbd-dca5-42d0-b7f0-039bd86fdd29">
+        <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/1123bbfd-3ed7-4379-846d-91505bf80e3e">
+        <img alt="Chorus Logo" width="50%" src="https://github.com/user-attachments/assets/93ecbbbd-dca5-42d0-b7f0-039bd86fdd29">
+    </picture>
 </p>
 
 # Laravel Chorus
