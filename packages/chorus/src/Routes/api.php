@@ -13,4 +13,4 @@ use Pixelsprout\LaravelChorus\Http\Controllers\SyncController;
 |
 */
 
-Route::get('sync/{table}', [SyncController::class, 'getInitialData']);
+Route::get("sync/{table}", [SyncController::class, "getInitialData"]);

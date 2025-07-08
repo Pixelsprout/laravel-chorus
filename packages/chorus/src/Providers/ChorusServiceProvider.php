@@ -14,20 +14,27 @@ use Pixelsprout\LaravelChorus\Console\Commands\ChorusInstall;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusGenerate;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusDebug;
 use Pixelsprout\LaravelChorus\Listeners\TrackChannelConnections;
+use Pixelsprout\LaravelChorus\Adapters\HarmonicSourceAdapterManager;
 
 final class ChorusServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
         // Register Reverb channel tracking events
-        Event::listen(ChannelCreated::class, [TrackChannelConnections::class, 'handleChannelCreated']);
-        Event::listen(ChannelRemoved::class, [TrackChannelConnections::class, 'handleChannelRemoved']);
+        Event::listen(ChannelCreated::class, [
+            TrackChannelConnections::class,
+            "handleChannelCreated",
+        ]);
+        Event::listen(ChannelRemoved::class, [
+            TrackChannelConnections::class,
+            "handleChannelRemoved",
+        ]);
 
         // Register API routes with configuration from config/chorus.php
         $this->app->booted(function () {
             $routeConfig = config("chorus.routes", [
                 "prefix" => "api",
-                "middleware" => ["api"],
+                "middleware" => ["web"],
             ]);
 
             Route::prefix($routeConfig["prefix"])
@@ -69,9 +76,7 @@ final class ChorusServiceProvider extends ServiceProvider
             // Publish JavaScript resources
             $this->publishes(
                 [
-                    __DIR__ . "/../../resources" => resource_path(
-                        "js/chorus"
-                    ),
+                    __DIR__ . "/../../resources" => resource_path("js/chorus"),
                 ],
                 "chorus-js"
             );
@@ -82,5 +87,12 @@ final class ChorusServiceProvider extends ServiceProvider
     {
         // Register services if needed
         $this->mergeConfigFrom(__DIR__ . "/../Config/chorus.php", "chorus");
+
+        // Register the HarmonicSourceAdapterManager as a singleton
+        $this->app->singleton(HarmonicSourceAdapterManager::class, function (
+            $app
+        ) {
+            return new HarmonicSourceAdapterManager();
+        });
     }
 }

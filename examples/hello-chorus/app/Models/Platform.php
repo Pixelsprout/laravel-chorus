@@ -21,15 +21,6 @@ class Platform extends Model
         'name',
     ];
 
-    // protected function syncFilter(): Builder
-    // {
-    //     $user = auth()->user();
-
-    //     if(!$user) {
-    //         return $this->where('id', 0);
-    //     }
-    // }
-
     // Has many messages
     public function messages(): HasMany
     {
