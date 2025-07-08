@@ -29,22 +29,22 @@ Laravel Chorus solves these problems by:
 
 ```
 laravel-chorus/
-├── packages/chorus/              # Main Chorus package
-│   ├── src/
-│   │   ├── Console/Commands/     # Artisan commands (install, generate, debug)
-│   │   ├── Events/              # HarmonicCreated broadcasting event
-│   │   ├── Listeners/           # Channel tracking for active connections
-│   │   ├── Models/              # Harmonic model for change tracking
-│   │   ├── Providers/           # Service provider
-│   │   └── Traits/              # Harmonics trait for models
-│   └── resources/               # Frontend JavaScript/TypeScript files
-│       ├── core/                # Core chorus functionality
-│       ├── react/               # React integration
-│       └── db.ts                # IndexedDB setup
-└── examples/hello-chorus/        # Example Laravel application
-    ├── app/Models/              # Example models using Harmonics trait
-    ├── resources/js/            # Frontend React application
-    └── routes/channels.php      # WebSocket channel authorization
+├── packages
+│   └── chorus/                     # Main Chorus package
+│   │   ├── src/
+│   │   │   ├── Console/Commands/   # Artisan commands (install, generate, debug)
+│   │   ├── Events/                 # HarmonicCreated broadcasting event
+│   │   ├── Listeners/              # Channel tracking for active connections
+│   │   ├── Models/                 # Harmonic model for change tracking
+│   │   ├── Providers/              # Service provider
+│   │   └── Traits/                 # Harmonics trait for models
+    └── chorus-js/
+        ├── src/
+
+└── examples/hello-chorus/          # Example Laravel application
+    ├── app/Models/                 # Example models using Harmonics trait
+    ├── resources/js/               # Frontend React application
+    └── routes/channels.php         # WebSocket channel authorization
 ```
 
 ## How to Run the Example

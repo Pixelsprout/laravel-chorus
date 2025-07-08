@@ -36,7 +36,7 @@ class PlatformUserSeeder extends Seeder
             'password' => Hash::make('password'),
         ]);
 
-        $user2->platforms()->syncWithoutDetaching([$slackPlatform->id, $webPlatform->id]);
+        $user2->platforms()->syncWithoutDetaching([$slackPlatform->id, $webPlatform->id, $smsPlatform->id]);
 
         // Create some messages per platform
         $messages = [
