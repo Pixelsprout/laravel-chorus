@@ -40,13 +40,9 @@ class Message extends Model {
     protected function syncFilter(): Builder {
         $user = auth()->user();
 
-        dd(auth()->user());
-
         if (! $user) {
             return static::query()->whereRaw('1 = 0'); // No user, no messages
         }
-
-        dd($user);
 
         $allowedPlatformIds = $user->platforms->pluck('id');
 

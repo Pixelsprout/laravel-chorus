@@ -59,7 +59,7 @@ return [
     */
     "routes" => [
         "prefix" => "api",
-        "middleware" => ["api"],
+        "middleware" => ["web", "api"],
     ],
 
     /*

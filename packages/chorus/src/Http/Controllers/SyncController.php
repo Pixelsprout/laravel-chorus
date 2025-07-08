@@ -77,14 +77,6 @@ class SyncController extends Controller
                     ->where("id", $sessionId)
                     ->first();
 
-                dd([
-                    "session_id" => $sessionId,
-                    "session_record_exists" => $sessionRecord ? true : false,
-                    "payload_decoded" => $sessionRecord
-                        ? unserialize(base64_decode($sessionRecord->payload))
-                        : null,
-                ]);
-
                 // Get the sync filter if defined
                 $syncFilter = $instance->getSyncFilter();
 
@@ -99,8 +91,6 @@ class SyncController extends Controller
 
                 // Get records with pagination
                 $records = $query->take($limit)->get();
-
-                dd($records);
 
                 // Get the latest harmonic ID for this table
                 $latestHarmonic = Harmonic::where("table_name", $table)
