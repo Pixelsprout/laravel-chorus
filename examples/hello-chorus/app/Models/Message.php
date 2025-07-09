@@ -11,7 +11,7 @@ class Message extends Model {
     use Harmonics;
 
     protected $guarded = [];
-    
+
     /**
      * The attributes that should be cast.
      *
@@ -33,7 +33,7 @@ class Message extends Model {
         'created_at',
         'updated_at',
     ];
-    
+
     /**
      * Filter messages to only sync those belonging to the current user
      */
