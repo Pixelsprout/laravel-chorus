@@ -19,23 +19,34 @@ class EloquentHarmonicSourceAdapter implements HarmonicSourceAdapterInterface
     /**
      * Initialize the adapter for the given model.
      *
-     * @param Model $model
+     * @param string $modelClass
      * @return void
      */
-    public function initialize(Model $model): void
+    public function initialize(string $modelClass): void
     {
         // No specific initialization needed for Eloquent adapter
+        return;
     }
 
     /**
      * Start tracking changes for the model.
      *
-     * @param Model $model
+     * @param string $modelClass
      * @return void
      */
-    public function startTracking(Model $model): void
+    public function startTracking(string $modelClass): void
     {
-        // Eloquent tracking occurs on the instance level
+        $modelClass::created(function (Model $model) {
+            $this->recordHarmonic($model, "create");
+        });
+
+        $modelClass::updated(function (Model $model) {
+            $this->recordHarmonic($model, "update");
+        });
+
+        $modelClass::deleted(function (Model $model) {
+            $this->recordHarmonic($model, "delete");
+        });
     }
 
     /**
@@ -44,10 +55,8 @@ class EloquentHarmonicSourceAdapter implements HarmonicSourceAdapterInterface
      * @param Model $model
      * @return void
      */
-    public function stopTracking(Model $model): void
+    public function stopTracking(string $modelClass): void
     {
-        $modelClass = get_class($model);
-
         if (isset($this->registeredListeners[$modelClass])) {
             // Laravel doesn't provide a direct way to remove specific event listeners
             // This is a limitation of the current implementation
@@ -61,9 +70,8 @@ class EloquentHarmonicSourceAdapter implements HarmonicSourceAdapterInterface
      * @param Model $model
      * @return bool
      */
-    public function isTracking(Model $model): bool
+    public function isTracking(string $modelClass): bool
     {
-        $modelClass = get_class($model);
         return isset($this->registeredListeners[$modelClass]);
     }
 

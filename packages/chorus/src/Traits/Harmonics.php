@@ -25,28 +25,7 @@ trait Harmonics
     public static function bootHarmonics(): void
     {
         $manager = app(HarmonicSourceAdapterManager::class);
-        $manager->getActiveAdapterName();
-        $adapter = $manager->getActiveAdapter();
-
-        if (
-            $manager->getActiveAdapter() instanceof
-            EloquentHarmonicSourceAdapter
-        ) {
-            static::created(function (Model $model) use ($adapter) {
-                Log::info("Harmonic created", ["model" => $model]);
-                $adapter->recordHarmonic($model, "create");
-            });
-
-            static::updated(function (Model $model) use ($adapter) {
-                Log::info("Harmonic updated", ["model" => $model]);
-                $adapter->recordHarmonic($model, "update");
-            });
-
-            static::deleted(function (Model $model) use ($adapter) {
-                Log::info("Harmonic deleted", ["model" => $model]);
-                $adapter->recordHarmonic($model, "delete");
-            });
-        }
+        $manager->startTracking(static::class);
     }
 
     /**

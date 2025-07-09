@@ -9,34 +9,34 @@ interface HarmonicSourceAdapterInterface
     /**
      * Initialize the adapter for the given model.
      *
-     * @param Model $model
+     * @param string $modelClass
      * @return void
      */
-    public function initialize(Model $model): void;
+    public function initialize(string $modelClass): void;
 
     /**
      * Start tracking changes for the model.
      *
-     * @param Model $model
+     * @param string $modelClass
      * @return void
      */
-    public function startTracking(Model $model): void;
+    public function startTracking(string $modelClass): void;
 
     /**
      * Stop tracking changes for the model.
      *
-     * @param Model $model
+     * @param string $modelClass
      * @return void
      */
-    public function stopTracking(Model $model): void;
+    public function stopTracking(string $modelClass): void;
 
     /**
      * Check if the adapter is actively tracking the model.
      *
-     * @param Model $model
+     * @param string $modelClass
      * @return bool
      */
-    public function isTracking(Model $model): bool;
+    public function isTracking(string $modelClass): bool;
 
     /**
      * Get the name of this adapter.
@@ -69,5 +69,8 @@ interface HarmonicSourceAdapterInterface
      * @param array $harmonicData
      * @return void
      */
-    public function dispatchToActiveChannels(Model $model, array $harmonicData): void;
+    public function dispatchToActiveChannels(
+        Model $model,
+        array $harmonicData
+    ): void;
 }

@@ -106,13 +106,13 @@ class HarmonicSourceAdapterManager
      * @param Model $model
      * @return void
      */
-    public function startTracking(Model $model): void
+    public function startTracking(string $modelClass): void
     {
         $adapter = $this->getActiveAdapter();
-        $adapter->initialize($model);
-        $adapter->startTracking($model);
 
-        $this->trackedModels[get_class($model)] = $model;
+        $adapter->initialize($modelClass);
+
+        $adapter->startTracking($modelClass);
     }
 
     /**
