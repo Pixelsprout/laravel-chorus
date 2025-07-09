@@ -7,7 +7,9 @@ namespace Pixelsprout\LaravelChorus\Traits;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Pixelsprout\LaravelChorus\Adapters\EloquentHarmonicSourceAdapter;
 use Pixelsprout\LaravelChorus\Events\HarmonicCreated;
 use Pixelsprout\LaravelChorus\Listeners\TrackChannelConnections;
 use Pixelsprout\LaravelChorus\Models\Harmonic;
@@ -22,9 +24,29 @@ trait Harmonics
      */
     public static function bootHarmonics(): void
     {
-        static::created(function (Model $model) {
-            $model->startHarmonicTracking();
-        });
+        $manager = app(HarmonicSourceAdapterManager::class);
+        $manager->getActiveAdapterName();
+        $adapter = $manager->getActiveAdapter();
+
+        if (
+            $manager->getActiveAdapter() instanceof
+            EloquentHarmonicSourceAdapter
+        ) {
+            static::created(function (Model $model) use ($adapter) {
+                Log::info("Harmonic created", ["model" => $model]);
+                $adapter->recordHarmonic($model, "create");
+            });
+
+            static::updated(function (Model $model) use ($adapter) {
+                Log::info("Harmonic updated", ["model" => $model]);
+                $adapter->recordHarmonic($model, "update");
+            });
+
+            static::deleted(function (Model $model) use ($adapter) {
+                Log::info("Harmonic deleted", ["model" => $model]);
+                $adapter->recordHarmonic($model, "delete");
+            });
+        }
     }
 
     /**
@@ -80,32 +102,5 @@ trait Harmonics
 
         // Default to no filter (sync all records)
         return null;
-    }
-
-    /**
-     * Start harmonic tracking for this model using the configured adapter
-     */
-    public function startHarmonicTracking(): void
-    {
-        $manager = app(HarmonicSourceAdapterManager::class);
-        $manager->startTracking($this);
-    }
-
-    /**
-     * Stop harmonic tracking for this model using the configured adapter
-     */
-    public function stopHarmonicTracking(): void
-    {
-        $manager = app(HarmonicSourceAdapterManager::class);
-        $manager->stopTracking($this);
-    }
-
-    /**
-     * Check if harmonic tracking is active for this model
-     */
-    public function isHarmonicTrackingActive(): bool
-    {
-        $manager = app(HarmonicSourceAdapterManager::class);
-        return $manager->isTracking($this);
     }
 }

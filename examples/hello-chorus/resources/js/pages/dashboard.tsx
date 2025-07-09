@@ -225,9 +225,10 @@ export default function Dashboard() {
                                                     <li key={message.id} className="p-4">
                                                         <div className="flex items-start justify-between">
                                                             <p className="text-card-foreground">{message.body}</p>
-                                                            <span className="text-muted-foreground ml-2 text-xs whitespace-nowrap">
-                                                                {formatDate(new Date(message.created_at))}
-                                                            </span>
+                                                            <div className="text-muted-foreground ml-2 flex items-center gap-4 text-xs whitespace-nowrap">
+                                                                <span>{message.id}</span>
+                                                                <span>{formatDate(new Date(message.created_at))}</span>
+                                                            </div>
                                                         </div>
                                                     </li>
                                                 ))}

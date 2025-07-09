@@ -35,24 +35,7 @@ class EloquentHarmonicSourceAdapter implements HarmonicSourceAdapterInterface
      */
     public function startTracking(Model $model): void
     {
-        $modelClass = get_class($model);
-        
-        if ($this->isTracking($model)) {
-            return;
-        }
-
-        // Register event listeners
-        $this->registeredListeners[$modelClass] = [
-            'created' => $modelClass::created(function (Model $model) {
-                $this->recordHarmonic($model, "create");
-            }),
-            'updated' => $modelClass::updated(function (Model $model) {
-                $this->recordHarmonic($model, "update");
-            }),
-            'deleted' => $modelClass::deleted(function (Model $model) {
-                $this->recordHarmonic($model, "delete");
-            }),
-        ];
+        // Eloquent tracking occurs on the instance level
     }
 
     /**
@@ -64,7 +47,7 @@ class EloquentHarmonicSourceAdapter implements HarmonicSourceAdapterInterface
     public function stopTracking(Model $model): void
     {
         $modelClass = get_class($model);
-        
+
         if (isset($this->registeredListeners[$modelClass])) {
             // Laravel doesn't provide a direct way to remove specific event listeners
             // This is a limitation of the current implementation
@@ -91,7 +74,7 @@ class EloquentHarmonicSourceAdapter implements HarmonicSourceAdapterInterface
      */
     public function getName(): string
     {
-        return 'eloquent';
+        return "eloquent";
     }
 
     /**
@@ -177,10 +160,14 @@ class EloquentHarmonicSourceAdapter implements HarmonicSourceAdapterInterface
      * @param array $harmonicData
      * @return void
      */
-    public function dispatchToActiveChannels(Model $model, array $harmonicData): void
-    {
+    public function dispatchToActiveChannels(
+        Model $model,
+        array $harmonicData
+    ): void {
         // Get all active user IDs from the channel tracker
-        $activeUserIds = TrackChannelConnections::getAuthorizedActiveUserIds($model);
+        $activeUserIds = TrackChannelConnections::getAuthorizedActiveUserIds(
+            $model
+        );
 
         // Create channels for all active users
         $channels = [];

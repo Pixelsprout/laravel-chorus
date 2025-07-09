@@ -32,7 +32,10 @@ class HarmonicSourceAdapterManager
      */
     private function registerDefaultAdapters(): void
     {
-        $this->registerAdapter('eloquent', EloquentHarmonicSourceAdapter::class);
+        $this->registerAdapter(
+            "eloquent",
+            EloquentHarmonicSourceAdapter::class
+        );
     }
 
     /**
@@ -45,11 +48,20 @@ class HarmonicSourceAdapterManager
     public function registerAdapter(string $name, string $adapterClass): void
     {
         if (!class_exists($adapterClass)) {
-            throw new InvalidArgumentException("Adapter class {$adapterClass} does not exist");
+            throw new InvalidArgumentException(
+                "Adapter class {$adapterClass} does not exist"
+            );
         }
 
-        if (!is_subclass_of($adapterClass, HarmonicSourceAdapterInterface::class)) {
-            throw new InvalidArgumentException("Adapter class {$adapterClass} must implement HarmonicSourceAdapterInterface");
+        if (
+            !is_subclass_of(
+                $adapterClass,
+                HarmonicSourceAdapterInterface::class
+            )
+        ) {
+            throw new InvalidArgumentException(
+                "Adapter class {$adapterClass} must implement HarmonicSourceAdapterInterface"
+            );
         }
 
         $this->adapters[$name] = $adapterClass;
@@ -76,10 +88,12 @@ class HarmonicSourceAdapterManager
      */
     private function createAdapter(): HarmonicSourceAdapterInterface
     {
-        $adapterName = config('chorus.harmonic_source_adapter', 'eloquent');
+        $adapterName = config("chorus.harmonic_source_adapter", "eloquent");
 
         if (!isset($this->adapters[$adapterName])) {
-            throw new InvalidArgumentException("Unknown harmonic source adapter: {$adapterName}");
+            throw new InvalidArgumentException(
+                "Unknown harmonic source adapter: {$adapterName}"
+            );
         }
 
         $adapterClass = $this->adapters[$adapterName];
@@ -97,7 +111,7 @@ class HarmonicSourceAdapterManager
         $adapter = $this->getActiveAdapter();
         $adapter->initialize($model);
         $adapter->startTracking($model);
-        
+
         $this->trackedModels[get_class($model)] = $model;
     }
 
@@ -111,7 +125,7 @@ class HarmonicSourceAdapterManager
     {
         $adapter = $this->getActiveAdapter();
         $adapter->stopTracking($model);
-        
+
         unset($this->trackedModels[get_class($model)]);
     }
 
