@@ -31,4 +31,18 @@ class Platform extends Model
     {
         return $this->belongsToMany(User::class);
     }
+
+    /**
+     * Filter platforms to only sync those belonging to the current user
+     */
+    protected function syncFilter(): Builder
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return static::query()->whereRaw('1 = 0'); // No user, no platforms
+        }
+
+        return static::query()->whereIn('id', $user->platforms->pluck('id'));
+    }
 }
