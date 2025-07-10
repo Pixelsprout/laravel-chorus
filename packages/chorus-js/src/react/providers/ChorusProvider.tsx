@@ -28,6 +28,16 @@ interface ChorusProviderProps {
   schema?: Record<string, any>;
 }
 
+const HarmonicListener: React.FC<{
+  channel: string;
+  onEvent: (event: HarmonicEvent) => void;
+}> = ({ channel, onEvent }) => {
+  useEcho<HarmonicEvent>(channel, ".harmonic.created", async (event) => {
+    onEvent(event);
+  });
+  return null;
+};
+
 export function ChorusProvider({
   children,
   userId,
@@ -48,20 +58,15 @@ export function ChorusProvider({
     });
   };
 
-  // Setup Echo listener for user channel (only if userId is provided)
-  useEcho<HarmonicEvent>(
-    `chorus.${channelPrefix ? `${channelPrefix}.` : ``}user.${userId ?? "guest"}`,
-    ".harmonic.created",
-    async (event) => {
-      if (chorusCore.getIsInitialized()) {
-        // Process the harmonic using ChorusCore
-        await chorusCore.processHarmonic(event);
+  const handleHarmonicEvent = async (event: HarmonicEvent) => {
+    if (chorusCore.getIsInitialized()) {
+      // Process the harmonic using ChorusCore
+      await chorusCore.processHarmonic(event);
 
-        // Update the React state
-        updateReactState();
-      }
-    },
-  );
+      // Update the React state
+      updateReactState();
+    }
+  };
 
   // Initialize the data sync
   useEffect(() => {
@@ -90,7 +95,19 @@ export function ChorusProvider({
   }, [userId, channelPrefix]); // Re-run when userId or channelPrefix changes
 
   return (
-    <ChorusContext.Provider value={state}>{children}</ChorusContext.Provider>
+    <ChorusContext.Provider value={state}>
+      <HarmonicListener
+        channel={`chorus.user.${userId ?? "guest"}`}
+        onEvent={handleHarmonicEvent}
+      />
+      {channelPrefix && (
+        <HarmonicListener
+          channel={`chorus.${channelPrefix}.user.${userId ?? "guest"}`}
+          onEvent={handleHarmonicEvent}
+        />
+      )}
+      {children}
+    </ChorusContext.Provider>
   );
 }
 

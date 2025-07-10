@@ -19,6 +19,12 @@ const ChorusContext = createContext({
     isInitialized: false,
     tables: {},
 });
+const HarmonicListener = ({ channel, onEvent }) => {
+    useEcho(channel, ".harmonic.created", (event) => __awaiter(void 0, void 0, void 0, function* () {
+        onEvent(event);
+    }));
+    return null;
+};
 export function ChorusProvider({ children, userId, channelPrefix, schema, }) {
     // State to track syncing status across tables
     const [state, setState] = useState({
@@ -32,15 +38,14 @@ export function ChorusProvider({ children, userId, channelPrefix, schema, }) {
             tables: chorusCore.getAllTableStates(),
         });
     };
-    // Setup Echo listener for user channel (only if userId is provided)
-    useEcho(`chorus.${channelPrefix ? `${channelPrefix}.` : ``}user.${userId !== null && userId !== void 0 ? userId : "guest"}`, ".harmonic.created", (event) => __awaiter(this, void 0, void 0, function* () {
+    const handleHarmonicEvent = (event) => __awaiter(this, void 0, void 0, function* () {
         if (chorusCore.getIsInitialized()) {
             // Process the harmonic using ChorusCore
             yield chorusCore.processHarmonic(event);
             // Update the React state
             updateReactState();
         }
-    }));
+    });
     // Initialize the data sync
     useEffect(() => {
         let isCancelled = false;
@@ -61,7 +66,10 @@ export function ChorusProvider({ children, userId, channelPrefix, schema, }) {
             chorusCore.reset();
         };
     }, [userId, channelPrefix]); // Re-run when userId or channelPrefix changes
-    return (React.createElement(ChorusContext.Provider, { value: state }, children));
+    return (React.createElement(ChorusContext.Provider, { value: state },
+        React.createElement(HarmonicListener, { channel: `chorus.user.${userId !== null && userId !== void 0 ? userId : "guest"}`, onEvent: handleHarmonicEvent }),
+        channelPrefix && (React.createElement(HarmonicListener, { channel: `chorus.${channelPrefix}.user.${userId !== null && userId !== void 0 ? userId : "guest"}`, onEvent: handleHarmonicEvent })),
+        children));
 }
 // Custom hook to access the Chorus context
 export function useChorus() {
