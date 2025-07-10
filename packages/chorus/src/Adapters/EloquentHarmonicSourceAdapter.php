@@ -180,12 +180,13 @@ class EloquentHarmonicSourceAdapter implements HarmonicSourceAdapterInterface
         // Create channels for all active users
         $channels = [];
         foreach ($activeUserIds as $userId) {
-            $channels[] = new PrivateChannel("chorus.user." . $userId);
+            $channelName = $model->getChorusChannelName($userId);
+            $channels[] = new PrivateChannel($channelName);
         }
 
         // Only dispatch if there are active channels
         if (!empty($channels)) {
-            HarmonicCreated::dispatch($harmonicData, $channels);
+            HarmonicCreated::dispatch($harmonicData, $model, $channels);
         }
     }
 }

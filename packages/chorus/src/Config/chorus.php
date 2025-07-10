@@ -14,6 +14,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Harmonic Channel Prefix
+    |--------------------------------------------------------------------------
+    |
+    | This value determines the prefix for the WebSocket channels. It can be
+    | a static string or a class that implements the PrefixResolver interface.
+    | If a class is provided, it will be resolved to dynamically generate the prefix.
+    |
+    */
+    "harmonic_channel_prefix" => "",
+
+    /*
+    |--------------------------------------------------------------------------
     | Harmonic Source Adapter
     |--------------------------------------------------------------------------
     |

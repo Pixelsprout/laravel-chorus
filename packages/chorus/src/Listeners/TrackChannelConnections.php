@@ -7,8 +7,10 @@ namespace Pixelsprout\LaravelChorus\Listeners;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Laravel\Reverb\Events\ChannelCreated;
 use Laravel\Reverb\Events\ChannelRemoved;
+use Symfony\Component\Translation\LoggingTranslator;
 
 class TrackChannelConnections
 {
@@ -23,7 +25,7 @@ class TrackChannelConnections
         $channelName = $event->channel->name();
 
         // Only track Chorus user channels
-        if (str_starts_with($channelName, "private-chorus.user.")) {
+        if (str_starts_with($channelName, "private-chorus.")) {
             $this->addActiveChannel($channelName);
         }
     }
@@ -36,7 +38,7 @@ class TrackChannelConnections
         $channelName = $event->channel->name();
 
         // Only track Chorus user channels
-        if (str_starts_with($channelName, "private-chorus.user.")) {
+        if (str_starts_with($channelName, "private-chorus.")) {
             $this->removeActiveChannel($channelName);
         }
     }
@@ -80,15 +82,27 @@ class TrackChannelConnections
         $userIds = [];
 
         foreach (array_keys($activeChannels) as $channelName) {
-            // Match both numeric IDs and UUIDs
-            if (
-                preg_match(
-                    '/^private-chorus\.user\.(.+)$/',
-                    $channelName,
-                    $matches
-                )
-            ) {
-                $userIds[] = $matches[1]; // Keep as string to support UUIDs
+            // Match channels with or without a prefix
+            preg_match(
+                '/^private-chorus\.(.*?)\.user\.(.+)$/',
+                $channelName,
+                $matches
+            );
+
+            if ($matches) {
+                /* We need to check if the prefix is included or not
+                 * to determine where the user ID is located.
+                 */
+                if (count($matches) === 3) {
+                    $userIds[] = $matches[2]; // Has Prefix
+                } elseif (count($matches) === 2) {
+                    $userIds[] = $matches[1]; // No Prefix
+                } else {
+                    // Handle unexpected match format
+                    Log::error(
+                        "Unexpected match format for channel: $channelName"
+                    );
+                }
             }
         }
 
@@ -114,7 +128,6 @@ class TrackChannelConnections
 
         $authorizedUserIds = [];
 
-        // Eager load users to avoid N+1 queries
         $users = $userModelClass
             ::whereIn("id", $activeUserIds)
             ->get()

@@ -19,7 +19,13 @@ const ChorusContext = createContext({
     isInitialized: false,
     tables: {},
 });
-export function ChorusProvider({ children, userId, schema, }) {
+const HarmonicListener = ({ channel, onEvent }) => {
+    useEcho(channel, ".harmonic.created", (event) => __awaiter(void 0, void 0, void 0, function* () {
+        onEvent(event);
+    }));
+    return null;
+};
+export function ChorusProvider({ children, userId, channelPrefix, schema, }) {
     // State to track syncing status across tables
     const [state, setState] = useState({
         isInitialized: false,
@@ -32,15 +38,14 @@ export function ChorusProvider({ children, userId, schema, }) {
             tables: chorusCore.getAllTableStates(),
         });
     };
-    // Setup Echo listener for user channel (only if userId is provided)
-    useEcho(`chorus.user.${userId !== null && userId !== void 0 ? userId : "guest"}`, ".harmonic.created", (event) => __awaiter(this, void 0, void 0, function* () {
+    const handleHarmonicEvent = (event) => __awaiter(this, void 0, void 0, function* () {
         if (chorusCore.getIsInitialized()) {
             // Process the harmonic using ChorusCore
             yield chorusCore.processHarmonic(event);
             // Update the React state
             updateReactState();
         }
-    }));
+    });
     // Initialize the data sync
     useEffect(() => {
         let isCancelled = false;
@@ -60,8 +65,11 @@ export function ChorusProvider({ children, userId, schema, }) {
             isCancelled = true;
             chorusCore.reset();
         };
-    }, [userId]); // Re-run when userId changes
-    return (React.createElement(ChorusContext.Provider, { value: state }, children));
+    }, [userId, channelPrefix]); // Re-run when userId or channelPrefix changes
+    return (React.createElement(ChorusContext.Provider, { value: state },
+        React.createElement(HarmonicListener, { channel: `chorus.user.${userId !== null && userId !== void 0 ? userId : "guest"}`, onEvent: handleHarmonicEvent }),
+        channelPrefix && (React.createElement(HarmonicListener, { channel: `chorus.${channelPrefix}.user.${userId !== null && userId !== void 0 ? userId : "guest"}`, onEvent: handleHarmonicEvent })),
+        children));
 }
 // Custom hook to access the Chorus context
 export function useChorus() {

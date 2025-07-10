@@ -40,8 +40,6 @@ final class ChorusServiceProvider extends ServiceProvider
             Route::prefix($routeConfig["prefix"])
                 ->middleware($routeConfig["middleware"])
                 ->group(__DIR__ . "/../Routes/api.php");
-
-            require __DIR__ . "/../Routes/channels.php";
         });
 
         // Register commands
@@ -71,14 +69,6 @@ final class ChorusServiceProvider extends ServiceProvider
                     ),
                 ],
                 "chorus-config"
-            );
-
-            // Publish JavaScript resources
-            $this->publishes(
-                [
-                    __DIR__ . "/../../resources" => resource_path("js/chorus"),
-                ],
-                "chorus-js"
             );
         }
     }

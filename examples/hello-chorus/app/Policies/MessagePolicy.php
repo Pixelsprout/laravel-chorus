@@ -23,7 +23,10 @@ class MessagePolicy
      */
     public function view(User $user, Message $message): bool
     {
-        return $user->platforms()->where('platform_id', $message->platform_id)->exists();
+        return $user->tenant_id === $message->tenant_id && $user
+            ->platforms()
+            ->where('platform_id', $message->platform_id)
+            ->exists();
     }
 
     /**
