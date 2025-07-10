@@ -24,12 +24,14 @@ const ChorusContext = createContext<ChorusContextState>({
 interface ChorusProviderProps {
   children: React.ReactNode;
   userId?: number;
+  channelPrefix?: string; // Add channelPrefix here
   schema?: Record<string, any>;
 }
 
 export function ChorusProvider({
   children,
   userId,
+  channelPrefix,
   schema,
 }: ChorusProviderProps) {
   // State to track syncing status across tables
@@ -48,7 +50,7 @@ export function ChorusProvider({
 
   // Setup Echo listener for user channel (only if userId is provided)
   useEcho<HarmonicEvent>(
-    `chorus.user.${userId ?? "guest"}`,
+    `chorus.${channelPrefix ? `${channelPrefix}.` : ``}user.${userId ?? "guest"}`,
     ".harmonic.created",
     async (event) => {
       if (chorusCore.getIsInitialized()) {
@@ -85,7 +87,7 @@ export function ChorusProvider({
       isCancelled = true;
       chorusCore.reset();
     };
-  }, [userId]); // Re-run when userId changes
+  }, [userId, channelPrefix]); // Re-run when userId or channelPrefix changes
 
   return (
     <ChorusContext.Provider value={state}>{children}</ChorusContext.Provider>

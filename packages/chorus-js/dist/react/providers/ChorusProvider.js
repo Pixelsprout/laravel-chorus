@@ -19,7 +19,7 @@ const ChorusContext = createContext({
     isInitialized: false,
     tables: {},
 });
-export function ChorusProvider({ children, userId, schema, }) {
+export function ChorusProvider({ children, userId, channelPrefix, schema, }) {
     // State to track syncing status across tables
     const [state, setState] = useState({
         isInitialized: false,
@@ -33,7 +33,7 @@ export function ChorusProvider({ children, userId, schema, }) {
         });
     };
     // Setup Echo listener for user channel (only if userId is provided)
-    useEcho(`chorus.user.${userId !== null && userId !== void 0 ? userId : "guest"}`, ".harmonic.created", (event) => __awaiter(this, void 0, void 0, function* () {
+    useEcho(`chorus.${channelPrefix ? `${channelPrefix}.` : ``}user.${userId !== null && userId !== void 0 ? userId : "guest"}`, ".harmonic.created", (event) => __awaiter(this, void 0, void 0, function* () {
         if (chorusCore.getIsInitialized()) {
             // Process the harmonic using ChorusCore
             yield chorusCore.processHarmonic(event);
@@ -60,7 +60,7 @@ export function ChorusProvider({ children, userId, schema, }) {
             isCancelled = true;
             chorusCore.reset();
         };
-    }, [userId]); // Re-run when userId changes
+    }, [userId, channelPrefix]); // Re-run when userId or channelPrefix changes
     return (React.createElement(ChorusContext.Provider, { value: state }, children));
 }
 // Custom hook to access the Chorus context
