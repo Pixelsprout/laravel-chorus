@@ -12,7 +12,7 @@ export default function AppSidebarLayout({ children, breadcrumbs = [] }: PropsWi
     const { auth } = usePage<SharedData>().props;
 
     return (
-        <ChorusProvider userId={auth.user?.id} schema={chorusSchema}>
+        <ChorusProvider userId={auth.user?.id} channelPrefix={auth.user?.tenant_id.toString()} schema={chorusSchema}>
             <AppShell variant="sidebar">
                 <AppSidebar />
                 <AppContent variant="sidebar">
