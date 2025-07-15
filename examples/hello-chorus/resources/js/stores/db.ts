@@ -13,6 +13,7 @@ interface Message {
     body: string;
     user_id: string;
     platform_id: string|number; // UUID from Platform model
+    tenant_id: string|number;
     created_at: Date;
     updated_at: Date;
 }

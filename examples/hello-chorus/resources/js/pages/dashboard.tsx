@@ -8,10 +8,11 @@ import AppLayout from '@/layouts/app-layout';
 import type { Message, Platform } from '@/stores/db';
 import { type BreadcrumbItem } from '@/types';
 import { useHarmonics } from '@chorus/js';
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { ClockIcon, SendIcon } from 'lucide-react';
 import { useForm } from '@tanstack/react-form'
 import createMessageAction from '@/actions/App/Actions/CreateMessage';
+import { uuidv7 } from 'uuidv7';
 import type { AnyFieldApi } from '@tanstack/react-form'
 
 function FieldInfo({ field }: { field: AnyFieldApi }) {
@@ -33,8 +34,15 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function Dashboard() {
+    const { auth } = usePage().props;
     // Sync messages with the server
-    const { data: messages, isLoading: messagesLoading, error: messagesError, lastUpdate: messagesLastUpdate, actions: messageActions } = useHarmonics<Message, { platformId: string; message: string; }>('messages');
+    const {
+        data: messages,
+        isLoading: messagesLoading,
+        error: messagesError,
+        lastUpdate: messagesLastUpdate,
+        actions: messageActions
+    } = useHarmonics<Message, { platformId: string; message: string; }>('messages');
 
     // Sync platforms with the server
     const { data: platforms, isLoading: platformsLoading, error: platformsError, lastUpdate } = useHarmonics<Platform>('platforms');
@@ -58,10 +66,25 @@ export default function Dashboard() {
         },
         onSubmit: async ({ value }) => {
             if (messageActions.create) {
-                messageActions.create(value, async (data: typeof value) => {
+                const now = new Date();
+                const optimisticMessage: Message = {
+                    id: uuidv7(),
+                    body: value.message,
+                    platform_id: value.platformId,
+                    tenant_id: auth.user.tenant_id,
+                    user_id: auth.user.id,
+                    created_at: now,
+                    updated_at: now,
+                };
+
+                messageActions.create(optimisticMessage, async (data: Message) => {
                     router.post(
                         createMessageAction.post().url,
-                        value,
+                        {
+                            id: data.id,
+                            message: data.body,
+                            platformId: data.platform_id,
+                        }
                     );
 
                     // clear form

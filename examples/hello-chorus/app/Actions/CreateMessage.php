@@ -15,12 +15,14 @@ class CreateMessage
         $validated = $request->validate([
             'message' => 'required|string|max:255',
             'platformId' => 'required|string|uuid|exists:platforms,id',
+            'id' => 'string|uuid',
         ]);
 
         $user = auth()->user();
 
         // Create the message
         Message::create([
+            'id' => $validated['id'] ?? null, // User defined uuid
             'body' => $validated['message'],
             'platform_id' => $validated['platformId'],
             'user_id' => $user->id,

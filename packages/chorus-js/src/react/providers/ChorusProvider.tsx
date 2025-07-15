@@ -1,6 +1,6 @@
 import { useEcho } from "@laravel/echo-react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { ChorusCore, HarmonicEvent, TableState } from "../../core/chorus";
 
 import React from "react";
@@ -60,6 +60,23 @@ export function ChorusProvider({
 
   const handleHarmonicEvent = async (event: HarmonicEvent) => {
     if (chorusCore.getIsInitialized()) {
+      const db = chorusCore.getDb();
+      if (!db) return;
+
+      const deltaTableName = `${event.table_name}_deltas`;
+      const deltaTable = db.table(deltaTableName);
+
+      const pendingDeltas = await deltaTable.where('sync_status').equals('pending').toArray();
+      const eventData = JSON.parse(event.data as unknown as string);
+
+      console.debug("eventData", eventData);
+
+      for (const delta of pendingDeltas) {
+        if (delta.data.id === eventData.id) {
+          await deltaTable.update(delta.id, { sync_status: 'synced' });
+        }
+      }
+
       // Process the harmonic using ChorusCore
       await chorusCore.processHarmonic(event);
 
@@ -137,10 +154,17 @@ export interface HarmonicResponse<T, TInput = never> {
 export function useHarmonics<T, TInput = never>(
     tableName: string
 ): HarmonicResponse<T, TInput> {
+  const deltaTableName = `${tableName}_deltas`;
+
   // Get data from IndexedDB with reactive updates
   const data = useLiveQuery<T[]>(() => {
     return chorusCore.getDb()?.table(tableName).toArray() ?? [];
   }, [tableName]);
+
+  const optimisticData = useLiveQuery<any[]>(() => {
+    return chorusCore.getDb()?.table(deltaTableName).toArray() ?? [];
+  }, [deltaTableName]);
+
 
   // Get status from the Chorus context
   const chorusState = useContext(ChorusContext);
@@ -152,7 +176,17 @@ export function useHarmonics<T, TInput = never>(
 
   // Define the actions
   const actions: HarmonicActions<T, TInput> = {
-    create: (data, sideEffect) => {
+    create: async (data, sideEffect) => {
+      const db = chorusCore.getDb();
+      if (!db) return;
+
+      const deltaTable = db.table(deltaTableName);
+      await deltaTable.add({
+        operation: 'create',
+        data: data,
+        sync_status: 'pending'
+      });
+
       if (sideEffect) {
         sideEffect(data).then(result => {
           console.log('Side effect completed successfully:', result);
@@ -161,8 +195,17 @@ export function useHarmonics<T, TInput = never>(
         });
       }
     },
-    update: (data, sideEffect) => {
-      console.log("update", data);
+    update: async (data, sideEffect) => {
+      const db = chorusCore.getDb();
+      if (!db) return;
+
+      const deltaTable = db.table(deltaTableName);
+      await deltaTable.add({
+        operation: 'update',
+        data: data,
+        sync_status: 'pending'
+      });
+
       if (sideEffect) {
         sideEffect(data).then(result => {
           console.log('Side effect completed successfully:', result);
@@ -171,8 +214,17 @@ export function useHarmonics<T, TInput = never>(
         });
       }
     },
-    delete: (data, sideEffect) => {
-      console.log("delete", data);
+    delete: async (data, sideEffect) => {
+      const db = chorusCore.getDb();
+      if (!db) return;
+
+      const deltaTable = db.table(deltaTableName);
+      await deltaTable.add({
+        operation: 'delete',
+        data: data,
+        sync_status: 'pending'
+      });
+
       if (sideEffect) {
         sideEffect(data).then(result => {
           console.log('Side effect completed successfully:', result);
@@ -183,11 +235,63 @@ export function useHarmonics<T, TInput = never>(
     }
   };
 
+  const mergedData = useMemo(() => {
+    if (!optimisticData) {
+      return data;
+    }
+
+    const pendingDeltas = optimisticData.filter(
+        (delta) => delta.sync_status === 'pending'
+    );
+
+    if (pendingDeltas.length === 0) {
+      return data;
+    }
+
+    let processedData = [...(data ?? [])];
+
+    for (const delta of pendingDeltas) {
+      if (data && data.length > 0) {
+        const firstItem = data[0];
+        const deltaKeys = Object.keys(delta.data).sort();
+        const dataKeys = Object.keys(firstItem).sort();
+        if (JSON.stringify(deltaKeys) !== JSON.stringify(dataKeys)) {
+          console.warn(
+            `Optimistic data for table '${tableName}' has a different structure than the synced data. This may cause unexpected behavior.`,
+            {
+              optimisticKeys: deltaKeys,
+              syncedKeys: dataKeys,
+            }
+          );
+
+          continue; // we don't want to break the app.
+        }
+      }
+
+      switch (delta.operation) {
+        case 'create':
+          processedData.push(delta.data);
+          break;
+        case 'update':
+          processedData = processedData.map((item: any) =>
+              item.id === delta.data.id ? { ...item, ...delta.data } : item
+          );
+          break;
+        case 'delete':
+          processedData = processedData.filter(
+              (item: any) => item.id !== delta.data.id
+          );
+          break;
+      }
+    }
+    return processedData;
+  }, [data, optimisticData]);
+
   return {
-    data,
+    data: mergedData,
     isLoading: tableState.isLoading,
     error: tableState.error,
-    lastUpdate: tableState.lastUpdate,
+lastUpdate: tableState.lastUpdate,
     actions,
   };
 }

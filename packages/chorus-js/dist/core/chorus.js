@@ -229,6 +229,9 @@ export class ChorusCore {
             for (const tableName of this.tableNames) {
                 try {
                     // Check if we have data already
+                    if (!tableName) {
+                        console.log(`Table ${tableName} not initialized. Call setup() first`);
+                    }
                     const count = yield this.db.table(tableName).count();
                     const isInitialSync = count === 0;
                     // Build the API URL
