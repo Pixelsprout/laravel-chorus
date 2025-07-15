@@ -28,7 +28,5 @@ class CreateMessage
             'user_id' => $user->id,
             'tenant_id' => $user->tenant_id,
         ]);
-
-        return to_route('dashboard');
     }
 }

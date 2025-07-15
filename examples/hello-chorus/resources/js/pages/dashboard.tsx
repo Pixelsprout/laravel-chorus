@@ -84,6 +84,9 @@ export default function Dashboard() {
                             id: data.id,
                             message: data.body,
                             platformId: data.platform_id,
+                        },
+                        {
+                            preserveScroll: true,
                         }
                     );
 

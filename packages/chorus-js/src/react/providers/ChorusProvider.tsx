@@ -188,8 +188,8 @@ export function useHarmonics<T, TInput = never>(
       });
 
       if (sideEffect) {
-        sideEffect(data).then(result => {
-          console.log('Side effect completed successfully:', result);
+        sideEffect(data).then(() => {
+          console.log('Side effect completed successfully');
         }).catch(error => {
           console.error('Side effect failed:', error);
         });
@@ -207,8 +207,8 @@ export function useHarmonics<T, TInput = never>(
       });
 
       if (sideEffect) {
-        sideEffect(data).then(result => {
-          console.log('Side effect completed successfully:', result);
+        sideEffect(data).then(() => {
+          console.log('Side effect completed successfully');
         }).catch(error => {
           console.error('Side effect failed:', error);
         });
@@ -226,8 +226,8 @@ export function useHarmonics<T, TInput = never>(
       });
 
       if (sideEffect) {
-        sideEffect(data).then(result => {
-          console.log('Side effect completed successfully:', result);
+        sideEffect(data).then(() => {
+          console.log('Side effect completed successfully:');
         }).catch(error => {
           console.error('Side effect failed:', error);
         });
@@ -252,36 +252,21 @@ export function useHarmonics<T, TInput = never>(
 
     for (const delta of pendingDeltas) {
       if (data && data.length > 0) {
-        const firstItem = data[0];
-        const deltaKeys = Object.keys(delta.data).sort();
-        const dataKeys = Object.keys(firstItem).sort();
-        if (JSON.stringify(deltaKeys) !== JSON.stringify(dataKeys)) {
-          console.warn(
-            `Optimistic data for table '${tableName}' has a different structure than the synced data. This may cause unexpected behavior.`,
-            {
-              optimisticKeys: deltaKeys,
-              syncedKeys: dataKeys,
-            }
-          );
-
-          continue; // we don't want to break the app.
+        switch (delta.operation) {
+          case 'create':
+            processedData.push(delta.data);
+            break;
+          case 'update':
+            processedData = processedData.map((item: any) =>
+                item.id === delta.data.id ? { ...item, ...delta.data } : item
+            );
+            break;
+          case 'delete':
+            processedData = processedData.filter(
+                (item: any) => item.id !== delta.data.id
+            );
+            break;
         }
-      }
-
-      switch (delta.operation) {
-        case 'create':
-          processedData.push(delta.data);
-          break;
-        case 'update':
-          processedData = processedData.map((item: any) =>
-              item.id === delta.data.id ? { ...item, ...delta.data } : item
-          );
-          break;
-        case 'delete':
-          processedData = processedData.filter(
-              (item: any) => item.id !== delta.data.id
-          );
-          break;
       }
     }
     return processedData;
