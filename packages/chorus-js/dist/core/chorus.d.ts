@@ -33,7 +33,7 @@ export declare class ChorusCore {
      */
     reset(): void;
     /**
-     * Setup the ChorusCore with a userId and schema
+     * Set up the ChorusCore with a userId and schema
      */
     setup(userId: string | number, schema: Record<string, any>): void;
     /**

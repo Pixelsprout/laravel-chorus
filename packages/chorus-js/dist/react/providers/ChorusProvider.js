@@ -89,10 +89,43 @@ export function useHarmonics(tableName) {
         isLoading: false,
         error: null,
     };
+    // Define the actions
+    const actions = {
+        create: (data, sideEffect) => {
+            if (sideEffect) {
+                sideEffect(data).then(result => {
+                    console.log('Side effect completed successfully:', result);
+                }).catch(error => {
+                    console.error('Side effect failed:', error);
+                });
+            }
+        },
+        update: (data, sideEffect) => {
+            console.log("update", data);
+            if (sideEffect) {
+                sideEffect(data).then(result => {
+                    console.log('Side effect completed successfully:', result);
+                }).catch(error => {
+                    console.error('Side effect failed:', error);
+                });
+            }
+        },
+        delete: (data, sideEffect) => {
+            console.log("delete", data);
+            if (sideEffect) {
+                sideEffect(data).then(result => {
+                    console.log('Side effect completed successfully:', result);
+                }).catch(error => {
+                    console.error('Side effect failed:', error);
+                });
+            }
+        }
+    };
     return {
         data,
         isLoading: tableState.isLoading,
         error: tableState.error,
         lastUpdate: tableState.lastUpdate,
+        actions,
     };
 }

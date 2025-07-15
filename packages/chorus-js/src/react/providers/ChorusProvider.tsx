@@ -95,19 +95,19 @@ export function ChorusProvider({
   }, [userId, channelPrefix]); // Re-run when userId or channelPrefix changes
 
   return (
-    <ChorusContext.Provider value={state}>
-      <HarmonicListener
-        channel={`chorus.user.${userId ?? "guest"}`}
-        onEvent={handleHarmonicEvent}
-      />
-      {channelPrefix && (
+      <ChorusContext.Provider value={state}>
         <HarmonicListener
-          channel={`chorus.${channelPrefix}.user.${userId ?? "guest"}`}
-          onEvent={handleHarmonicEvent}
+            channel={`chorus.user.${userId ?? "guest"}`}
+            onEvent={handleHarmonicEvent}
         />
-      )}
-      {children}
-    </ChorusContext.Provider>
+        {channelPrefix && (
+            <HarmonicListener
+                channel={`chorus.${channelPrefix}.user.${userId ?? "guest"}`}
+                onEvent={handleHarmonicEvent}
+            />
+        )}
+        {children}
+      </ChorusContext.Provider>
   );
 }
 
@@ -116,8 +116,27 @@ export function useChorus() {
   return useContext(ChorusContext);
 }
 
+type Action<TInput, T> = (data: TInput, sideEffect?: (data: TInput) => Promise<void>) => void;
+
+interface HarmonicActions<T, TInput> {
+  create?: Action<TInput, T>;
+  update?: Action<Partial<TInput> & { id: string }, T>;
+  delete?: Action<{ id: string }, T>;
+}
+
+// Define the response structure for the useHarmonics hook
+export interface HarmonicResponse<T, TInput = never> {
+  data: T[] | undefined;
+  isLoading: boolean;
+  error: any;
+  lastUpdate: Date | null;
+  actions: HarmonicActions<T, TInput>;
+}
+
 // Custom hook to access harmonized data
-export function useHarmonics<T = any>(tableName: string) {
+export function useHarmonics<T, TInput = never>(
+    tableName: string
+): HarmonicResponse<T, TInput> {
   // Get data from IndexedDB with reactive updates
   const data = useLiveQuery<T[]>(() => {
     return chorusCore.getDb()?.table(tableName).toArray() ?? [];
@@ -131,10 +150,44 @@ export function useHarmonics<T = any>(tableName: string) {
     error: null,
   };
 
+  // Define the actions
+  const actions: HarmonicActions<T, TInput> = {
+    create: (data, sideEffect) => {
+      if (sideEffect) {
+        sideEffect(data).then(result => {
+          console.log('Side effect completed successfully:', result);
+        }).catch(error => {
+          console.error('Side effect failed:', error);
+        });
+      }
+    },
+    update: (data, sideEffect) => {
+      console.log("update", data);
+      if (sideEffect) {
+        sideEffect(data).then(result => {
+          console.log('Side effect completed successfully:', result);
+        }).catch(error => {
+          console.error('Side effect failed:', error);
+        });
+      }
+    },
+    delete: (data, sideEffect) => {
+      console.log("delete", data);
+      if (sideEffect) {
+        sideEffect(data).then(result => {
+          console.log('Side effect completed successfully:', result);
+        }).catch(error => {
+          console.error('Side effect failed:', error);
+        });
+      }
+    }
+  };
+
   return {
     data,
     isLoading: tableState.isLoading,
     error: tableState.error,
     lastUpdate: tableState.lastUpdate,
+    actions,
   };
 }

@@ -12,6 +12,7 @@ class Harmonic extends Model {
   use HasUuids;
 
   protected $fillable = [
+    'id',
     'table_name',
     'record_id',
     'operation',

@@ -12,7 +12,7 @@ interface Message {
     id: string;
     body: string;
     user_id: string;
-    platform_id: string; // UUID from Platform model
+    platform_id: string|number; // UUID from Platform model
     created_at: Date;
     updated_at: Date;
 }

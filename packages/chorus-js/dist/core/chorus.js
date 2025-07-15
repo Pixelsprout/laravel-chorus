@@ -45,10 +45,9 @@ export class ChorusCore {
         this.log("ChorusCore has been reset.");
     }
     /**
-     * Setup the ChorusCore with a userId and schema
+     * Set up the ChorusCore with a userId and schema
      */
     setup(userId, schema) {
-        console.log("Chorus schema: ", schema);
         this.userId = userId;
         const dbName = `chorus_db_${userId || "guest"}`;
         this.db = createChorusDb(dbName);
@@ -144,7 +143,6 @@ export class ChorusCore {
                 if (operations.length) {
                     yield Promise.all(operations);
                 }
-                // Save latest harmonic ID
                 this.saveLatestHarmonicId(harmonics[harmonics.length - 1].id);
                 if (errors.length) {
                     errors.forEach((error) => console.error(error));

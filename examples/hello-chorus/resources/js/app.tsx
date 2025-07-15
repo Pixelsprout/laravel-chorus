@@ -8,7 +8,6 @@ import { initializeTheme } from './hooks/use-appearance';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
-console.log('[ECHO DEBUG] Configuring Echo...');
 configureEcho({
     broadcaster: 'reverb',
     key: import.meta.env.VITE_REVERB_APP_KEY,
@@ -20,7 +19,6 @@ configureEcho({
     debug: process.env.NODE_ENV !== 'production',
     namespace: 'App.Events',
 });
-console.log('[ECHO DEBUG] Echo configured successfully');
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
@@ -29,8 +27,6 @@ createInertiaApp({
         const root = createRoot(el);
 
         root.render(<App {...props} />);
-
-        console.log(`Inertia App initialized with name: ${appName}`);
     },
     progress: {
         color: '#4B5563',

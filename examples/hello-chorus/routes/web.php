@@ -11,6 +11,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {
         return Inertia::render('dashboard', []);
     })->name('dashboard');
+
+    // Actions
+    Route::post('messages', '\App\Actions\CreateMessage')->name('messages.create');
 });
 
 require __DIR__ . '/settings.php';

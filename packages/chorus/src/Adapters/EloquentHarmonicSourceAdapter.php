@@ -2,7 +2,9 @@
 
 namespace Pixelsprout\LaravelChorus\Adapters;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Pixelsprout\LaravelChorus\Models\Harmonic;
 use Pixelsprout\LaravelChorus\Events\HarmonicCreated;
@@ -92,7 +94,7 @@ class EloquentHarmonicSourceAdapter implements HarmonicSourceAdapterInterface
      * @param string $operation
      * @return void
      */
-    public function recordHarmonic(Model $model, string $operation): void
+    public function recordHarmonic(Model $model, string $operation, User $user = null): void
     {
         $tableName = $model->getTable();
         $recordId = $model->getKey();
@@ -110,12 +112,12 @@ class EloquentHarmonicSourceAdapter implements HarmonicSourceAdapterInterface
 
         // Create harmonic payload
         $harmonicData = [
-            "id" => Str::uuid7(),
+            "id" => Str::uuid7(), // explicitly setting uuid so it shared with websocket payload
             "table_name" => $tableName,
             "record_id" => $recordId,
             "operation" => $operation,
             "data" => json_encode($data),
-            "user_id" => auth()->id() ?? null,
+            "user_id" => $user ?? $user->id ?? null,
             "created_at" => now()->toDateTimeString(),
         ];
 
