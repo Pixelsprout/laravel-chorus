@@ -9,7 +9,10 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {
-        return Inertia::render('dashboard', []);
+        $tenantName = auth()->user()->tenant->name;
+        return Inertia::render('dashboard', [
+            'tenantName' => $tenantName
+        ]);
     })->name('dashboard');
 
     // Actions

@@ -10,7 +10,6 @@ import { type PropsWithChildren } from 'react';
 
 export default function AppSidebarLayout({ children, breadcrumbs = [] }: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[] }>) {
     const { auth } = usePage<SharedData>().props;
-
     return (
         <ChorusProvider userId={auth.user?.id} channelPrefix={auth.user?.tenant_id.toString()} schema={chorusSchema}>
             <AppShell variant="sidebar">

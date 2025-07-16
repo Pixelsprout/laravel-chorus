@@ -34,7 +34,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function Dashboard() {
-    const { auth } = usePage().props;
+    const { auth, tenantName } = usePage().props;
     // Sync messages with the server
     const {
         data: messages,
@@ -126,11 +126,11 @@ export default function Dashboard() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Messages Dashboard" />
+            <Head title={`${tenantName}: Messages Dashboard`} />
             <div className="p-6">
                 <div className="mb-6 flex items-center justify-between">
-                    <h1 className="text-2xl font-bold">Messages Dashboard</h1>
-
+                    <h1 className="text-2xl font-bold">Hi {auth.user.name}</h1>
+                    <h2 className="text-xl font-semibold">{tenantName}: Messages Dashboard</h2>
                     {/* Sync status */}
                     {messagesLastUpdate && (
                         <div className="text-muted-foreground flex items-center text-sm">

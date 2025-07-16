@@ -40,21 +40,18 @@ export function ChorusProvider({ children, userId, channelPrefix, schema, }) {
         const deltaTableName = `${event.table_name}_deltas`;
         const deltaTable = db.table(deltaTableName);
         const eventData = JSON.parse(event.data);
-        // Use a timeout to ensure the optimistic record has been processed
-        setTimeout(() => __awaiter(this, void 0, void 0, function* () {
-            const pendingDeltas = yield deltaTable.where('sync_status').equals('pending').toArray();
-            for (const delta of pendingDeltas) {
-                if (delta.data.id === eventData.id) {
-                    try {
-                        yield deltaTable.update(delta.id, { sync_status: 'synced' });
-                    }
-                    catch (err) {
-                        console.error(`[Chorus] Failed to update delta ${delta.id}:`, err);
-                    }
-                    break; // Exit after finding and processing the match
+        const pendingDeltas = yield deltaTable.where('sync_status').equals('pending').toArray();
+        for (const delta of pendingDeltas) {
+            if (delta.data.id === eventData.id) {
+                try {
+                    yield deltaTable.update(delta.id, { sync_status: 'synced' });
                 }
+                catch (err) {
+                    console.error(`[Chorus] Failed to update delta ${delta.id}:`, err);
+                }
+                break; // Exit after finding and processing the match
             }
-        }), 50); // 50ms delay to prevent race conditions
+        }
         // Refresh the UI state
         setTables(chorusCore.getAllTableStates());
     });
