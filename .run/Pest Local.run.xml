@@ -1,0 +1,12 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Pest Local" type="PestRunConfigurationType">
+    <CommandLine workingDirectory="$PROJECT_DIR$/examples/hello-chorus" />
+    <option name="pestRunnerSettings">
+      <PestRunner configuration_file="$PROJECT_DIR$/examples/hello-chorus/phpunit.xml" directory="$PROJECT_DIR$/examples/hello-chorus" method="" scope="ConfigurationFile" use_alternative_configuration_file="true" />
+    </option>
+    <option name="runnerSettings">
+      <PhpTestRunnerSettings configuration_file="$PROJECT_DIR$/examples/hello-chorus/phpunit.xml" directory="$PROJECT_DIR$/examples/hello-chorus" method="" scope="ConfigurationFile" use_alternative_configuration_file="true" />
+    </option>
+    <method v="2" />
+  </configuration>
+</component>

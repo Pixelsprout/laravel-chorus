@@ -66,10 +66,9 @@ export class ChorusCore {
   }
 
   /**
-   * Setup the ChorusCore with a userId and schema
+   * Set up the ChorusCore with a userId and schema
    */
   public setup(userId: string | number, schema: Record<string, any>): void {
-    console.log("Chorus schema: ", schema);
     this.userId = userId;
     const dbName = `chorus_db_${userId || "guest"}`;
     this.db = createChorusDb(dbName);
@@ -181,7 +180,6 @@ export class ChorusCore {
         await Promise.all(operations);
       }
 
-      // Save latest harmonic ID
       this.saveLatestHarmonicId(harmonics[harmonics.length - 1].id);
 
       if (errors.length) {
@@ -292,6 +290,9 @@ export class ChorusCore {
     for (const tableName of this.tableNames) {
       try {
         // Check if we have data already
+        if(!tableName) {
+          console.log(`Table ${tableName} not initialized. Call setup() first`);
+        }
         const count = await this.db!.table(tableName).count();
         const isInitialSync = count === 0;
 

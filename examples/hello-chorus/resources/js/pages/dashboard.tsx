@@ -8,9 +8,23 @@ import AppLayout from '@/layouts/app-layout';
 import type { Message, Platform } from '@/stores/db';
 import { type BreadcrumbItem } from '@/types';
 import { useHarmonics } from '@chorus/js';
-import { Head } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { ClockIcon, SendIcon } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useForm } from '@tanstack/react-form'
+import createMessageAction from '@/actions/App/Actions/CreateMessage';
+import { uuidv7 } from 'uuidv7';
+import type { AnyFieldApi } from '@tanstack/react-form'
+
+function FieldInfo({ field }: { field: AnyFieldApi }) {
+    return (
+        <>
+            {field.state.meta.isTouched && !field.state.meta.isValid ? (
+                <em className="text-destructive text-sm">{field.state.meta.errors.join(', ')}</em>
+            ) : null}
+            {field.state.meta.isValidating ? 'Validating...' : null}
+        </>
+    )
+}
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -20,11 +34,15 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function Dashboard() {
-    const [newMessage, setNewMessage] = useState('');
-    const [platformId, setPlatformId] = useState<string>('');
-
+    const { auth, tenantName } = usePage().props;
     // Sync messages with the server
-    const { data: messages, isLoading: messagesLoading, error: messagesError, lastUpdate: messagesLastUpdate } = useHarmonics<Message>('messages');
+    const {
+        data: messages,
+        isLoading: messagesLoading,
+        error: messagesError,
+        lastUpdate: messagesLastUpdate,
+        actions: messageActions
+    } = useHarmonics<Message, { platformId: string; message: string; }>('messages');
 
     // Sync platforms with the server
     const { data: platforms, isLoading: platformsLoading, error: platformsError, lastUpdate } = useHarmonics<Platform>('platforms');
@@ -40,6 +58,45 @@ export default function Dashboard() {
         }).format(date);
     };
 
+    // Forms
+    const createMessageForm = useForm({
+        defaultValues: {
+            platformId: '', // get first platform
+            message: '',
+        },
+        onSubmit: async ({ value, formApi }) => {
+            if (messageActions.create) {
+                const now = new Date();
+                const optimisticMessage: Message = {
+                    id: uuidv7(),
+                    body: value.message,
+                    platform_id: value.platformId,
+                    tenant_id: auth.user.tenant_id,
+                    user_id: auth.user.id,
+                    created_at: now,
+                    updated_at: now,
+                };
+
+                messageActions.create(optimisticMessage, async (data: Message) => {
+                    router.post(
+                        createMessageAction.post().url,
+                        {
+                            id: data.id,
+                            message: data.body,
+                            platformId: data.platform_id,
+                        },
+                        {
+                            preserveScroll: true,
+                        }
+                    );
+
+                    // clear form
+                    formApi.reset();
+                });
+            }
+        },
+    })
+
     // Group messages by platform
     const groupedMessages =
         messages?.reduce(
@@ -51,7 +108,7 @@ export default function Dashboard() {
                 acc[platformId].push(message);
                 return acc;
             },
-            {} as Record<number, Message[]>,
+            {} as Record<number|string, Message[]>,
         ) || {};
 
     // Get platform name by ID
@@ -67,63 +124,13 @@ export default function Dashboard() {
         return match?.name || 'Unknown';
     };
 
-    // Handle submitting a new message
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        if (!newMessage.trim()) return;
-
-        try {
-            // Send the message to the server
-            const response = await fetch('/api/messages', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Accept: 'application/json',
-                    'X-XSRF-TOKEN': getCookie('XSRF-TOKEN') || '',
-                },
-                credentials: 'include', // Include cookies for authentication
-                body: JSON.stringify({
-                    body: newMessage,
-                    platform_id: platformId,
-                }),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to send message');
-            }
-
-            // Clear the input
-            setNewMessage('');
-        } catch (error) {
-            console.error('Failed to send message:', error);
-            alert('Failed to send message. Please try again.');
-        }
-    };
-
-    // Helper function to get cookies
-    const getCookie = (name: string): string | null => {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
-        return null;
-    };
-
-    // Auto-select the first platform when platforms load
-    useEffect(() => {
-        if (platforms?.length && !platformId) {
-            setPlatformId(platforms[0].id);
-        }
-    }, [platforms, platformId]);
-
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Messages Dashboard" />
+            <Head title={`${tenantName}: Messages Dashboard`} />
             <div className="p-6">
                 <div className="mb-6 flex items-center justify-between">
-                    <h1 className="text-2xl font-bold">Messages Dashboard</h1>
-
+                    <h1 className="text-2xl font-bold">Hi {auth.user.name}</h1>
+                    <h2 className="text-xl font-semibold">{tenantName}: Messages Dashboard</h2>
                     {/* Sync status */}
                     {messagesLastUpdate && (
                         <div className="text-muted-foreground flex items-center text-sm">
@@ -140,54 +147,89 @@ export default function Dashboard() {
                         <CardDescription>Create a new message that will be synced in real-time</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <form id="new-message-form" onSubmit={handleSubmit} className="space-y-4">
+                        <form id="new-message-form" onSubmit={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            createMessageForm.handleSubmit()
+                        }} className="space-y-4">
                             <div className="space-y-2">
                                 <Label htmlFor="platform">Platform</Label>
-                                <Select value={platformId} onValueChange={setPlatformId} disabled={platformsLoading}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder={platformsLoading ? 'Loading platforms...' : 'Select a platform'} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {platformsError ? (
-                                            <SelectItem value="error" disabled>
-                                                Error loading platforms
-                                            </SelectItem>
-                                        ) : platforms?.length ? (
-                                            platforms.map((platform) => (
-                                                <SelectItem key={platform.id} value={platform.id}>
-                                                    {platform.name}
-                                                </SelectItem>
-                                            ))
-                                        ) : (
-                                            <SelectItem value="none" disabled>
-                                                No platforms available
-                                            </SelectItem>
-                                        )}
-                                    </SelectContent>
-                                </Select>
+                                <createMessageForm.Field name="platformId"
+                                    children={(field) => (
+                                        <>
+                                            <Select value={field.state.value} name={field.name} onValueChange={(e) => field.handleChange(e)} disabled={platformsLoading}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder={platformsLoading ? 'Loading platforms...' : 'Select a platform'} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {platformsError ? (
+                                                        <SelectItem value="error" disabled>
+                                                            Error loading platforms
+                                                        </SelectItem>
+                                                    ) : platforms?.length ? (
+                                                        platforms.map((platform) => (
+                                                            <SelectItem key={platform.id} value={platform.id}>
+                                                                {platform.name}
+                                                            </SelectItem>
+                                                        ))
+                                                    ) : (
+                                                        <SelectItem value="none" disabled>
+                                                            No platforms available
+                                                        </SelectItem>
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                            <FieldInfo field={field} />
+                                        </>
+                                    )}/>
                             </div>
 
                             <div className="space-y-2">
                                 <Label htmlFor="message">Message</Label>
-                                <Textarea
-                                    id="message"
-                                    value={newMessage}
-                                    onChange={(e) => setNewMessage(e.target.value)}
-                                    placeholder="Type your message here..."
-                                    rows={3}
-                                />
+                                <createMessageForm.Field
+                                    name="message"
+                                    validators={{
+                                        onChange: ({value}) =>
+                                            !value
+                                                ? 'A message is required'
+                                                : value.length < 3
+                                                    ? 'Please enter a message longer than 3 characters'
+                                                    : undefined,
+                                    }}
+                                    children={(field) => (
+                                        <>
+                                            <Textarea
+                                                id="message"
+                                                value={field.state.value}
+                                                name={field.name}
+                                                onBlur={field.handleBlur}
+                                                onChange={(e) => field.handleChange(e.target.value)}
+                                                placeholder="Type your message here..."
+                                                rows={3}
+                                            />
+                                        </>
+                                        )
+                                    }>
+                                </createMessageForm.Field>
                             </div>
                         </form>
                     </CardContent>
                     <CardFooter>
-                        <Button
-                            type="submit"
-                            form="new-message-form"
-                            disabled={!newMessage.trim() || !platformId || platformsLoading || platformsError}
-                        >
-                            <SendIcon className="mr-2 h-4 w-4" />
-                            Send Message
-                        </Button>
+                        <createMessageForm.Subscribe
+                            selector={(state) => [state.canSubmit, state.isSubmitting]}
+                            children={([canSubmit, isSubmitting]) => (
+                                <>
+                                    <Button
+                                        type="submit"
+                                        form="new-message-form"
+                                        disabled={!canSubmit}
+                                    >
+                                        <SendIcon className="mr-2 h-4 w-4" />
+                                        {isSubmitting ? 'Sending...' : 'Send message'}
+                                    </Button>
+                                </>
+                            )}
+                        />
                     </CardFooter>
                 </Card>
 

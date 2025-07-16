@@ -12,7 +12,7 @@ return new class extends Migration {
             $table->string('record_id');
             $table->string('operation'); // create, update, delete
             $table->json('data')->nullable();
-            $table->unsignedBigInteger('user_id')->nullable(); // For scoped sync
+            $table->string('user_id')->nullable(); // For scoped sync
             $table->timestamp('processed_at')->nullable(); // For deduplication
             $table->timestamps();
 
