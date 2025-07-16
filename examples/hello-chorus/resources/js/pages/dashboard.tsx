@@ -64,7 +64,7 @@ export default function Dashboard() {
             platformId: '', // get first platform
             message: '',
         },
-        onSubmit: async ({ value }) => {
+        onSubmit: async ({ value, formApi }) => {
             if (messageActions.create) {
                 const now = new Date();
                 const optimisticMessage: Message = {
@@ -91,8 +91,7 @@ export default function Dashboard() {
                     );
 
                     // clear form
-                    value.message = '';
-                    value.platformId = '';
+                    formApi.reset();
                 });
             }
         },

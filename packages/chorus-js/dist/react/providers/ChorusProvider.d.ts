@@ -30,4 +30,5 @@ export interface HarmonicResponse<T, TInput = never> {
     actions: HarmonicActions<T, TInput>;
 }
 export declare function useHarmonics<T, TInput = never>(tableName: string): HarmonicResponse<T, TInput>;
+export declare function useChorusStatus(tableName: string): TableState;
 export {};

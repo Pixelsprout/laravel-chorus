@@ -20,57 +20,53 @@ const ChorusContext = createContext({
     tables: {},
 });
 const HarmonicListener = ({ channel, onEvent }) => {
-    useEcho(channel, ".harmonic.created", (event) => __awaiter(void 0, void 0, void 0, function* () {
+    useEcho(channel, ".harmonic.created", (event) => {
         onEvent(event);
-    }));
+    });
     return null;
 };
 export function ChorusProvider({ children, userId, channelPrefix, schema, }) {
-    // State to track syncing status across tables
-    const [state, setState] = useState({
-        isInitialized: false,
-        tables: {},
-    });
-    // Update React state when core state changes
-    const updateReactState = () => {
-        setState({
-            isInitialized: chorusCore.getIsInitialized(),
-            tables: chorusCore.getAllTableStates(),
-        });
-    };
+    const [isInitialized, setIsInitialized] = useState(false);
+    const [tables, setTables] = useState({});
     const handleHarmonicEvent = (event) => __awaiter(this, void 0, void 0, function* () {
-        if (chorusCore.getIsInitialized()) {
-            const db = chorusCore.getDb();
-            if (!db)
-                return;
-            const deltaTableName = `${event.table_name}_deltas`;
-            const deltaTable = db.table(deltaTableName);
+        if (!chorusCore.getIsInitialized())
+            return;
+        const db = chorusCore.getDb();
+        if (!db)
+            return;
+        // Process the harmonic first to update the main table
+        yield chorusCore.processHarmonic(event);
+        // Now, find the matching pending delta and mark it as synced
+        const deltaTableName = `${event.table_name}_deltas`;
+        const deltaTable = db.table(deltaTableName);
+        const eventData = JSON.parse(event.data);
+        // Use a timeout to ensure the optimistic record has been processed
+        setTimeout(() => __awaiter(this, void 0, void 0, function* () {
             const pendingDeltas = yield deltaTable.where('sync_status').equals('pending').toArray();
-            const eventData = JSON.parse(event.data);
-            console.debug("eventData", eventData);
             for (const delta of pendingDeltas) {
                 if (delta.data.id === eventData.id) {
-                    yield deltaTable.update(delta.id, { sync_status: 'synced' });
+                    try {
+                        yield deltaTable.update(delta.id, { sync_status: 'synced' });
+                    }
+                    catch (err) {
+                        console.error(`[Chorus] Failed to update delta ${delta.id}:`, err);
+                    }
+                    break; // Exit after finding and processing the match
                 }
             }
-            // Process the harmonic using ChorusCore
-            yield chorusCore.processHarmonic(event);
-            // Update the React state
-            updateReactState();
-        }
+        }), 50); // 50ms delay to prevent race conditions
+        // Refresh the UI state
+        setTables(chorusCore.getAllTableStates());
     });
-    // Initialize the data sync
     useEffect(() => {
         let isCancelled = false;
         const initialize = () => __awaiter(this, void 0, void 0, function* () {
-            // Reset core for the new user
             chorusCore.reset();
             chorusCore.setup(userId !== null && userId !== void 0 ? userId : "guest", schema !== null && schema !== void 0 ? schema : {});
-            // Initialize all tables using ChorusCore
             yield chorusCore.initializeTables();
             if (!isCancelled) {
-                // Update the React state
-                updateReactState();
+                setIsInitialized(chorusCore.getIsInitialized());
+                setTables(chorusCore.getAllTableStates());
             }
         });
         initialize();
@@ -78,53 +74,34 @@ export function ChorusProvider({ children, userId, channelPrefix, schema, }) {
             isCancelled = true;
             chorusCore.reset();
         };
-    }, [userId, channelPrefix]); // Re-run when userId or channelPrefix changes
-    return (React.createElement(ChorusContext.Provider, { value: state },
+    }, [userId, channelPrefix, schema]);
+    const contextValue = useMemo(() => ({
+        isInitialized,
+        tables,
+    }), [isInitialized, tables]);
+    return (React.createElement(ChorusContext.Provider, { value: contextValue },
         React.createElement(HarmonicListener, { channel: `chorus.user.${userId !== null && userId !== void 0 ? userId : "guest"}`, onEvent: handleHarmonicEvent }),
         channelPrefix && (React.createElement(HarmonicListener, { channel: `chorus.${channelPrefix}.user.${userId !== null && userId !== void 0 ? userId : "guest"}`, onEvent: handleHarmonicEvent })),
         children));
 }
-// Custom hook to access the Chorus context
 export function useChorus() {
     return useContext(ChorusContext);
 }
-// Custom hook to access harmonized data
 export function useHarmonics(tableName) {
     const deltaTableName = `${tableName}_deltas`;
-    // Get data from IndexedDB with reactive updates
-    const data = useLiveQuery(() => {
-        var _a, _b;
-        return (_b = (_a = chorusCore.getDb()) === null || _a === void 0 ? void 0 : _a.table(tableName).toArray()) !== null && _b !== void 0 ? _b : [];
-    }, [tableName]);
-    const optimisticData = useLiveQuery(() => {
-        var _a, _b;
-        return (_b = (_a = chorusCore.getDb()) === null || _a === void 0 ? void 0 : _a.table(deltaTableName).toArray()) !== null && _b !== void 0 ? _b : [];
-    }, [deltaTableName]);
-    // Get status from the Chorus context
-    const chorusState = useContext(ChorusContext);
-    const tableState = chorusState.tables[tableName] || {
-        lastUpdate: null,
-        isLoading: false,
-        error: null,
-    };
-    // Define the actions
+    const data = useLiveQuery(() => { var _a, _b; return (_b = (_a = chorusCore.getDb()) === null || _a === void 0 ? void 0 : _a.table(tableName).toArray()) !== null && _b !== void 0 ? _b : []; }, [tableName]);
+    const optimisticData = useLiveQuery(() => { var _a, _b; return (_b = (_a = chorusCore.getDb()) === null || _a === void 0 ? void 0 : _a.table(deltaTableName).toArray()) !== null && _b !== void 0 ? _b : []; }, [deltaTableName]);
+    const { tables } = useChorus();
+    const tableState = tables[tableName] || { lastUpdate: null, isLoading: false, error: null };
     const actions = {
         create: (data, sideEffect) => __awaiter(this, void 0, void 0, function* () {
             const db = chorusCore.getDb();
             if (!db)
                 return;
             const deltaTable = db.table(deltaTableName);
-            yield deltaTable.add({
-                operation: 'create',
-                data: data,
-                sync_status: 'pending'
-            });
+            yield deltaTable.add({ operation: 'create', data, sync_status: 'pending' });
             if (sideEffect) {
-                sideEffect(data).then(() => {
-                    console.log('Side effect completed successfully');
-                }).catch(error => {
-                    console.error('Side effect failed:', error);
-                });
+                sideEffect(data).catch(error => console.error('[Chorus] Side effect for create failed:', error));
             }
         }),
         update: (data, sideEffect) => __awaiter(this, void 0, void 0, function* () {
@@ -132,17 +109,9 @@ export function useHarmonics(tableName) {
             if (!db)
                 return;
             const deltaTable = db.table(deltaTableName);
-            yield deltaTable.add({
-                operation: 'update',
-                data: data,
-                sync_status: 'pending'
-            });
+            yield deltaTable.add({ operation: 'update', data, sync_status: 'pending' });
             if (sideEffect) {
-                sideEffect(data).then(() => {
-                    console.log('Side effect completed successfully');
-                }).catch(error => {
-                    console.error('Side effect failed:', error);
-                });
+                sideEffect(data).catch(error => console.error('[Chorus] Side effect for update failed:', error));
             }
         }),
         delete: (data, sideEffect) => __awaiter(this, void 0, void 0, function* () {
@@ -150,42 +119,37 @@ export function useHarmonics(tableName) {
             if (!db)
                 return;
             const deltaTable = db.table(deltaTableName);
-            yield deltaTable.add({
-                operation: 'delete',
-                data: data,
-                sync_status: 'pending'
-            });
+            yield deltaTable.add({ operation: 'delete', data, sync_status: 'pending' });
             if (sideEffect) {
-                sideEffect(data).then(() => {
-                    console.log('Side effect completed successfully:');
-                }).catch(error => {
-                    console.error('Side effect failed:', error);
-                });
+                sideEffect(data).catch(error => console.error('[Chorus] Side effect for delete failed:', error));
             }
-        })
+        }),
     };
     const mergedData = useMemo(() => {
-        if (!optimisticData) {
+        if (!optimisticData)
             return data;
-        }
         const pendingDeltas = optimisticData.filter((delta) => delta.sync_status === 'pending');
-        if (pendingDeltas.length === 0) {
+        if (pendingDeltas.length === 0)
             return data;
-        }
         let processedData = [...(data !== null && data !== void 0 ? data : [])];
         for (const delta of pendingDeltas) {
-            if (data && data.length > 0) {
-                switch (delta.operation) {
-                    case 'create':
+            switch (delta.operation) {
+                case 'create': {
+                    const existingIndex = processedData.findIndex((item) => item.id === delta.data.id);
+                    if (existingIndex !== -1) {
+                        processedData[existingIndex] = Object.assign(Object.assign({}, processedData[existingIndex]), delta.data);
+                    }
+                    else {
                         processedData.push(delta.data);
-                        break;
-                    case 'update':
-                        processedData = processedData.map((item) => item.id === delta.data.id ? Object.assign(Object.assign({}, item), delta.data) : item);
-                        break;
-                    case 'delete':
-                        processedData = processedData.filter((item) => item.id !== delta.data.id);
-                        break;
+                    }
+                    break;
                 }
+                case 'update':
+                    processedData = processedData.map((item) => item.id === delta.data.id ? Object.assign(Object.assign({}, item), delta.data) : item);
+                    break;
+                case 'delete':
+                    processedData = processedData.filter((item) => item.id !== delta.data.id);
+                    break;
             }
         }
         return processedData;
@@ -197,4 +161,8 @@ export function useHarmonics(tableName) {
         lastUpdate: tableState.lastUpdate,
         actions,
     };
+}
+export function useChorusStatus(tableName) {
+    const { tables } = useChorus();
+    return tables[tableName] || { lastUpdate: null, isLoading: false, error: null };
 }
