@@ -45,12 +45,11 @@ export default function Dashboard() {
         error: messagesError,
         lastUpdate: messagesLastUpdate,
         actions: messageActions,
-    } = useHarmonics<Message, { platformId: string; message: string }>('messages', async (table) => {
-        if (selectedPlatform) {
-            return table.where('platform_id').equals(selectedPlatform);
-        }
-        return table;
-    });
+    } = useHarmonics<Message, { platformId: string; message: string }>('messages', async (table) =>
+        selectedPlatform
+            ? table.where('platform_id').equals(selectedPlatform)
+            : table
+    );
 
     // Sync platforms with the server
     const {
