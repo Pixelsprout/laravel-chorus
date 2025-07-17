@@ -8,6 +8,8 @@ export interface HarmonicEvent {
     created_at?: string;
     updated_at?: string;
     processed_at?: string;
+    rejected?: boolean;
+    rejected_reason?: string;
 }
 export interface TableState {
     lastUpdate: Date | null;
@@ -25,4 +27,5 @@ export interface ChorusOptions {
     channelFormat?: string;
     eventName?: string;
     debug?: boolean;
+    onRejectedHarmonic?: (harmonic: HarmonicEvent) => void;
 }

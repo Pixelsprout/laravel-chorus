@@ -27,6 +27,7 @@ interface ChorusProviderProps {
   userId?: number;
   channelPrefix?: string;
   schema?: Record<string, any>;
+  onRejectedHarmonic?: (harmonic: HarmonicEvent) => void;
 }
 
 const HarmonicListener: React.FC<{
@@ -44,11 +45,13 @@ export function ChorusProvider({
   userId,
   channelPrefix,
   schema,
+  onRejectedHarmonic,
 }: ChorusProviderProps) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [tables, setTables] = useState<Record<string, TableState>>({});
 
   const handleHarmonicEvent = async (event: HarmonicEvent) => {
+    console.log("Harmonic event", event);
     if (!chorusCore.getIsInitialized()) return;
 
     const db = chorusCore.getDb();
@@ -56,6 +59,54 @@ export function ChorusProvider({
 
     // Process the harmonic first to update the main table
     await chorusCore.processHarmonic(event);
+
+    // If this is a rejected harmonic, we need to update the delta status and remove from shadow
+    if (event.rejected) {
+      // Find and update the corresponding delta to mark it as rejected
+      if (event.data) {
+        try {
+          const eventData = event.data === 'string' ? JSON.parse(event.data) : event.data;
+          if (eventData.id) {
+            // Find all tables to check for matching deltas
+            const tableNames = Object.keys(chorusCore.getAllTableStates());
+            for (const tableName of tableNames) {
+              const deltaTableName = `${tableName}_deltas`;
+              const shadowTableName = `${tableName}_shadow`;
+              const deltaTable = db.table(deltaTableName);
+              const shadowTable = db.table(shadowTableName);
+              
+              const pendingDeltas = await deltaTable
+                .where("sync_status")
+                .equals("pending")
+                .toArray();
+              
+              for (const delta of pendingDeltas) {
+                if (delta.data?.id === eventData.id) {
+                  // Mark delta as rejected (keeping it as a log)
+                  await deltaTable.update(delta.id, { 
+                    sync_status: "rejected",
+                    rejected_reason: event.rejected_reason 
+                  });
+                  
+                  // Remove the item from shadow table so it disappears from UI
+                  await shadowTable.delete(eventData.id);
+                  break;
+                }
+              }
+            }
+          }
+        } catch (err) {
+          // Only log DatabaseClosedError as warning, others as errors
+          if (err instanceof Error && err.name === 'DatabaseClosedError') {
+            console.warn('Database was closed during rejected delta processing:', err.message);
+          } else {
+            console.error('Failed to update rejected delta:', err);
+          }
+        }
+      }
+      setTables(chorusCore.getAllTableStates());
+      return;
+    }
 
     // Now, find the matching pending delta and mark it as synced
     const deltaTableName = `${event.table_name}_deltas`;
@@ -71,8 +122,14 @@ export function ChorusProvider({
     for (const delta of pendingDeltas) {
       if (delta.data.id === eventData.id) {
         try {
-          await deltaTable.update(delta.id, { sync_status: "synced" });
-          await shadowTable.delete(delta.data.id);
+          const syncStatus = event.rejected ? "rejected" : "synced";
+          await deltaTable.update(delta.id, { 
+            sync_status: syncStatus,
+            rejected_reason: event.rejected_reason 
+          });
+          if (!event.rejected) {
+            await shadowTable.delete(delta.data.id);
+          }
         } catch (err) {
           console.error(`[Chorus] Failed to update delta ${delta.id}:`, err);
         }
@@ -88,7 +145,7 @@ export function ChorusProvider({
     let isCancelled = false;
     const initialize = async () => {
       chorusCore.reset();
-      chorusCore.setup(userId ?? "guest", schema ?? {});
+      chorusCore.setup(userId ?? "guest", schema ?? {}, onRejectedHarmonic);
       await chorusCore.initializeTables();
       if (!isCancelled) {
         setIsInitialized(chorusCore.getIsInitialized());
@@ -100,7 +157,7 @@ export function ChorusProvider({
       isCancelled = true;
       chorusCore.reset();
     };
-  }, [userId, channelPrefix, schema]);
+  }, [userId, channelPrefix, schema, onRejectedHarmonic]);
 
   const contextValue = useMemo(() => ({
     isInitialized,
@@ -138,9 +195,9 @@ export interface HarmonicResponse<T, TInput = never> {
   actions: HarmonicActions<T, TInput>;
 }
 
-export function useHarmonics<T extends { id: any }, TInput = never>(
+export function useHarmonics<T extends { id: string | number}, TInput = never>(
   tableName: string,
-  query?: (table: Table<T>) => Promise<T[]>,
+  query?: (table: Table<T>) => Table<T> | Collection<T, any>,
 ): HarmonicResponse<T, TInput> {
   const shadowTableName = `${tableName}_shadow`;
   const deltaTableName = `${tableName}_deltas`;
@@ -158,17 +215,18 @@ export function useHarmonics<T extends { id: any }, TInput = never>(
 
     if (!mainCollection || !shadowCollection) return [];
 
-    const mainQuery = query ?
-        await query(mainCollection)
-        : mainCollection;
-
-    const shadowQuery = query
-      ? await query(shadowCollection)
-      : shadowCollection;
-
     const toArray = async (result: any): Promise<T[]> => {
-      return Array.isArray(result) ? result : await result.toArray();
+      if (Array.isArray(result)) {
+        return result;
+      }
+      if (result && typeof result.toArray === 'function') {
+        return await result.toArray();
+      }
+      return result;
     };
+
+    const mainQuery = query ? query(mainCollection) : mainCollection;
+    const shadowQuery = query ? query(shadowCollection) : shadowCollection;
 
     const [mainData, shadowData] = await Promise.all([
       toArray(mainQuery),
@@ -198,7 +256,6 @@ export function useHarmonics<T extends { id: any }, TInput = never>(
         .equals(['delete', 'pending'])
         .toArray();
     const deleteIds = new Set(pendingDeletes.map((delta) => delta.data.id));
-
     return merged.filter((item) => !deleteIds.has(item.id));
   }, [tableName, query, tableState.lastUpdate]);
 

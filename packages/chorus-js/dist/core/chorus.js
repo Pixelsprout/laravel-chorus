@@ -28,6 +28,7 @@ export class ChorusCore {
         this.isInitialized = false;
         this.tableStates = {};
         this.userId = null;
+        this.processedRejectedHarmonics = new Set();
         this.tableNames = [];
     }
     /**
@@ -47,8 +48,9 @@ export class ChorusCore {
     /**
      * Set up the ChorusCore with a userId and schema
      */
-    setup(userId, schema) {
+    setup(userId, schema, onRejectedHarmonic) {
         this.userId = userId;
+        this.onRejectedHarmonic = onRejectedHarmonic;
         const dbName = `chorus_db_${userId || "guest"}`;
         this.db = createChorusDb(dbName);
         this.tableNames = Object.keys(schema || {});
@@ -105,6 +107,16 @@ export class ChorusCore {
             const errors = [];
             for (const harmonic of harmonics) {
                 try {
+                    // Handle rejected harmonics
+                    if (harmonic.rejected) {
+                        this.log(`Processing rejected harmonic: ${harmonic.rejected_reason}`, harmonic);
+                        // Only call callback if we haven't processed this rejected harmonic before
+                        if (this.onRejectedHarmonic && !this.processedRejectedHarmonics.has(harmonic.id)) {
+                            this.processedRejectedHarmonics.add(harmonic.id);
+                            this.onRejectedHarmonic(harmonic);
+                        }
+                        continue;
+                    }
                     const data = JSON.parse(harmonic.data);
                     switch (harmonic.operation) {
                         case "create":
@@ -160,6 +172,18 @@ export class ChorusCore {
      */
     processHarmonic(event) {
         return __awaiter(this, void 0, void 0, function* () {
+            // Handle rejected harmonics
+            if (event.rejected) {
+                this.log(`Processing rejected harmonic: ${event.rejected_reason}`, event);
+                // Only call callback if we haven't processed this rejected harmonic before
+                if (this.onRejectedHarmonic && !this.processedRejectedHarmonics.has(event.id)) {
+                    this.processedRejectedHarmonics.add(event.id);
+                    this.onRejectedHarmonic(event);
+                }
+                // Save the latest harmonic ID even for rejected events
+                this.saveLatestHarmonicId(event.id);
+                return true;
+            }
             const tableName = event.table_name;
             try {
                 const data = JSON.parse(event.data);
@@ -248,7 +272,6 @@ export class ChorusCore {
                     if (!response.ok) {
                         const errorText = yield response.text();
                         console.error("Error response body:", errorText);
-                        throw new Error(`Failed to fetch data: ${response.status} ${response.statusText}`);
                     }
                     const responseData = yield response.json();
                     // Save latest harmonic ID - only update if it's newer than our current one

@@ -8,6 +8,8 @@ export interface HarmonicEvent {
     created_at?: string;
     updated_at?: string;
     processed_at?: string;
+    rejected?: boolean;
+    rejected_reason?: string;
 }
 export interface TableState {
     lastUpdate: Date | null;
@@ -27,6 +29,8 @@ export declare class ChorusCore {
     private isInitialized;
     private tableStates;
     private userId;
+    private onRejectedHarmonic?;
+    private processedRejectedHarmonics;
     constructor();
     /**
      * Reset the ChorusCore state
@@ -35,7 +39,7 @@ export declare class ChorusCore {
     /**
      * Set up the ChorusCore with a userId and schema
      */
-    setup(userId: string | number, schema: Record<string, any>): void;
+    setup(userId: string | number, schema: Record<string, any>, onRejectedHarmonic?: (harmonic: HarmonicEvent) => void): void;
     /**
      * Simple logging utility
      */

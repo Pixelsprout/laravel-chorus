@@ -14,7 +14,8 @@ import { useForm } from '@tanstack/react-form';
 import createMessageAction from '@/actions/App/Actions/CreateMessage';
 import { uuidv7 } from 'uuidv7';
 import type { AnyFieldApi } from '@tanstack/react-form';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRejectedHarmonics } from '@/contexts/RejectedHarmonicsContext';
 
 function FieldInfo({ field }: { field: AnyFieldApi }) {
     return (
@@ -34,9 +35,17 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function Dashboard() {
+function DashboardContent() {
     const { auth, tenantName } = usePage().props;
     const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
+    const { notifications: rejectedNotifications, clearAllNotifications } = useRejectedHarmonics();
+
+    // Only log when notifications change (for debugging)
+    useEffect(() => {
+        if (rejectedNotifications.length > 0) {
+            console.log('Dashboard - New rejected notifications:', rejectedNotifications.length);
+        }
+    }, [rejectedNotifications.length]);
 
     // Sync messages with the server
     const {
@@ -45,7 +54,7 @@ export default function Dashboard() {
         error: messagesError,
         lastUpdate: messagesLastUpdate,
         actions: messageActions,
-    } = useHarmonics<Message, { platformId: string; message: string }>('messages', async (table) =>
+    } = useHarmonics<Message, { platformId: string; message: string }>('messages', (table) =>
         selectedPlatform
             ? table.where('platform_id').equals(selectedPlatform)
             : table
@@ -137,20 +146,81 @@ export default function Dashboard() {
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <>
             <Head title={`${tenantName}: Messages Dashboard`} />
             <div className="p-6">
-                <div className="mb-6 flex items-center justify-between">
+                <div className="mb-6 flex flex-wrap gap-y-2 items-center justify-between">
                     <h1 className="text-2xl font-bold">Hi {auth.user.name}</h1>
-                    <h2 className="text-xl font-semibold">{tenantName}: Messages Dashboard</h2>
-                    {/* Sync status */}
-                    {messagesLastUpdate && (
-                        <div className="text-muted-foreground flex items-center text-sm">
-                            <ClockIcon className="mr-1 h-3 w-3" />
-                            Last synchronized: {messagesLastUpdate.toLocaleTimeString()}
-                        </div>
-                    )}
+                    <div>
+                        <h2 className="text-xl font-semibold">{tenantName}: Messages Dashboard</h2>
+                        {/* Sync status */}
+                        {messagesLastUpdate && (
+                            <div className="text-muted-foreground flex flex-wrap items-center text-sm">
+
+                                <ClockIcon className="mr-1 h-3 w-3" />
+                                Last synchronized: {messagesLastUpdate.toLocaleTimeString()}
+                            </div>
+                        )}
+                    </div>
                 </div>
+
+                {/* Rejected Operations Section */}
+                {rejectedNotifications.length > 0 && (
+                    <Card className="mb-6 border-destructive-foreground">
+                        <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-destructive-foreground">Failed Operations ({rejectedNotifications.length})</CardTitle>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={clearAllNotifications}
+                                    className="text-xs"
+                                >
+                                    Clear All
+                                </Button>
+                            </div>
+                            <CardDescription>
+                                These operations failed due to validation or permission issues.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <ul className="divide-border divide-y">
+                                {rejectedNotifications.slice(0, 5).map((notification) => (
+                                    <li key={notification.id} className="p-4">
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex-1">
+                                                <p className="text-sm font-medium text-destructive-foreground">
+                                                    {notification.message}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                    {notification.timestamp.toLocaleString()} • Type: {notification.type}
+                                                </p>
+                                                {notification.harmonic.data && (
+                                                    <details className="mt-2">
+                                                        <summary className="text-xs cursor-pointer text-muted-foreground hover:text-foreground">
+                                                            Show original data
+                                                        </summary>
+                                                        <pre className="text-xs bg-muted p-2 rounded mt-1 overflow-auto">
+                                                            {JSON.stringify(
+                                                                notification.harmonic.data
+                                                                    ? (typeof notification.harmonic.data === 'string'
+                                                                        ? JSON.parse(notification.harmonic.data)
+                                                                        : notification.harmonic.data)
+                                                                    : {},
+                                                                null,
+                                                                2
+                                                            )}
+                                                        </pre>
+                                                    </details>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* New message form */}
                 <Card className="mb-8">
@@ -226,7 +296,7 @@ export default function Dashboard() {
                             </div>
                         </form>
                     </CardContent>
-                    <CardFooter>
+                    <CardFooter className="flex gap-2">
                         <createMessageForm.Subscribe
                             selector={(state) => [state.canSubmit, state.isSubmitting]}
                             children={([canSubmit, isSubmitting]) => (
@@ -238,6 +308,42 @@ export default function Dashboard() {
                                     >
                                         <SendIcon className="mr-2 h-4 w-4" />
                                         {isSubmitting ? 'Sending...' : 'Send message'}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => {
+                                            // Test rejected harmonic by sending invalid data
+                                            if (messageActions.create) {
+                                                const now = new Date();
+                                                const invalidMessage: Message = {
+                                                    id: uuidv7(),
+                                                    body: '', // This will fail validation
+                                                    platform_id: 'invalid-platform-id', // This will also fail
+                                                    tenant_id: auth.user.tenant_id,
+                                                    user_id: auth.user.id,
+                                                    created_at: now,
+                                                    updated_at: now,
+                                                };
+
+                                                messageActions.create(invalidMessage, async (data: Message) => {
+                                                    router.post(
+                                                        createMessageAction.post().url,
+                                                        {
+                                                            id: data.id,
+                                                            message: data.body,
+                                                            platformId: data.platform_id,
+                                                        },
+                                                        {
+                                                            preserveScroll: true,
+                                                        }
+                                                    );
+                                                });
+                                            }
+                                        }}
+                                        className="text-xs"
+                                    >
+                                        Test Rejection
                                     </Button>
                                 </>
                             )}
@@ -330,6 +436,14 @@ export default function Dashboard() {
                     </div>
                 )}
             </div>
+        </>
+    );
+}
+
+export default function Dashboard() {
+    return (
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <DashboardContent />
         </AppLayout>
     );
 }
