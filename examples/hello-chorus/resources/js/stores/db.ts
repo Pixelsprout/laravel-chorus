@@ -1,5 +1,6 @@
 // db.ts
 import { ChorusDatabase, createChorusDb } from '@/chorus';
+import Dexie from 'dexie';
 
 interface User {
     id: number;

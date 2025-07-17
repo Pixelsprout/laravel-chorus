@@ -10,10 +10,11 @@ import { type BreadcrumbItem } from '@/types';
 import { useHarmonics } from '@chorus/js';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ClockIcon, SendIcon } from 'lucide-react';
-import { useForm } from '@tanstack/react-form'
+import { useForm } from '@tanstack/react-form';
 import createMessageAction from '@/actions/App/Actions/CreateMessage';
 import { uuidv7 } from 'uuidv7';
-import type { AnyFieldApi } from '@tanstack/react-form'
+import type { AnyFieldApi } from '@tanstack/react-form';
+import { useState } from 'react';
 
 function FieldInfo({ field }: { field: AnyFieldApi }) {
     return (
@@ -23,7 +24,7 @@ function FieldInfo({ field }: { field: AnyFieldApi }) {
             ) : null}
             {field.state.meta.isValidating ? 'Validating...' : null}
         </>
-    )
+    );
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -35,17 +36,21 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function Dashboard() {
     const { auth, tenantName } = usePage().props;
+    const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
+
     // Sync messages with the server
     const {
         data: messages,
         isLoading: messagesLoading,
         error: messagesError,
         lastUpdate: messagesLastUpdate,
-        actions: messageActions
-    } = useHarmonics<Message, { platformId: string; message: string; }>('messages', table => {
-         return table.where('id').equals('0198157f-61ed-71f8-8819-d902d9894b77')
-       }
-    );
+        actions: messageActions,
+    } = useHarmonics<Message, { platformId: string; message: string }>('messages', async (table) => {
+        if (selectedPlatform) {
+            return table.where('platform_id').equals(selectedPlatform);
+        }
+        return table;
+    });
 
     // Sync platforms with the server
     const {
@@ -86,17 +91,17 @@ export default function Dashboard() {
                 };
 
                 messageActions.create(optimisticMessage, async (data: Message) => {
-                    // router.post(
-                    //     createMessageAction.post().url,
-                    //     {
-                    //         id: data.id,
-                    //         message: data.body,
-                    //         platformId: data.platform_id,
-                    //     },
-                    //     {
-                    //         preserveScroll: true,
-                    //     }
-                    // );
+                    router.post(
+                        createMessageAction.post().url,
+                        {
+                            id: data.id,
+                            message: data.body,
+                            platformId: data.platform_id,
+                        },
+                        {
+                            preserveScroll: true,
+                        }
+                    );
 
                     // clear form
                     formApi.reset();
@@ -240,6 +245,36 @@ export default function Dashboard() {
                         />
                     </CardFooter>
                 </Card>
+
+                {/* Filter section */}
+                <div className="mb-4 flex justify-end">
+                    <div className="w-full max-w-xs">
+                        <Label htmlFor="platform-filter">Filter by Platform</Label>
+                        <Select value={selectedPlatform || 'all'} onValueChange={(value) => setSelectedPlatform(value === 'all' ? null : value)} disabled={platformsLoading}>
+                            <SelectTrigger id="platform-filter">
+                                <SelectValue placeholder="Filter by platform" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Platforms</SelectItem>
+                                {platformsError ? (
+                                    <SelectItem value="error" disabled>
+                                        Error loading platforms
+                                    </SelectItem>
+                                ) : platforms?.length ? (
+                                    platforms.map((platform) => (
+                                        <SelectItem key={platform.id} value={platform.id}>
+                                            {platform.name}
+                                        </SelectItem>
+                                    ))
+                                ) : (
+                                    <SelectItem value="none" disabled>
+                                        No platforms available
+                                    </SelectItem>
+                                )}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
 
                 {/* Messages list */}
                 {messagesLoading || platformsLoading ? (
