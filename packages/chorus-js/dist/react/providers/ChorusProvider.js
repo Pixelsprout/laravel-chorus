@@ -25,10 +25,11 @@ const HarmonicListener = ({ channel, onEvent }) => {
     });
     return null;
 };
-export function ChorusProvider({ children, userId, channelPrefix, schema, }) {
+export function ChorusProvider({ children, userId, channelPrefix, schema, onRejectedHarmonic, }) {
     const [isInitialized, setIsInitialized] = useState(false);
     const [tables, setTables] = useState({});
     const handleHarmonicEvent = (event) => __awaiter(this, void 0, void 0, function* () {
+        console.log("Harmonic event", event);
         if (!chorusCore.getIsInitialized())
             return;
         const db = chorusCore.getDb();
@@ -36,6 +37,11 @@ export function ChorusProvider({ children, userId, channelPrefix, schema, }) {
             return;
         // Process the harmonic first to update the main table
         yield chorusCore.processHarmonic(event);
+        // If this is a rejected harmonic, we don't need to process deltas
+        if (event.rejected) {
+            setTables(chorusCore.getAllTableStates());
+            return;
+        }
         // Now, find the matching pending delta and mark it as synced
         const deltaTableName = `${event.table_name}_deltas`;
         const shadowTableName = `${event.table_name}_shadow`;
@@ -49,8 +55,15 @@ export function ChorusProvider({ children, userId, channelPrefix, schema, }) {
         for (const delta of pendingDeltas) {
             if (delta.data.id === eventData.id) {
                 try {
-                    yield deltaTable.update(delta.id, { sync_status: "synced" });
-                    yield shadowTable.delete(delta.data.id);
+                    const syncStatus = event.rejected ? "rejected" : "synced";
+                    yield deltaTable.update(delta.id, {
+                        sync_status: syncStatus,
+                        rejected_reason: event.rejected_reason
+                    });
+                    console.log("Event is: ", event.rejected, event.rejected_reason);
+                    if (!event.rejected) {
+                        yield shadowTable.delete(delta.data.id);
+                    }
                 }
                 catch (err) {
                     console.error(`[Chorus] Failed to update delta ${delta.id}:`, err);
@@ -65,7 +78,7 @@ export function ChorusProvider({ children, userId, channelPrefix, schema, }) {
         let isCancelled = false;
         const initialize = () => __awaiter(this, void 0, void 0, function* () {
             chorusCore.reset();
-            chorusCore.setup(userId !== null && userId !== void 0 ? userId : "guest", schema !== null && schema !== void 0 ? schema : {});
+            chorusCore.setup(userId !== null && userId !== void 0 ? userId : "guest", schema !== null && schema !== void 0 ? schema : {}, onRejectedHarmonic);
             yield chorusCore.initializeTables();
             if (!isCancelled) {
                 setIsInitialized(chorusCore.getIsInitialized());
@@ -77,7 +90,7 @@ export function ChorusProvider({ children, userId, channelPrefix, schema, }) {
             isCancelled = true;
             chorusCore.reset();
         };
-    }, [userId, channelPrefix, schema]);
+    }, [userId, channelPrefix, schema, onRejectedHarmonic]);
     const contextValue = useMemo(() => ({
         isInitialized,
         tables,
@@ -105,15 +118,17 @@ export function useHarmonics(tableName, query) {
         const shadowCollection = (_b = chorusCore.getDb()) === null || _b === void 0 ? void 0 : _b.table(shadowTableName);
         if (!mainCollection || !shadowCollection)
             return [];
-        const mainQuery = query ?
-            yield query(mainCollection)
-            : mainCollection;
-        const shadowQuery = query
-            ? yield query(shadowCollection)
-            : shadowCollection;
         const toArray = (result) => __awaiter(this, void 0, void 0, function* () {
-            return Array.isArray(result) ? result : yield result.toArray();
+            if (Array.isArray(result)) {
+                return result;
+            }
+            if (result && typeof result.toArray === 'function') {
+                return yield result.toArray();
+            }
+            return result;
         });
+        const mainQuery = query ? query(mainCollection) : mainCollection;
+        const shadowQuery = query ? query(shadowCollection) : shadowCollection;
         const [mainData, shadowData] = yield Promise.all([
             toArray(mainQuery),
             toArray(shadowQuery)

@@ -11,6 +11,8 @@ export interface HarmonicEvent {
     created_at?: string;
     updated_at?: string;
     processed_at?: string;
+    rejected?: boolean;
+    rejected_reason?: string;
 }
 
 // Define table status state
@@ -39,4 +41,5 @@ export interface ChorusOptions {
     channelFormat?: string;
     eventName?: string;
     debug?: boolean;
+    onRejectedHarmonic?: (harmonic: HarmonicEvent) => void;
 }

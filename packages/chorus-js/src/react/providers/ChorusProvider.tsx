@@ -27,6 +27,7 @@ interface ChorusProviderProps {
   userId?: number;
   channelPrefix?: string;
   schema?: Record<string, any>;
+  onRejectedHarmonic?: (harmonic: HarmonicEvent) => void;
 }
 
 const HarmonicListener: React.FC<{
@@ -44,11 +45,13 @@ export function ChorusProvider({
   userId,
   channelPrefix,
   schema,
+  onRejectedHarmonic,
 }: ChorusProviderProps) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [tables, setTables] = useState<Record<string, TableState>>({});
 
   const handleHarmonicEvent = async (event: HarmonicEvent) => {
+    console.log("Harmonic event", event);
     if (!chorusCore.getIsInitialized()) return;
 
     const db = chorusCore.getDb();
@@ -56,6 +59,12 @@ export function ChorusProvider({
 
     // Process the harmonic first to update the main table
     await chorusCore.processHarmonic(event);
+
+    // If this is a rejected harmonic, we don't need to process deltas
+    if (event.rejected) {
+      setTables(chorusCore.getAllTableStates());
+      return;
+    }
 
     // Now, find the matching pending delta and mark it as synced
     const deltaTableName = `${event.table_name}_deltas`;
@@ -71,8 +80,15 @@ export function ChorusProvider({
     for (const delta of pendingDeltas) {
       if (delta.data.id === eventData.id) {
         try {
-          await deltaTable.update(delta.id, { sync_status: "synced" });
-          await shadowTable.delete(delta.data.id);
+          const syncStatus = event.rejected ? "rejected" : "synced";
+          await deltaTable.update(delta.id, { 
+            sync_status: syncStatus,
+            rejected_reason: event.rejected_reason 
+          });
+          console.log("Event is: ", event.rejected, event.rejected_reason);
+          if (!event.rejected) {
+            await shadowTable.delete(delta.data.id);
+          }
         } catch (err) {
           console.error(`[Chorus] Failed to update delta ${delta.id}:`, err);
         }
@@ -88,7 +104,7 @@ export function ChorusProvider({
     let isCancelled = false;
     const initialize = async () => {
       chorusCore.reset();
-      chorusCore.setup(userId ?? "guest", schema ?? {});
+      chorusCore.setup(userId ?? "guest", schema ?? {}, onRejectedHarmonic);
       await chorusCore.initializeTables();
       if (!isCancelled) {
         setIsInitialized(chorusCore.getIsInitialized());
@@ -100,7 +116,7 @@ export function ChorusProvider({
       isCancelled = true;
       chorusCore.reset();
     };
-  }, [userId, channelPrefix, schema]);
+  }, [userId, channelPrefix, schema, onRejectedHarmonic]);
 
   const contextValue = useMemo(() => ({
     isInitialized,
@@ -138,9 +154,9 @@ export interface HarmonicResponse<T, TInput = never> {
   actions: HarmonicActions<T, TInput>;
 }
 
-export function useHarmonics<T extends { id: any }, TInput = never>(
+export function useHarmonics<T extends { id: string | number}, TInput = never>(
   tableName: string,
-  query?: (table: Table<T>) => Promise<T[]>,
+  query?: (table: Table<T>) => Table<T> | Collection<T, any>,
 ): HarmonicResponse<T, TInput> {
   const shadowTableName = `${tableName}_shadow`;
   const deltaTableName = `${tableName}_deltas`;
@@ -158,17 +174,18 @@ export function useHarmonics<T extends { id: any }, TInput = never>(
 
     if (!mainCollection || !shadowCollection) return [];
 
-    const mainQuery = query ?
-        await query(mainCollection)
-        : mainCollection;
-
-    const shadowQuery = query
-      ? await query(shadowCollection)
-      : shadowCollection;
-
     const toArray = async (result: any): Promise<T[]> => {
-      return Array.isArray(result) ? result : await result.toArray();
+      if (Array.isArray(result)) {
+        return result;
+      }
+      if (result && typeof result.toArray === 'function') {
+        return await result.toArray();
+      }
+      return result;
     };
+
+    const mainQuery = query ? query(mainCollection) : mainCollection;
+    const shadowQuery = query ? query(shadowCollection) : shadowCollection;
 
     const [mainData, shadowData] = await Promise.all([
       toArray(mainQuery),
