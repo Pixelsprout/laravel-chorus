@@ -1,5 +1,6 @@
 import { TableState } from "../../core/chorus";
 import React from "react";
+import { Table } from "dexie";
 interface ChorusContextState {
     isInitialized: boolean;
     tables: Record<string, TableState>;
@@ -29,6 +30,8 @@ export interface HarmonicResponse<T, TInput = never> {
     lastUpdate: Date | null;
     actions: HarmonicActions<T, TInput>;
 }
-export declare function useHarmonics<T, TInput = never>(tableName: string): HarmonicResponse<T, TInput>;
+export declare function useHarmonics<T extends {
+    id: any;
+}, TInput = never>(tableName: string, query?: (table: Table<T>) => Promise<T[]>): HarmonicResponse<T, TInput>;
 export declare function useChorusStatus(tableName: string): TableState;
 export {};

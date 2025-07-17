@@ -38,13 +38,19 @@ export function ChorusProvider({ children, userId, channelPrefix, schema, }) {
         yield chorusCore.processHarmonic(event);
         // Now, find the matching pending delta and mark it as synced
         const deltaTableName = `${event.table_name}_deltas`;
+        const shadowTableName = `${event.table_name}_shadow`;
         const deltaTable = db.table(deltaTableName);
+        const shadowTable = db.table(shadowTableName);
         const eventData = JSON.parse(event.data);
-        const pendingDeltas = yield deltaTable.where('sync_status').equals('pending').toArray();
+        const pendingDeltas = yield deltaTable
+            .where("sync_status")
+            .equals("pending")
+            .toArray();
         for (const delta of pendingDeltas) {
             if (delta.data.id === eventData.id) {
                 try {
-                    yield deltaTable.update(delta.id, { sync_status: 'synced' });
+                    yield deltaTable.update(delta.id, { sync_status: "synced" });
+                    yield shadowTable.delete(delta.data.id);
                 }
                 catch (err) {
                     console.error(`[Chorus] Failed to update delta ${delta.id}:`, err);
@@ -84,75 +90,106 @@ export function ChorusProvider({ children, userId, channelPrefix, schema, }) {
 export function useChorus() {
     return useContext(ChorusContext);
 }
-export function useHarmonics(tableName) {
+export function useHarmonics(tableName, query) {
+    const shadowTableName = `${tableName}_shadow`;
     const deltaTableName = `${tableName}_deltas`;
-    const data = useLiveQuery(() => { var _a, _b; return (_b = (_a = chorusCore.getDb()) === null || _a === void 0 ? void 0 : _a.table(tableName).toArray()) !== null && _b !== void 0 ? _b : []; }, [tableName]);
-    const optimisticData = useLiveQuery(() => { var _a, _b; return (_b = (_a = chorusCore.getDb()) === null || _a === void 0 ? void 0 : _a.table(deltaTableName).toArray()) !== null && _b !== void 0 ? _b : []; }, [deltaTableName]);
     const { tables } = useChorus();
-    const tableState = tables[tableName] || { lastUpdate: null, isLoading: false, error: null };
+    const tableState = tables[tableName] || {
+        lastUpdate: null,
+        isLoading: false,
+        error: null,
+    };
+    const data = useLiveQuery(() => __awaiter(this, void 0, void 0, function* () {
+        var _a, _b, _c;
+        const mainCollection = (_a = chorusCore.getDb()) === null || _a === void 0 ? void 0 : _a.table(tableName);
+        const shadowCollection = (_b = chorusCore.getDb()) === null || _b === void 0 ? void 0 : _b.table(shadowTableName);
+        if (!mainCollection || !shadowCollection)
+            return [];
+        const mainQuery = query ?
+            yield query(mainCollection)
+            : mainCollection;
+        const shadowQuery = query
+            ? yield query(shadowCollection)
+            : shadowCollection;
+        const toArray = (result) => __awaiter(this, void 0, void 0, function* () {
+            return Array.isArray(result) ? result : yield result.toArray();
+        });
+        const [mainData, shadowData] = yield Promise.all([
+            toArray(mainQuery),
+            toArray(shadowQuery)
+        ]);
+        const shadowDataMap = new Map((shadowData !== null && shadowData !== void 0 ? shadowData : []).map((item) => [item.id, item]));
+        const merged = (mainData !== null && mainData !== void 0 ? mainData : []).map((item) => shadowDataMap.has(item.id) ? shadowDataMap.get(item.id) : item);
+        const mainDataIds = new Set((mainData !== null && mainData !== void 0 ? mainData : []).map((item) => item.id));
+        if (shadowData && shadowData.length) {
+            for (const item of shadowData) {
+                if (!mainDataIds.has(item.id)) {
+                    merged.push(item);
+                }
+            }
+        }
+        const deltaTable = (_c = chorusCore.getDb()) === null || _c === void 0 ? void 0 : _c.table(deltaTableName);
+        if (!deltaTable)
+            return merged;
+        const pendingDeletes = yield deltaTable
+            .where('[operation+sync_status]')
+            .equals(['delete', 'pending'])
+            .toArray();
+        const deleteIds = new Set(pendingDeletes.map((delta) => delta.data.id));
+        return merged.filter((item) => !deleteIds.has(item.id));
+    }), [tableName, query, tableState.lastUpdate]);
     const actions = {
         create: (data, sideEffect) => __awaiter(this, void 0, void 0, function* () {
             const db = chorusCore.getDb();
             if (!db)
                 return;
+            const shadowTable = db.table(shadowTableName);
             const deltaTable = db.table(deltaTableName);
-            yield deltaTable.add({ operation: 'create', data, sync_status: 'pending' });
+            yield shadowTable.add(data);
+            yield deltaTable.add({
+                operation: "create",
+                data,
+                sync_status: "pending",
+            });
             if (sideEffect) {
-                sideEffect(data).catch(error => console.error('[Chorus] Side effect for create failed:', error));
+                sideEffect(data).catch((error) => console.error("[Chorus] Side effect for create failed:", error));
             }
         }),
         update: (data, sideEffect) => __awaiter(this, void 0, void 0, function* () {
             const db = chorusCore.getDb();
             if (!db)
                 return;
+            const shadowTable = db.table(shadowTableName);
             const deltaTable = db.table(deltaTableName);
-            yield deltaTable.add({ operation: 'update', data, sync_status: 'pending' });
+            yield shadowTable.put(data);
+            yield deltaTable.add({
+                operation: "update",
+                data,
+                sync_status: "pending",
+            });
             if (sideEffect) {
-                sideEffect(data).catch(error => console.error('[Chorus] Side effect for update failed:', error));
+                sideEffect(data).catch((error) => console.error("[Chorus] Side effect for update failed:", error));
             }
         }),
         delete: (data, sideEffect) => __awaiter(this, void 0, void 0, function* () {
             const db = chorusCore.getDb();
             if (!db)
                 return;
+            const shadowTable = db.table(shadowTableName);
             const deltaTable = db.table(deltaTableName);
-            yield deltaTable.add({ operation: 'delete', data, sync_status: 'pending' });
+            yield shadowTable.delete(data.id);
+            yield deltaTable.add({
+                operation: "delete",
+                data,
+                sync_status: "pending",
+            });
             if (sideEffect) {
-                sideEffect(data).catch(error => console.error('[Chorus] Side effect for delete failed:', error));
+                sideEffect(data).catch((error) => console.error("[Chorus] Side effect for delete failed:", error));
             }
         }),
     };
-    const mergedData = useMemo(() => {
-        if (!optimisticData)
-            return data;
-        const pendingDeltas = optimisticData.filter((delta) => delta.sync_status === 'pending');
-        if (pendingDeltas.length === 0)
-            return data;
-        let processedData = [...(data !== null && data !== void 0 ? data : [])];
-        for (const delta of pendingDeltas) {
-            switch (delta.operation) {
-                case 'create': {
-                    const existingIndex = processedData.findIndex((item) => item.id === delta.data.id);
-                    if (existingIndex !== -1) {
-                        processedData[existingIndex] = Object.assign(Object.assign({}, processedData[existingIndex]), delta.data);
-                    }
-                    else {
-                        processedData.push(delta.data);
-                    }
-                    break;
-                }
-                case 'update':
-                    processedData = processedData.map((item) => item.id === delta.data.id ? Object.assign(Object.assign({}, item), delta.data) : item);
-                    break;
-                case 'delete':
-                    processedData = processedData.filter((item) => item.id !== delta.data.id);
-                    break;
-            }
-        }
-        return processedData;
-    }, [data, optimisticData]);
     return {
-        data: mergedData,
+        data,
         isLoading: tableState.isLoading,
         error: tableState.error,
         lastUpdate: tableState.lastUpdate,

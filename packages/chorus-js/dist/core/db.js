@@ -22,14 +22,16 @@ export class ChorusDatabase extends Dexie {
         return this.userId;
     }
     // Initialize schema with a mapping of table names to schema definitions
-    // We are also keeping track of optimistic changes (delta) per table.
+    // We are also keeping track of an optimistic changes (delta) per table.
     initializeSchema(tables) {
         const schemaWithDeltas = {};
         for (const key in tables) {
             if (Object.prototype.hasOwnProperty.call(tables, key)) {
                 schemaWithDeltas[key] = tables[key];
+                // Add a shadow table for local writes.
+                schemaWithDeltas[`${key}_shadow`] = tables[key];
                 schemaWithDeltas[`${key}_deltas`] =
-                    "++id, operation, data, sync_status";
+                    "++id, operation, data, sync_status, [operation+sync_status]";
             }
         }
         this.version(1).stores(schemaWithDeltas);

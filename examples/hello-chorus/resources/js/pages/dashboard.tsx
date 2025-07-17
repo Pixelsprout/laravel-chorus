@@ -42,10 +42,18 @@ export default function Dashboard() {
         error: messagesError,
         lastUpdate: messagesLastUpdate,
         actions: messageActions
-    } = useHarmonics<Message, { platformId: string; message: string; }>('messages');
+    } = useHarmonics<Message, { platformId: string; message: string; }>('messages', table => {
+         return table.where('id').equals('0198157f-61ed-71f8-8819-d902d9894b77')
+       }
+    );
 
     // Sync platforms with the server
-    const { data: platforms, isLoading: platformsLoading, error: platformsError, lastUpdate } = useHarmonics<Platform>('platforms');
+    const {
+        data: platforms,
+        isLoading: platformsLoading,
+        error: platformsError,
+        lastUpdate
+        } = useHarmonics<Platform>('platforms');
 
     // Format the date in a readable format
     const formatDate = (date: Date) => {
@@ -78,17 +86,17 @@ export default function Dashboard() {
                 };
 
                 messageActions.create(optimisticMessage, async (data: Message) => {
-                    router.post(
-                        createMessageAction.post().url,
-                        {
-                            id: data.id,
-                            message: data.body,
-                            platformId: data.platform_id,
-                        },
-                        {
-                            preserveScroll: true,
-                        }
-                    );
+                    // router.post(
+                    //     createMessageAction.post().url,
+                    //     {
+                    //         id: data.id,
+                    //         message: data.body,
+                    //         platformId: data.platform_id,
+                    //     },
+                    //     {
+                    //         preserveScroll: true,
+                    //     }
+                    // );
 
                     // clear form
                     formApi.reset();
