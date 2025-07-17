@@ -60,8 +60,50 @@ export function ChorusProvider({
     // Process the harmonic first to update the main table
     await chorusCore.processHarmonic(event);
 
-    // If this is a rejected harmonic, we don't need to process deltas
+    // If this is a rejected harmonic, we need to update the delta status and remove from shadow
     if (event.rejected) {
+      // Find and update the corresponding delta to mark it as rejected
+      if (event.data) {
+        try {
+          const eventData = event.data === 'string' ? JSON.parse(event.data) : event.data;
+          if (eventData.id) {
+            // Find all tables to check for matching deltas
+            const tableNames = Object.keys(chorusCore.getAllTableStates());
+            for (const tableName of tableNames) {
+              const deltaTableName = `${tableName}_deltas`;
+              const shadowTableName = `${tableName}_shadow`;
+              const deltaTable = db.table(deltaTableName);
+              const shadowTable = db.table(shadowTableName);
+              
+              const pendingDeltas = await deltaTable
+                .where("sync_status")
+                .equals("pending")
+                .toArray();
+              
+              for (const delta of pendingDeltas) {
+                if (delta.data?.id === eventData.id) {
+                  // Mark delta as rejected (keeping it as a log)
+                  await deltaTable.update(delta.id, { 
+                    sync_status: "rejected",
+                    rejected_reason: event.rejected_reason 
+                  });
+                  
+                  // Remove the item from shadow table so it disappears from UI
+                  await shadowTable.delete(eventData.id);
+                  break;
+                }
+              }
+            }
+          }
+        } catch (err) {
+          // Only log DatabaseClosedError as warning, others as errors
+          if (err instanceof Error && err.name === 'DatabaseClosedError') {
+            console.warn('Database was closed during rejected delta processing:', err.message);
+          } else {
+            console.error('Failed to update rejected delta:', err);
+          }
+        }
+      }
       setTables(chorusCore.getAllTableStates());
       return;
     }
@@ -85,7 +127,6 @@ export function ChorusProvider({
             sync_status: syncStatus,
             rejected_reason: event.rejected_reason 
           });
-          console.log("Event is: ", event.rejected, event.rejected_reason);
           if (!event.rejected) {
             await shadowTable.delete(delta.data.id);
           }
@@ -215,7 +256,6 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
         .equals(['delete', 'pending'])
         .toArray();
     const deleteIds = new Set(pendingDeletes.map((delta) => delta.data.id));
-
     return merged.filter((item) => !deleteIds.has(item.id));
   }, [tableName, query, tableState.lastUpdate]);
 

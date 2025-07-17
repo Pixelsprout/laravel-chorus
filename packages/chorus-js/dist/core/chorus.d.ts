@@ -30,6 +30,7 @@ export declare class ChorusCore {
     private tableStates;
     private userId;
     private onRejectedHarmonic?;
+    private processedRejectedHarmonics;
     constructor();
     /**
      * Reset the ChorusCore state

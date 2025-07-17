@@ -28,6 +28,7 @@ export class ChorusCore {
         this.isInitialized = false;
         this.tableStates = {};
         this.userId = null;
+        this.processedRejectedHarmonics = new Set();
         this.tableNames = [];
     }
     /**
@@ -109,7 +110,9 @@ export class ChorusCore {
                     // Handle rejected harmonics
                     if (harmonic.rejected) {
                         this.log(`Processing rejected harmonic: ${harmonic.rejected_reason}`, harmonic);
-                        if (this.onRejectedHarmonic) {
+                        // Only call callback if we haven't processed this rejected harmonic before
+                        if (this.onRejectedHarmonic && !this.processedRejectedHarmonics.has(harmonic.id)) {
+                            this.processedRejectedHarmonics.add(harmonic.id);
                             this.onRejectedHarmonic(harmonic);
                         }
                         continue;
@@ -172,7 +175,9 @@ export class ChorusCore {
             // Handle rejected harmonics
             if (event.rejected) {
                 this.log(`Processing rejected harmonic: ${event.rejected_reason}`, event);
-                if (this.onRejectedHarmonic) {
+                // Only call callback if we haven't processed this rejected harmonic before
+                if (this.onRejectedHarmonic && !this.processedRejectedHarmonics.has(event.id)) {
+                    this.processedRejectedHarmonics.add(event.id);
                     this.onRejectedHarmonic(event);
                 }
                 // Save the latest harmonic ID even for rejected events

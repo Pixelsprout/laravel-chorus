@@ -149,24 +149,27 @@ function DashboardContent() {
         <>
             <Head title={`${tenantName}: Messages Dashboard`} />
             <div className="p-6">
-                <div className="mb-6 flex items-center justify-between">
+                <div className="mb-6 flex flex-wrap gap-y-2 items-center justify-between">
                     <h1 className="text-2xl font-bold">Hi {auth.user.name}</h1>
-                    <h2 className="text-xl font-semibold">{tenantName}: Messages Dashboard</h2>
-                    {/* Sync status */}
-                    {messagesLastUpdate && (
-                        <div className="text-muted-foreground flex items-center text-sm">
-                            <ClockIcon className="mr-1 h-3 w-3" />
-                            Last synchronized: {messagesLastUpdate.toLocaleTimeString()}
-                        </div>
-                    )}
+                    <div>
+                        <h2 className="text-xl font-semibold">{tenantName}: Messages Dashboard</h2>
+                        {/* Sync status */}
+                        {messagesLastUpdate && (
+                            <div className="text-muted-foreground flex flex-wrap items-center text-sm">
+
+                                <ClockIcon className="mr-1 h-3 w-3" />
+                                Last synchronized: {messagesLastUpdate.toLocaleTimeString()}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Rejected Operations Section */}
                 {rejectedNotifications.length > 0 && (
-                    <Card className="mb-6 border-destructive">
+                    <Card className="mb-6 border-destructive-foreground">
                         <CardHeader className="pb-3">
                             <div className="flex items-center justify-between">
-                                <CardTitle className="text-destructive">Failed Operations ({rejectedNotifications.length})</CardTitle>
+                                <CardTitle className="text-destructive-foreground">Failed Operations ({rejectedNotifications.length})</CardTitle>
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -186,7 +189,7 @@ function DashboardContent() {
                                     <li key={notification.id} className="p-4">
                                         <div className="flex items-start justify-between">
                                             <div className="flex-1">
-                                                <p className="text-sm font-medium text-destructive">
+                                                <p className="text-sm font-medium text-destructive-foreground">
                                                     {notification.message}
                                                 </p>
                                                 <p className="text-xs text-muted-foreground mt-1">
@@ -199,12 +202,12 @@ function DashboardContent() {
                                                         </summary>
                                                         <pre className="text-xs bg-muted p-2 rounded mt-1 overflow-auto">
                                                             {JSON.stringify(
-                                                                notification.harmonic.data 
-                                                                    ? (typeof notification.harmonic.data === 'string' 
-                                                                        ? JSON.parse(notification.harmonic.data) 
+                                                                notification.harmonic.data
+                                                                    ? (typeof notification.harmonic.data === 'string'
+                                                                        ? JSON.parse(notification.harmonic.data)
                                                                         : notification.harmonic.data)
-                                                                    : {}, 
-                                                                null, 
+                                                                    : {},
+                                                                null,
                                                                 2
                                                             )}
                                                         </pre>
