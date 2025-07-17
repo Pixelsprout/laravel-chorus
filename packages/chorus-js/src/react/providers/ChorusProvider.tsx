@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { ChorusCore, HarmonicEvent, TableState } from "../../core/chorus";
 
 import React from "react";
+import {Collection, Table} from "dexie";
 
 // Create a new ChorusCore instance
 const chorusCore = new ChorusCore();
@@ -58,19 +59,25 @@ export function ChorusProvider({
 
     // Now, find the matching pending delta and mark it as synced
     const deltaTableName = `${event.table_name}_deltas`;
+    const shadowTableName = `${event.table_name}_shadow`;
     const deltaTable = db.table(deltaTableName);
+    const shadowTable = db.table(shadowTableName);
     const eventData = JSON.parse(event.data as unknown as string);
 
-    const pendingDeltas = await deltaTable.where('sync_status').equals('pending').toArray();
+    const pendingDeltas = await deltaTable
+      .where("sync_status")
+      .equals("pending")
+      .toArray();
     for (const delta of pendingDeltas) {
-        if (delta.data.id === eventData.id) {
-            try {
-                await deltaTable.update(delta.id, { sync_status: 'synced' });
-            } catch (err) {
-                console.error(`[Chorus] Failed to update delta ${delta.id}:`, err);
-            }
-            break; // Exit after finding and processing the match
+      if (delta.data.id === eventData.id) {
+        try {
+          await deltaTable.update(delta.id, { sync_status: "synced" });
+          await shadowTable.delete(delta.data.id);
+        } catch (err) {
+          console.error(`[Chorus] Failed to update delta ${delta.id}:`, err);
         }
+        break; // Exit after finding and processing the match
+      }
     }
 
     // Refresh the UI state
@@ -131,79 +138,126 @@ export interface HarmonicResponse<T, TInput = never> {
   actions: HarmonicActions<T, TInput>;
 }
 
-export function useHarmonics<T, TInput = never>(
-  tableName: string
+export function useHarmonics<T extends { id: any }, TInput = never>(
+  tableName: string,
+  query?: (table: Table<T>) => Promise<T[]>,
 ): HarmonicResponse<T, TInput> {
+  const shadowTableName = `${tableName}_shadow`;
   const deltaTableName = `${tableName}_deltas`;
 
-  const data = useLiveQuery<T[]>(() => chorusCore.getDb()?.table(tableName).toArray() ?? [], [tableName]);
-  const optimisticData = useLiveQuery<any[]>(() => chorusCore.getDb()?.table(deltaTableName).toArray() ?? [], [deltaTableName]);
-
   const { tables } = useChorus();
-  const tableState = tables[tableName] || { lastUpdate: null, isLoading: false, error: null };
+  const tableState = tables[tableName] || {
+    lastUpdate: null,
+    isLoading: false,
+    error: null,
+  };
+
+  const data = useLiveQuery<T[]>(async () => {
+    const mainCollection = chorusCore.getDb()?.table(tableName);
+    const shadowCollection = chorusCore.getDb()?.table(shadowTableName);
+
+    if (!mainCollection || !shadowCollection) return [];
+
+    const mainQuery = query ?
+        await query(mainCollection)
+        : mainCollection;
+
+    const shadowQuery = query
+      ? await query(shadowCollection)
+      : shadowCollection;
+
+    const toArray = async (result: any): Promise<T[]> => {
+      return Array.isArray(result) ? result : await result.toArray();
+    };
+
+    const [mainData, shadowData] = await Promise.all([
+      toArray(mainQuery),
+      toArray(shadowQuery)
+    ]);
+
+    const shadowDataMap = new Map((shadowData ?? []).map((item) => [item.id, item]));
+    const merged = (mainData ?? []).map((item) =>
+        shadowDataMap.has(item.id) ? shadowDataMap.get(item.id)! : item
+    );
+
+    const mainDataIds = new Set((mainData ?? []).map((item) => item.id));
+
+    if(shadowData && shadowData.length) {
+      for (const item of shadowData) {
+        if (!mainDataIds.has(item.id)) {
+          merged.push(item);
+        }
+      }
+    }
+
+    const deltaTable = chorusCore.getDb()?.table(deltaTableName);
+    if (!deltaTable) return merged;
+
+    const pendingDeletes = await deltaTable
+        .where('[operation+sync_status]')
+        .equals(['delete', 'pending'])
+        .toArray();
+    const deleteIds = new Set(pendingDeletes.map((delta) => delta.data.id));
+
+    return merged.filter((item) => !deleteIds.has(item.id));
+  }, [tableName, query, tableState.lastUpdate]);
 
   const actions: HarmonicActions<T, TInput> = {
     create: async (data, sideEffect) => {
       const db = chorusCore.getDb();
       if (!db) return;
+      const shadowTable = db.table(shadowTableName);
       const deltaTable = db.table(deltaTableName);
-      await deltaTable.add({ operation: 'create', data, sync_status: 'pending' });
+      await shadowTable.add(data);
+      await deltaTable.add({
+        operation: "create",
+        data,
+        sync_status: "pending",
+      });
       if (sideEffect) {
-        sideEffect(data).catch(error => console.error('[Chorus] Side effect for create failed:', error));
+        sideEffect(data).catch((error) =>
+          console.error("[Chorus] Side effect for create failed:", error),
+        );
       }
     },
     update: async (data, sideEffect) => {
       const db = chorusCore.getDb();
       if (!db) return;
+      const shadowTable = db.table(shadowTableName);
       const deltaTable = db.table(deltaTableName);
-      await deltaTable.add({ operation: 'update', data, sync_status: 'pending' });
+      await shadowTable.put(data);
+      await deltaTable.add({
+        operation: "update",
+        data,
+        sync_status: "pending",
+      });
       if (sideEffect) {
-        sideEffect(data).catch(error => console.error('[Chorus] Side effect for update failed:', error));
+        sideEffect(data).catch((error) =>
+          console.error("[Chorus] Side effect for update failed:", error),
+        );
       }
     },
     delete: async (data, sideEffect) => {
       const db = chorusCore.getDb();
       if (!db) return;
+      const shadowTable = db.table(shadowTableName);
       const deltaTable = db.table(deltaTableName);
-      await deltaTable.add({ operation: 'delete', data, sync_status: 'pending' });
+      await shadowTable.delete(data.id);
+      await deltaTable.add({
+        operation: "delete",
+        data,
+        sync_status: "pending",
+      });
       if (sideEffect) {
-        sideEffect(data).catch(error => console.error('[Chorus] Side effect for delete failed:', error));
+        sideEffect(data).catch((error) =>
+          console.error("[Chorus] Side effect for delete failed:", error),
+        );
       }
     },
   };
 
-  const mergedData = useMemo(() => {
-    if (!optimisticData) return data;
-    const pendingDeltas = optimisticData.filter((delta) => delta.sync_status === 'pending');
-    if (pendingDeltas.length === 0) return data;
-
-    let processedData = [...(data ?? [])];
-    for (const delta of pendingDeltas) {
-      switch (delta.operation) {
-        case 'create': {
-          const existingIndex = processedData.findIndex((item: any) => item.id === delta.data.id);
-          if (existingIndex !== -1) {
-            processedData[existingIndex] = { ...processedData[existingIndex], ...delta.data };
-          } else {
-            processedData.push(delta.data);
-          }
-          break;
-        }
-        case 'update':
-          processedData = processedData.map((item: any) =>
-            item.id === delta.data.id ? { ...item, ...delta.data } : item
-          );
-          break;
-        case 'delete':
-          processedData = processedData.filter((item: any) => item.id !== delta.data.id);
-          break;
-      }
-    }
-    return processedData;
-  }, [data, optimisticData]);
-
   return {
-    data: mergedData,
+    data,
     isLoading: tableState.isLoading,
     error: tableState.error,
     lastUpdate: tableState.lastUpdate,
