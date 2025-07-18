@@ -143,7 +143,6 @@ export function ChorusProvider({
   useEffect(() => {
     let isCancelled = false;
     const initialize = async () => {
-      chorusCore.reset();
       chorusCore.setup(userId ?? "guest", schema ?? {}, onRejectedHarmonic);
       await chorusCore.initializeTables();
       if (!isCancelled) {
@@ -154,7 +153,6 @@ export function ChorusProvider({
     initialize();
     return () => {
       isCancelled = true;
-      chorusCore.reset();
     };
   }, [userId, channelPrefix, schema, onRejectedHarmonic]);
 
