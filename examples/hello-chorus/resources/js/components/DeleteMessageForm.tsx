@@ -10,9 +10,9 @@ interface DeleteMessageFormProps {
     messageActions: any;
 }
 
-export default function DeleteMessageForm({ 
-    message, 
-    messageActions 
+export default function DeleteMessageForm({
+    message,
+    messageActions
 }: DeleteMessageFormProps) {
     const [deletingMessage, setDeletingMessage] = useState<Message | null>(null);
 
@@ -33,9 +33,9 @@ export default function DeleteMessageForm({
             <DialogTrigger asChild>
                 <Button
                     size="sm"
-                    variant="ghost"
+                    variant="destructive"
                     onClick={() => setDeletingMessage(message)}
-                    className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                    className="h-6 w-6 p-0 text-foreground"
                 >
                     <TrashIcon className="h-3 w-3" />
                 </Button>

@@ -15,15 +15,15 @@ interface MessagesListProps {
     messageActions: any;
 }
 
-export default function MessagesList({ 
-    messages, 
-    platforms, 
-    users, 
-    messagesLoading, 
-    platformsLoading, 
-    messagesError, 
-    platformsError, 
-    messageActions 
+export default function MessagesList({
+    messages,
+    platforms,
+    users,
+    messagesLoading,
+    platformsLoading,
+    messagesError,
+    platformsError,
+    messageActions
 }: MessagesListProps) {
     const { auth } = usePage().props;
 
@@ -121,7 +121,7 @@ export default function MessagesList({
                                 .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                                 .map((message) => (
                                     <li key={message.id} className="group p-4 hover:bg-muted/50 transition-colors">
-                                        <div className="flex items-start justify-between">
+                                        <div className="flex items-center justify-between">
                                             <div className="flex-1 pr-4">
                                                 <div className="flex items-center gap-2 mb-1">
                                                     <span className="text-sm font-medium text-muted-foreground">
@@ -139,14 +139,14 @@ export default function MessagesList({
                                                 {/* Edit/Delete buttons for user's own messages */}
                                                 {message.user_id === auth.user.id && (
                                                     <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                                                        <UpdateMessageForm 
+                                                        <UpdateMessageForm
                                                             message={message}
                                                             platforms={platforms}
                                                             platformsLoading={platformsLoading}
                                                             messageActions={messageActions}
                                                         />
-                                                        
-                                                        <DeleteMessageForm 
+
+                                                        <DeleteMessageForm
                                                             message={message}
                                                             messageActions={messageActions}
                                                         />
