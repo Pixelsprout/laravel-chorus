@@ -4,8 +4,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import type { Message, Platform } from '@/stores/db';
-import { useHarmonics } from '@chorus/js';
+
 import { router, usePage } from '@inertiajs/react';
+import { type SharedData } from '@/types';
 import { SendIcon } from 'lucide-react';
 import { useForm } from '@tanstack/react-form';
 import createMessageAction from '@/actions/App/Actions/CreateMessage';
@@ -27,6 +28,7 @@ interface CreateMessageFormProps {
     platforms: Platform[] | undefined;
     platformsLoading: boolean;
     platformsError: string | null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     messageActions: any;
 }
 
@@ -36,7 +38,7 @@ export default function CreateMessageForm({
     platformsError, 
     messageActions 
 }: CreateMessageFormProps) {
-    const { auth } = usePage().props;
+    const { auth } = usePage<SharedData>().props;
 
     // Forms
     const createMessageForm = useForm({
@@ -51,8 +53,8 @@ export default function CreateMessageForm({
                     id: uuidv7(),
                     body: value.message,
                     platform_id: value.platformId,
-                    tenant_id: auth.user.tenant_id,
-                    user_id: auth.user.id,
+                    tenant_id: String(auth.user.tenant_id),
+                    user_id: String(auth.user.id),
                     created_at: now,
                     updated_at: now,
                 };
@@ -175,8 +177,8 @@ export default function CreateMessageForm({
                                             id: uuidv7(),
                                             body: '', // This will fail validation
                                             platform_id: 'invalid-platform-id', // This will also fail
-                                            tenant_id: auth.user.tenant_id,
-                                            user_id: auth.user.id,
+                                            tenant_id: String(auth.user.tenant_id),
+                                            user_id: String(auth.user.id),
                                             created_at: now,
                                             updated_at: now,
                                         };

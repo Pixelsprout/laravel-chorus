@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Message, Platform, User } from '@/stores/db';
 import { usePage } from '@inertiajs/react';
+import { type SharedData } from '@/types';
 import UpdateMessageForm from './UpdateMessageForm';
 import DeleteMessageForm from './DeleteMessageForm';
 
@@ -12,6 +13,7 @@ interface MessagesListProps {
     platformsLoading: boolean;
     messagesError: string | null;
     platformsError: string | null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     messageActions: any;
 }
 
@@ -25,7 +27,7 @@ export default function MessagesList({
     platformsError,
     messageActions
 }: MessagesListProps) {
-    const { auth } = usePage().props;
+    const { auth } = usePage<SharedData>().props;
 
     // Format the date in a readable format
     const formatDate = (date: Date) => {
@@ -127,7 +129,7 @@ export default function MessagesList({
                                                     <span className="text-sm font-medium text-muted-foreground">
                                                         {getUserName(message.user_id)}
                                                     </span>
-                                                    {message.user_id === auth.user.id && (
+                                                    {String(message.user_id) === String(auth.user.id) && (
                                                         <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
                                                             You
                                                         </span>
@@ -137,8 +139,8 @@ export default function MessagesList({
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 {/* Edit/Delete buttons for user's own messages */}
-                                                {message.user_id === auth.user.id && (
-                                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                                {String(message.user_id) === String(auth.user.id) && (
+                                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 mr-1.5">
                                                         <UpdateMessageForm
                                                             message={message}
                                                             platforms={platforms}

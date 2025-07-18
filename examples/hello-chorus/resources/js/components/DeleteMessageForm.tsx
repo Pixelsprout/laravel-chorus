@@ -7,6 +7,7 @@ import { useState } from 'react';
 
 interface DeleteMessageFormProps {
     message: Message;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     messageActions: any;
 }
 
@@ -35,7 +36,7 @@ export default function DeleteMessageForm({
                     size="sm"
                     variant="destructive"
                     onClick={() => setDeletingMessage(message)}
-                    className="h-6 w-6 p-0 text-foreground"
+                    className="h-6 w-6 p-0"
                 >
                     <TrashIcon className="h-3 w-3" />
                 </Button>

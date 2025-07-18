@@ -3,6 +3,7 @@ import type { Message, Platform, User } from '@/stores/db';
 import { type BreadcrumbItem } from '@/types';
 import { useHarmonics } from '@chorus/js';
 import { Head, usePage } from '@inertiajs/react';
+import { type SharedData } from '@/types';
 import { ClockIcon } from 'lucide-react';
 import { useState } from 'react';
 import CreateMessageForm from '@/components/CreateMessageForm';
@@ -18,7 +19,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 function DashboardContent() {
-    const { auth, tenantName } = usePage().props;
+    const { auth, tenantName } = usePage<SharedData>().props;
     const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
 
     // Sync messages with the server
@@ -44,21 +45,19 @@ function DashboardContent() {
     // Sync users with the server
     const {
         data: users,
-        isLoading: usersLoading,
-        error: usersError,
     } = useHarmonics<User>('users');
 
     return (
         <>
-            <Head title={`${tenantName}: Messages Dashboard`} />
+            <Head title={`${String(tenantName)}: Messages Dashboard`} />
             <div className="p-6">
                 <div className="mb-6 flex flex-wrap gap-y-2 items-center justify-between">
                     <h1 className="text-2xl font-bold">Hi {auth.user.name}</h1>
-                    <div>
-                        <h2 className="text-xl font-semibold">{tenantName}: Messages Dashboard</h2>
+                    <div className="flex flex-wrap flex-col gap-y-1.5">
+                        <h2 className="text-xl font-semibold">{String(tenantName)}</h2>
                         {/* Sync status */}
                         {messagesLastUpdate && (
-                            <div className="text-muted-foreground flex flex-wrap items-center text-sm">
+                            <div className="text-muted-foreground flex justify-end items-center text-sm">
                                 <ClockIcon className="mr-1 h-3 w-3" />
                                 Last synchronized: {messagesLastUpdate.toLocaleTimeString()}
                             </div>
@@ -70,7 +69,7 @@ function DashboardContent() {
                 <RejectedMessages />
 
                 {/* New message form */}
-                <CreateMessageForm 
+                <CreateMessageForm
                     platforms={platforms}
                     platformsLoading={platformsLoading}
                     platformsError={platformsError}
@@ -78,7 +77,7 @@ function DashboardContent() {
                 />
 
                 {/* Filter section */}
-                <MessagesFilter 
+                <MessagesFilter
                     platforms={platforms}
                     platformsLoading={platformsLoading}
                     platformsError={platformsError}
@@ -87,7 +86,7 @@ function DashboardContent() {
                 />
 
                 {/* Messages list */}
-                <MessagesList 
+                <MessagesList
                     messages={messages}
                     platforms={platforms}
                     users={users}

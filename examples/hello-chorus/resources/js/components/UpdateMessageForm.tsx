@@ -8,7 +8,7 @@ import { router } from '@inertiajs/react';
 import { EditIcon } from 'lucide-react';
 import { useForm } from '@tanstack/react-form';
 import type { AnyFieldApi } from '@tanstack/react-form';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 
 function FieldInfo({ field }: { field: AnyFieldApi }) {
     return (
@@ -25,6 +25,7 @@ interface UpdateMessageFormProps {
     message: Message;
     platforms: Platform[] | undefined;
     platformsLoading: boolean;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     messageActions: any;
 }
 
@@ -40,7 +41,7 @@ export default function UpdateMessageForm({
     // Edit message form
     const editMessageForm = useForm({
         defaultValues: {
-            platformId: editingMessage?.platform_id || '',
+            platformId: editingMessage ? String(editingMessage.platform_id) : '',
             message: editingMessage?.body || '',
         },
         onSubmit: async ({ value, formApi }) => {
@@ -76,10 +77,10 @@ export default function UpdateMessageForm({
     // Update edit form when editing message changes
     useEffect(() => {
         if (editingMessage) {
-            editMessageForm.setFieldValue('platformId', editingMessage.platform_id);
+            editMessageForm.setFieldValue('platformId', String(editingMessage.platform_id));
             editMessageForm.setFieldValue('message', editingMessage.body);
         }
-    }, [editingMessage]);
+    }, [editingMessage, editMessageForm]);
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
