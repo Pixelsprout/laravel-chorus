@@ -11,7 +11,7 @@ import { RejectedHarmonicsProvider, useRejectedHarmonics } from '@/contexts/Reje
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 import { AlertTriangle, XCircle, AlertCircle } from 'lucide-react';
-import { ThemeProvider } from '@/components/theme-provider';
+import { ThemeProvider } from "next-themes"
 
 function AppSidebarLayoutContent({ children, breadcrumbs = [] }: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[] }>) {
     const { addNotification } = useRejectedHarmonics();
@@ -22,7 +22,7 @@ function AppSidebarLayoutContent({ children, breadcrumbs = [] }: PropsWithChildr
 
         // Show Sonner toast notification
         const message = `Failed to ${harmonic.operation}: ${harmonic.rejected_reason}`;
-        
+
         if (harmonic.rejected_reason?.includes('Validation failed')) {
             toast.warning(message, {
                 description: 'Please check your input and try again.',
@@ -57,9 +57,9 @@ function AppSidebarLayoutContent({ children, breadcrumbs = [] }: PropsWithChildr
     };
 
     return (
-        <ChorusProvider 
-            userId={usePage<SharedData>().props.auth.user?.id} 
-            channelPrefix={usePage<SharedData>().props.auth.user?.tenant_id.toString()} 
+        <ChorusProvider
+            userId={usePage<SharedData>().props.auth.user?.id}
+            channelPrefix={usePage<SharedData>().props.auth.user?.tenant_id.toString()}
             schema={chorusSchema}
             onRejectedHarmonic={handleRejectedHarmonic}
         >
@@ -77,7 +77,11 @@ function AppSidebarLayoutContent({ children, breadcrumbs = [] }: PropsWithChildr
 
 export default function AppSidebarLayout({ children, breadcrumbs = [] }: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[] }>) {
     return (
-        <ThemeProvider defaultTheme="system" storageKey="chorus-ui-theme">
+        <ThemeProvider attribute="class"
+                       defaultTheme="system"
+                       enableSystem
+                       disableTransitionOnChange
+        >
             <RejectedHarmonicsProvider>
                 <AppSidebarLayoutContent breadcrumbs={breadcrumbs}>
                     {children}
