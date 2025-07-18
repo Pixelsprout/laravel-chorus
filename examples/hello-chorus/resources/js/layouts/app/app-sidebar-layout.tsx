@@ -6,7 +6,7 @@ import { AppSidebarHeader } from '@/components/app-sidebar-header';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { ChorusProvider, type HarmonicEvent } from '@chorus/js';
 import { usePage } from '@inertiajs/react';
-import { type PropsWithChildren } from 'react';
+import { type PropsWithChildren, useCallback } from 'react';
 import { RejectedHarmonicsProvider, useRejectedHarmonics } from '@/contexts/RejectedHarmonicsContext';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
@@ -16,7 +16,7 @@ import { ThemeProvider as NextThemesProvider } from "next-themes"
 function AppSidebarLayoutContent({ children, breadcrumbs = [] }: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[] }>) {
     const { addNotification } = useRejectedHarmonics();
 
-    const handleRejectedHarmonic = (harmonic: HarmonicEvent) => {
+    const handleRejectedHarmonic = useCallback((harmonic: HarmonicEvent) => {
         // Add to context for dashboard display
         addNotification(harmonic);
 
@@ -54,7 +54,7 @@ function AppSidebarLayoutContent({ children, breadcrumbs = [] }: PropsWithChildr
                 },
             });
         }
-    };
+    }, [addNotification]);
 
     return (
         <ChorusProvider

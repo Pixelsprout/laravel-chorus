@@ -5,7 +5,7 @@ import { useHarmonics } from '@chorus/js';
 import { Head, usePage } from '@inertiajs/react';
 import { type SharedData } from '@/types';
 import { ClockIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import CreateMessageForm from '@/components/CreateMessageForm';
 import RejectedMessages from '@/components/RejectedMessages';
 import MessagesFilter from '@/components/MessagesFilter';
@@ -22,6 +22,13 @@ function DashboardContent() {
     const { auth, tenantName } = usePage<SharedData>().props;
     const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
 
+    // Memoize the query function to prevent useLiveQuery from re-running
+    const messagesQuery = useCallback((table: any) =>
+        selectedPlatform
+            ? table.where('platform_id').equals(selectedPlatform)
+            : table
+    , [selectedPlatform]);
+
     // Sync messages with the server
     const {
         data: messages,
@@ -29,11 +36,7 @@ function DashboardContent() {
         error: messagesError,
         lastUpdate: messagesLastUpdate,
         actions: messageActions,
-    } = useHarmonics<Message, { platformId: string; message: string }>('messages', (table) =>
-        selectedPlatform
-            ? table.where('platform_id').equals(selectedPlatform)
-            : table
-    );
+    } = useHarmonics<Message, { platformId: string; message: string }>('messages', messagesQuery);
 
     // Sync platforms with the server
     const {

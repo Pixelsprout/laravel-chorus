@@ -69,6 +69,7 @@ export default function CreateMessageForm({
                         },
                         {
                             preserveScroll: true,
+                            only: [],
                         }
                     );
 
@@ -193,6 +194,7 @@ export default function CreateMessageForm({
                                                 },
                                                 {
                                                     preserveScroll: true,
+                                                    only: [],
                                                 }
                                             );
                                         });
