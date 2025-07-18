@@ -10,5 +10,6 @@ export {
 export {
   ChorusProvider,
   useHarmonics,
+  useHarmonicsQuery,
   useChorus,
 } from "./react/providers/ChorusProvider";

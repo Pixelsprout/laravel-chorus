@@ -206,6 +206,8 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
     error: null,
   };
 
+
+
   const data = useLiveQuery<T[]>(async () => {
     const mainCollection = chorusCore.getDb()?.table(tableName);
     const shadowCollection = chorusCore.getDb()?.table(shadowTableName);
@@ -322,4 +324,24 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
 export function useChorusStatus(tableName: string) {
   const { tables } = useChorus();
   return tables[tableName] || { lastUpdate: null, isLoading: false, error: null };
+}
+
+/**
+ * Helper hook that automatically memoizes query functions for useHarmonics.
+ * Use this when your query depends on reactive values to prevent infinite re-renders.
+ * 
+ * @example
+ * const query = useHarmonicsQuery<Message>(
+ *   (table) => selectedPlatform 
+ *     ? table.where('platform_id').equals(selectedPlatform)
+ *     : table,
+ *   [selectedPlatform] // dependencies
+ * );
+ * const { data } = useHarmonics('messages', query);
+ */
+export function useHarmonicsQuery<T extends { id: string | number }>(
+  queryFn: (table: Table<T>) => Table<T> | Collection<T, any>,
+  deps: React.DependencyList
+): (table: Table<T>) => Table<T> | Collection<T, any> {
+  return useCallback(queryFn, deps);
 }

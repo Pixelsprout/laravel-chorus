@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 import { useEcho } from "@laravel/echo-react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { ChorusCore } from "../../core/chorus";
 import React from "react";
 // Create a new ChorusCore instance
@@ -252,4 +252,20 @@ export function useHarmonics(tableName, query) {
 export function useChorusStatus(tableName) {
     const { tables } = useChorus();
     return tables[tableName] || { lastUpdate: null, isLoading: false, error: null };
+}
+/**
+ * Helper hook that automatically memoizes query functions for useHarmonics.
+ * Use this when your query depends on reactive values to prevent infinite re-renders.
+ *
+ * @example
+ * const query = useHarmonicsQuery<Message>(
+ *   (table) => selectedPlatform
+ *     ? table.where('platform_id').equals(selectedPlatform)
+ *     : table,
+ *   [selectedPlatform] // dependencies
+ * );
+ * const { data } = useHarmonics('messages', query);
+ */
+export function useHarmonicsQuery(queryFn, deps) {
+    return useCallback(queryFn, deps);
 }

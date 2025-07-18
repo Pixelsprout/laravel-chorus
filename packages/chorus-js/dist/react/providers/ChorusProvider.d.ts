@@ -35,4 +35,20 @@ export declare function useHarmonics<T extends {
     id: string | number;
 }, TInput = never>(tableName: string, query?: (table: Table<T>) => Table<T> | Collection<T, any>): HarmonicResponse<T, TInput>;
 export declare function useChorusStatus(tableName: string): TableState;
+/**
+ * Helper hook that automatically memoizes query functions for useHarmonics.
+ * Use this when your query depends on reactive values to prevent infinite re-renders.
+ *
+ * @example
+ * const query = useHarmonicsQuery<Message>(
+ *   (table) => selectedPlatform
+ *     ? table.where('platform_id').equals(selectedPlatform)
+ *     : table,
+ *   [selectedPlatform] // dependencies
+ * );
+ * const { data } = useHarmonics('messages', query);
+ */
+export declare function useHarmonicsQuery<T extends {
+    id: string | number;
+}>(queryFn: (table: Table<T>) => Table<T> | Collection<T, any>, deps: React.DependencyList): (table: Table<T>) => Table<T> | Collection<T, any>;
 export {};
