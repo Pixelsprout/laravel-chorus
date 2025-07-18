@@ -1,33 +1,14 @@
-// Import from the chorus package
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import type { Message, Platform, User } from '@/stores/db';
 import { type BreadcrumbItem } from '@/types';
 import { useHarmonics } from '@chorus/js';
-import { Head, router, usePage } from '@inertiajs/react';
-import { ClockIcon, SendIcon, EditIcon, TrashIcon, XIcon } from 'lucide-react';
-import { useForm } from '@tanstack/react-form';
-import createMessageAction from '@/actions/App/Actions/CreateMessage';
-import { uuidv7 } from 'uuidv7';
-import type { AnyFieldApi } from '@tanstack/react-form';
-import { useState, useEffect } from 'react';
-import { useRejectedHarmonics } from '@/contexts/RejectedHarmonicsContext';
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-
-function FieldInfo({ field }: { field: AnyFieldApi }) {
-    return (
-        <>
-            {field.state.meta.isTouched && !field.state.meta.isValid ? (
-                <em className="text-destructive text-sm">{field.state.meta.errors.join(', ')}</em>
-            ) : null}
-            {field.state.meta.isValidating ? 'Validating...' : null}
-        </>
-    );
-}
+import { Head, usePage } from '@inertiajs/react';
+import { ClockIcon } from 'lucide-react';
+import { useState } from 'react';
+import CreateMessageForm from '@/components/CreateMessageForm';
+import RejectedMessages from '@/components/RejectedMessages';
+import MessagesFilter from '@/components/MessagesFilter';
+import MessagesList from '@/components/MessagesList';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -39,16 +20,6 @@ const breadcrumbs: BreadcrumbItem[] = [
 function DashboardContent() {
     const { auth, tenantName } = usePage().props;
     const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
-    const [editingMessage, setEditingMessage] = useState<Message | null>(null);
-    const [deletingMessage, setDeletingMessage] = useState<Message | null>(null);
-    const { notifications: rejectedNotifications, clearAllNotifications } = useRejectedHarmonics();
-
-    // Only log when notifications change (for debugging)
-    useEffect(() => {
-        if (rejectedNotifications.length > 0) {
-            console.log('Dashboard - New rejected notifications:', rejectedNotifications.length);
-        }
-    }, [rejectedNotifications.length]);
 
     // Sync messages with the server
     const {
@@ -68,8 +39,7 @@ function DashboardContent() {
         data: platforms,
         isLoading: platformsLoading,
         error: platformsError,
-        lastUpdate
-        } = useHarmonics<Platform>('platforms');
+    } = useHarmonics<Platform>('platforms');
 
     // Sync users with the server
     const {
@@ -77,143 +47,6 @@ function DashboardContent() {
         isLoading: usersLoading,
         error: usersError,
     } = useHarmonics<User>('users');
-
-    // Format the date in a readable format
-    const formatDate = (date: Date) => {
-        return new Intl.DateTimeFormat('en-US', {
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true,
-        }).format(date);
-    };
-
-    // Get user name by user_id
-    const getUserName = (userId: string) => {
-        const user = users?.find(u => u.id.toString() === userId.toString());
-        return user?.name || `User ${userId}`;
-    };
-
-    // Forms
-    const createMessageForm = useForm({
-        defaultValues: {
-            platformId: '', // get first platform
-            message: '',
-        },
-        onSubmit: async ({ value, formApi }) => {
-            if (messageActions.create) {
-                const now = new Date();
-                const optimisticMessage: Message = {
-                    id: uuidv7(),
-                    body: value.message,
-                    platform_id: value.platformId,
-                    tenant_id: auth.user.tenant_id,
-                    user_id: auth.user.id,
-                    created_at: now,
-                    updated_at: now,
-                };
-
-                messageActions.create(optimisticMessage, async (data: Message) => {
-                    router.post(
-                        createMessageAction.post().url,
-                        {
-                            id: data.id,
-                            message: data.body,
-                            platformId: data.platform_id,
-                        },
-                        {
-                            preserveScroll: true,
-                        }
-                    );
-
-                    // clear form
-                    formApi.reset();
-                });
-            }
-        },
-    });
-
-    // Edit message form
-    const editMessageForm = useForm({
-        defaultValues: {
-            platformId: editingMessage?.platform_id || '',
-            message: editingMessage?.body || '',
-        },
-        onSubmit: async ({ value, formApi }) => {
-            if (messageActions.update && editingMessage) {
-                const updatedMessage: Message = {
-                    ...editingMessage,
-                    body: value.message,
-                    platform_id: value.platformId,
-                    updated_at: new Date(),
-                };
-
-                messageActions.update(updatedMessage, async (data: Message) => {
-                    router.put(
-                        route('messages.update', data.id),
-                        {
-                            message: data.body,
-                            platformId: data.platform_id,
-                        },
-                        {
-                            preserveScroll: true,
-                        }
-                    );
-                        // Reset form and clear editing message
-                        setEditingMessage(null);
-                        formApi.reset();
-                });
-            }
-        },
-    });
-
-    // Update edit form when editing message changes
-    useEffect(() => {
-        if (editingMessage) {
-            editMessageForm.setFieldValue('platformId', editingMessage.platform_id);
-            editMessageForm.setFieldValue('message', editingMessage.body);
-        }
-    }, [editingMessage]);
-
-    // Confirm delete message
-    const confirmDeleteMessage = () => {
-        if (messageActions.delete && deletingMessage) {
-            messageActions.delete({ id: deletingMessage.id }, async (data: { id: string }) => {
-                router.delete(route('messages.destroy', data.id), {
-                    preserveScroll: true,
-                });
-            });
-            setDeletingMessage(null);
-        }
-    };
-
-    // Group messages by platform
-    const groupedMessages =
-        messages?.reduce(
-            (acc, message) => {
-                const platformId = message.platform_id;
-                if (!acc[platformId]) {
-                    acc[platformId] = [];
-                }
-                acc[platformId].push(message);
-                return acc;
-            },
-            {} as Record<number|string, Message[]>,
-        ) || {};
-
-    // Get platform name by ID
-    const getPlatformName = (platformId: string | number) => {
-        if (!platforms || platforms.length === 0) {
-            return 'Loading...';
-        }
-
-        // Simple string comparison is most reliable when working with UUIDs
-        const platformIdStr = String(platformId);
-        const match = platforms.find((p) => String(p.id) === platformIdStr);
-
-        return match?.name || 'Unknown';
-    };
 
     return (
         <>
@@ -226,7 +59,6 @@ function DashboardContent() {
                         {/* Sync status */}
                         {messagesLastUpdate && (
                             <div className="text-muted-foreground flex flex-wrap items-center text-sm">
-
                                 <ClockIcon className="mr-1 h-3 w-3" />
                                 Last synchronized: {messagesLastUpdate.toLocaleTimeString()}
                             </div>
@@ -235,442 +67,36 @@ function DashboardContent() {
                 </div>
 
                 {/* Rejected Operations Section */}
-                {rejectedNotifications.length > 0 && (
-                    <Card className="mb-6 border-destructive-foreground">
-                        <CardHeader className="pb-3">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-destructive-foreground">Failed Operations ({rejectedNotifications.length})</CardTitle>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={clearAllNotifications}
-                                    className="text-xs"
-                                >
-                                    Clear All
-                                </Button>
-                            </div>
-                            <CardDescription>
-                                These operations failed due to validation or permission issues.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            <ul className="divide-border divide-y">
-                                {rejectedNotifications.slice(0, 5).map((notification) => (
-                                    <li key={notification.id} className="p-4">
-                                        <div className="flex items-start justify-between">
-                                            <div className="flex-1">
-                                                <p className="text-sm font-medium text-destructive-foreground">
-                                                    {notification.message}
-                                                </p>
-                                                <p className="text-xs text-muted-foreground mt-1">
-                                                    {notification.timestamp.toLocaleString()} • Type: {notification.type}
-                                                </p>
-                                                {notification.harmonic.data && (
-                                                    <details className="mt-2">
-                                                        <summary className="text-xs cursor-pointer text-muted-foreground hover:text-foreground">
-                                                            Show original data
-                                                        </summary>
-                                                        <pre className="text-xs bg-muted p-2 rounded mt-1 overflow-auto">
-                                                            {JSON.stringify(
-                                                                notification.harmonic.data
-                                                                    ? (typeof notification.harmonic.data === 'string'
-                                                                        ? JSON.parse(notification.harmonic.data)
-                                                                        : notification.harmonic.data)
-                                                                    : {},
-                                                                null,
-                                                                2
-                                                            )}
-                                                        </pre>
-                                                    </details>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        </CardContent>
-                    </Card>
-                )}
+                <RejectedMessages />
 
                 {/* New message form */}
-                <Card className="mb-8">
-                    <CardHeader>
-                        <CardTitle>Send a New Message</CardTitle>
-                        <CardDescription>Create a new message that will be synced in real-time</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <form id="new-message-form" onSubmit={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            createMessageForm.handleSubmit()
-                        }} className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="platform">Platform</Label>
-                                <createMessageForm.Field name="platformId"
-                                    children={(field) => (
-                                        <>
-                                            <Select value={field.state.value} name={field.name} onValueChange={(e) => field.handleChange(e)} disabled={platformsLoading}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder={platformsLoading ? 'Loading platforms...' : 'Select a platform'} />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {platformsError ? (
-                                                        <SelectItem value="error" disabled>
-                                                            Error loading platforms
-                                                        </SelectItem>
-                                                    ) : platforms?.length ? (
-                                                        platforms.map((platform) => (
-                                                            <SelectItem key={platform.id} value={platform.id}>
-                                                                {platform.name}
-                                                            </SelectItem>
-                                                        ))
-                                                    ) : (
-                                                        <SelectItem value="none" disabled>
-                                                            No platforms available
-                                                        </SelectItem>
-                                                    )}
-                                                </SelectContent>
-                                            </Select>
-                                            <FieldInfo field={field} />
-                                        </>
-                                    )}/>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="message">Message</Label>
-                                <createMessageForm.Field
-                                    name="message"
-                                    validators={{
-                                        onChange: ({value}) =>
-                                            !value
-                                                ? 'A message is required'
-                                                : value.length < 3
-                                                    ? 'Please enter a message longer than 3 characters'
-                                                    : undefined,
-                                    }}
-                                    children={(field) => (
-                                        <>
-                                            <Textarea
-                                                id="message"
-                                                value={field.state.value}
-                                                name={field.name}
-                                                onBlur={field.handleBlur}
-                                                onChange={(e) => field.handleChange(e.target.value)}
-                                                placeholder="Type your message here..."
-                                                rows={3}
-                                            />
-                                        </>
-                                        )
-                                    }>
-                                </createMessageForm.Field>
-                            </div>
-                        </form>
-                    </CardContent>
-                    <CardFooter className="flex gap-2">
-                        <createMessageForm.Subscribe
-                            selector={(state) => [state.canSubmit, state.isSubmitting]}
-                            children={([canSubmit, isSubmitting]) => (
-                                <>
-                                    <Button
-                                        type="submit"
-                                        form="new-message-form"
-                                        disabled={!canSubmit}
-                                    >
-                                        <SendIcon className="mr-2 h-4 w-4" />
-                                        {isSubmitting ? 'Sending...' : 'Send message'}
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() => {
-                                            // Test rejected harmonic by sending invalid data
-                                            if (messageActions.create) {
-                                                const now = new Date();
-                                                const invalidMessage: Message = {
-                                                    id: uuidv7(),
-                                                    body: '', // This will fail validation
-                                                    platform_id: 'invalid-platform-id', // This will also fail
-                                                    tenant_id: auth.user.tenant_id,
-                                                    user_id: auth.user.id,
-                                                    created_at: now,
-                                                    updated_at: now,
-                                                };
-
-                                                messageActions.create(invalidMessage, async (data: Message) => {
-                                                    router.post(
-                                                        createMessageAction.post().url,
-                                                        {
-                                                            id: data.id,
-                                                            message: data.body,
-                                                            platformId: data.platform_id,
-                                                        },
-                                                        {
-                                                            preserveScroll: true,
-                                                        }
-                                                    );
-                                                });
-                                            }
-                                        }}
-                                        className="text-xs"
-                                    >
-                                        Test Rejection
-                                    </Button>
-                                </>
-                            )}
-                        />
-                    </CardFooter>
-                </Card>
+                <CreateMessageForm 
+                    platforms={platforms}
+                    platformsLoading={platformsLoading}
+                    platformsError={platformsError}
+                    messageActions={messageActions}
+                />
 
                 {/* Filter section */}
-                <div className="mb-4 flex justify-end">
-                    <div className="w-full max-w-xs">
-                        <Label htmlFor="platform-filter">Filter by Platform</Label>
-                        <Select value={selectedPlatform || 'all'} onValueChange={(value) => setSelectedPlatform(value === 'all' ? null : value)} disabled={platformsLoading}>
-                            <SelectTrigger id="platform-filter">
-                                <SelectValue placeholder="Filter by platform" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Platforms</SelectItem>
-                                {platformsError ? (
-                                    <SelectItem value="error" disabled>
-                                        Error loading platforms
-                                    </SelectItem>
-                                ) : platforms?.length ? (
-                                    platforms.map((platform) => (
-                                        <SelectItem key={platform.id} value={platform.id}>
-                                            {platform.name}
-                                        </SelectItem>
-                                    ))
-                                ) : (
-                                    <SelectItem value="none" disabled>
-                                        No platforms available
-                                    </SelectItem>
-                                )}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
+                <MessagesFilter 
+                    platforms={platforms}
+                    platformsLoading={platformsLoading}
+                    platformsError={platformsError}
+                    selectedPlatform={selectedPlatform}
+                    onPlatformChange={setSelectedPlatform}
+                />
 
                 {/* Messages list */}
-                {messagesLoading || platformsLoading ? (
-                    <p className="py-4 text-center">Loading data...</p>
-                ) : messagesError ? (
-                    <Card className="border-destructive">
-                        <CardContent className="pt-6">
-                            <p className="text-destructive">Error loading messages: {messagesError}</p>
-                        </CardContent>
-                    </Card>
-                ) : platformsError ? (
-                    <Card className="border-destructive">
-                        <CardContent className="pt-6">
-                            <p className="text-destructive">Error loading platforms: {platformsError}</p>
-                        </CardContent>
-                    </Card>
-                ) : (
-                    <div className="space-y-8">
-                        {Object.keys(groupedMessages).length > 0 ? (
-                            Object.entries(groupedMessages).map(([platformId, platformMessages]) => (
-                                <Card key={platformId}>
-                                    <CardHeader className="pb-3">
-                                        <CardTitle>
-                                            {getPlatformName(platformId)}
-                                            <span className="text-muted-foreground ml-2 text-xs">(ID: {platformId})</span>
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="p-0">
-                                        <ul className="divide-border divide-y">
-                                            {platformMessages
-                                                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                                                .map((message) => (
-                                                    <li key={message.id} className="group p-4 hover:bg-muted/50 transition-colors">
-                                                        <div className="flex items-start justify-between">
-                                                            <div className="flex-1 pr-4">
-                                                                <div className="flex items-center gap-2 mb-1">
-                                                                    <span className="text-sm font-medium text-muted-foreground">
-                                                                        {getUserName(message.user_id)}
-                                                                    </span>
-                                                                    {message.user_id === auth.user.id && (
-                                                                        <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                                                                            You
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                                <p className="text-card-foreground">{message.body}</p>
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                {/* Edit/Delete buttons for user's own messages */}
-                                                                {message.user_id === auth.user.id && (
-                                                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                                                                        <Dialog>
-                                                                            <DialogTrigger asChild>
-                                                                                <Button
-                                                                                    size="sm"
-                                                                                    variant="ghost"
-                                                                                    onClick={() => setEditingMessage(message)}
-                                                                                    className="h-6 w-6 p-0"
-                                                                                >
-                                                                                    <EditIcon className="h-3 w-3" />
-                                                                                </Button>
-                                                                            </DialogTrigger>
-                                                                            <DialogContent className="sm:max-w-[425px]">
-                                                                                <DialogHeader>
-                                                                                    <DialogTitle>Edit Message</DialogTitle>
-                                                                                    <DialogDescription>
-                                                                                        Make changes to your message here. Click save when you're done.
-                                                                                    </DialogDescription>
-                                                                                </DialogHeader>
-                                                                                <form
-                                                                                    onSubmit={(e) => {
-                                                                                        e.preventDefault();
-                                                                                        e.stopPropagation();
-                                                                                        editMessageForm.handleSubmit();
-                                                                                    }}
-                                                                                >
-                                                                                    <div className="grid gap-4 py-4">
-                                                                                        <div className="grid gap-2">
-                                                                                            <editMessageForm.Field
-                                                                                                name="platformId"
-                                                                                                validators={{
-                                                                                                    onChange: ({ value }) =>
-                                                                                                        !value ? 'Platform is required' : undefined,
-                                                                                                }}
-                                                                                                children={(field) => (
-                                                                                                    <>
-                                                                                                        <Label htmlFor={field.name}>Platform</Label>
-                                                                                                        <Select
-                                                                                                            value={field.state.value}
-                                                                                                            onValueChange={(value) => field.handleChange(value)}
-                                                                                                            disabled={platformsLoading}
-                                                                                                        >
-                                                                                                            <SelectTrigger>
-                                                                                                                <SelectValue placeholder="Select a platform" />
-                                                                                                            </SelectTrigger>
-                                                                                                            <SelectContent>
-                                                                                                                {platforms?.map((platform) => (
-                                                                                                                    <SelectItem key={platform.id} value={platform.id}>
-                                                                                                                        {platform.name}
-                                                                                                                    </SelectItem>
-                                                                                                                ))}
-                                                                                                            </SelectContent>
-                                                                                                        </Select>
-                                                                                                        <FieldInfo field={field} />
-                                                                                                    </>
-                                                                                                )}
-                                                                                            />
-                                                                                        </div>
-                                                                                        <div className="grid gap-2">
-                                                                                            <editMessageForm.Field
-                                                                                                name="message"
-                                                                                                validators={{
-                                                                                                    onChange: ({ value }) =>
-                                                                                                        !value ? 'Message is required' : undefined,
-                                                                                                }}
-                                                                                                children={(field) => (
-                                                                                                    <>
-                                                                                                        <Label htmlFor={field.name}>Message</Label>
-                                                                                                        <Textarea
-                                                                                                            id={field.name}
-                                                                                                            name={field.name}
-                                                                                                            value={field.state.value}
-                                                                                                            onBlur={field.handleBlur}
-                                                                                                            onChange={(e) => field.handleChange(e.target.value)}
-                                                                                                            placeholder="What's on your mind?"
-                                                                                                            rows={3}
-                                                                                                        />
-                                                                                                        <FieldInfo field={field} />
-                                                                                                    </>
-                                                                                                )}
-                                                                                            />
-                                                                                        </div>
-                                                                                    </div>
-                                                                                    <DialogFooter>
-                                                                                        <DialogClose asChild>
-                                                                                            <Button
-                                                                                                type="button"
-                                                                                                variant="outline"
-                                                                                                onClick={() => setEditingMessage(null)}
-                                                                                            >
-                                                                                                Cancel
-                                                                                            </Button>
-                                                                                        </DialogClose>
-                                                                                        <Button type="submit">Save Changes</Button>
-                                                                                    </DialogFooter>
-                                                                                </form>
-                                                                            </DialogContent>
-                                                                        </Dialog>
-
-                                                                        <Dialog>
-                                                                            <DialogTrigger asChild>
-                                                                                <Button
-                                                                                    size="sm"
-                                                                                    variant="ghost"
-                                                                                    onClick={() => setDeletingMessage(message)}
-                                                                                    className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                                                                                >
-                                                                                    <TrashIcon className="h-3 w-3" />
-                                                                                </Button>
-                                                                            </DialogTrigger>
-                                                                            <DialogContent className="sm:max-w-[425px]">
-                                                                                <DialogHeader>
-                                                                                    <DialogTitle>Delete Message</DialogTitle>
-                                                                                    <DialogDescription>
-                                                                                        Are you sure you want to delete this message? This action cannot be undone.
-                                                                                    </DialogDescription>
-                                                                                </DialogHeader>
-                                                                                {deletingMessage && (
-                                                                                    <div className="py-4">
-                                                                                        <div className="bg-muted p-3 rounded-md">
-                                                                                            <p className="text-sm font-medium text-muted-foreground mb-1">
-                                                                                                Message to delete:
-                                                                                            </p>
-                                                                                            <p className="text-sm">{deletingMessage.body}</p>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                )}
-                                                                                <DialogFooter>
-                                                                                    <DialogClose asChild>
-                                                                                        <Button
-                                                                                            type="button"
-                                                                                            variant="outline"
-                                                                                            autoFocus
-                                                                                        >
-                                                                                            Cancel
-                                                                                        </Button>
-                                                                                    </DialogClose>
-                                                                                    <DialogClose asChild>
-                                                                                        <Button
-                                                                                            type="button"
-                                                                                            variant="destructive"
-                                                                                            onClick={confirmDeleteMessage}
-                                                                                        >
-                                                                                            Delete Message
-                                                                                        </Button>
-                                                                                    </DialogClose>
-                                                                                </DialogFooter>
-                                                                            </DialogContent>
-                                                                        </Dialog>
-                                                                    </div>
-                )}                                                                <div className="text-muted-foreground flex items-center gap-4 text-xs whitespace-nowrap">
-                                                                    <span>{message.id}</span>
-                                                                    <span>{formatDate(new Date(message.created_at))}</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </li>
-                                                ))}
-                                        </ul>
-                                    </CardContent>
-                                </Card>
-                            ))
-                        ) : (
-                            <Card>
-                                <CardContent className="pt-6 text-center">
-                                    <p className="text-muted-foreground">No messages found. Send your first message above!</p>
-                                </CardContent>
-                            </Card>
-                        )}
-                    </div>
-                )}
+                <MessagesList 
+                    messages={messages}
+                    platforms={platforms}
+                    users={users}
+                    messagesLoading={messagesLoading}
+                    platformsLoading={platformsLoading}
+                    messagesError={messagesError}
+                    platformsError={platformsError}
+                    messageActions={messageActions}
+                />
             </div>
         </>
     );

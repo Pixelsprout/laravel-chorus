@@ -30,7 +30,6 @@ export function ChorusProvider({ children, userId, channelPrefix, schema, onReje
     const [tables, setTables] = useState({});
     const handleHarmonicEvent = (event) => __awaiter(this, void 0, void 0, function* () {
         var _a;
-        console.log("Harmonic event", event);
         if (!chorusCore.getIsInitialized())
             return;
         const db = chorusCore.getDb();

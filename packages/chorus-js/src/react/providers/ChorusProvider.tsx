@@ -51,7 +51,6 @@ export function ChorusProvider({
   const [tables, setTables] = useState<Record<string, TableState>>({});
 
   const handleHarmonicEvent = async (event: HarmonicEvent) => {
-    console.log("Harmonic event", event);
     if (!chorusCore.getIsInitialized()) return;
 
     const db = chorusCore.getDb();
