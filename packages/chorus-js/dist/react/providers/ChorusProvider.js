@@ -117,7 +117,6 @@ export function ChorusProvider({ children, userId, channelPrefix, schema, onReje
     useEffect(() => {
         let isCancelled = false;
         const initialize = () => __awaiter(this, void 0, void 0, function* () {
-            chorusCore.reset();
             chorusCore.setup(userId !== null && userId !== void 0 ? userId : "guest", schema !== null && schema !== void 0 ? schema : {}, onRejectedHarmonic);
             yield chorusCore.initializeTables();
             if (!isCancelled) {
@@ -128,7 +127,6 @@ export function ChorusProvider({ children, userId, channelPrefix, schema, onReje
         initialize();
         return () => {
             isCancelled = true;
-            chorusCore.reset();
         };
     }, [userId, channelPrefix, schema, onRejectedHarmonic]);
     const contextValue = useMemo(() => ({
