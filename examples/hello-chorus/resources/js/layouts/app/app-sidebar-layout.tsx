@@ -11,7 +11,7 @@ import { RejectedHarmonicsProvider, useRejectedHarmonics } from '@/contexts/Reje
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 import { AlertTriangle, XCircle, AlertCircle } from 'lucide-react';
-import { ThemeProvider } from "next-themes"
+import { ThemeProvider as NextThemesProvider } from "next-themes"
 
 function AppSidebarLayoutContent({ children, breadcrumbs = [] }: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[] }>) {
     const { addNotification } = useRejectedHarmonics();
@@ -77,10 +77,11 @@ function AppSidebarLayoutContent({ children, breadcrumbs = [] }: PropsWithChildr
 
 export default function AppSidebarLayout({ children, breadcrumbs = [] }: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[] }>) {
     return (
-        <ThemeProvider attribute="class"
-                       defaultTheme="system"
-                       enableSystem
-                       disableTransitionOnChange
+        <NextThemesProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
         >
             <RejectedHarmonicsProvider>
                 <AppSidebarLayoutContent breadcrumbs={breadcrumbs}>
