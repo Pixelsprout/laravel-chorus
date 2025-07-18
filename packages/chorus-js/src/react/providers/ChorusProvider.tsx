@@ -1,6 +1,6 @@
 import { useEcho } from "@laravel/echo-react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { ChorusCore, HarmonicEvent, TableState } from "../../core/chorus";
 
 import React from "react";
@@ -51,7 +51,6 @@ export function ChorusProvider({
   const [tables, setTables] = useState<Record<string, TableState>>({});
 
   const handleHarmonicEvent = async (event: HarmonicEvent) => {
-    console.log("Harmonic event", event);
     if (!chorusCore.getIsInitialized()) return;
 
     const db = chorusCore.getDb();
@@ -144,7 +143,6 @@ export function ChorusProvider({
   useEffect(() => {
     let isCancelled = false;
     const initialize = async () => {
-      chorusCore.reset();
       chorusCore.setup(userId ?? "guest", schema ?? {}, onRejectedHarmonic);
       await chorusCore.initializeTables();
       if (!isCancelled) {
@@ -155,7 +153,6 @@ export function ChorusProvider({
     initialize();
     return () => {
       isCancelled = true;
-      chorusCore.reset();
     };
   }, [userId, channelPrefix, schema, onRejectedHarmonic]);
 
@@ -209,6 +206,8 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
     error: null,
   };
 
+
+
   const data = useLiveQuery<T[]>(async () => {
     const mainCollection = chorusCore.getDb()?.table(tableName);
     const shadowCollection = chorusCore.getDb()?.table(shadowTableName);
@@ -259,7 +258,7 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
     return merged.filter((item) => !deleteIds.has(item.id));
   }, [tableName, query, tableState.lastUpdate]);
 
-  const actions: HarmonicActions<T, TInput> = {
+  const actions: HarmonicActions<T, TInput> = useMemo(() => ({
     create: async (data, sideEffect) => {
       const db = chorusCore.getDb();
       if (!db) return;
@@ -311,7 +310,7 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
         );
       }
     },
-  };
+  }), [shadowTableName, deltaTableName]);
 
   return {
     data,
@@ -325,4 +324,24 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
 export function useChorusStatus(tableName: string) {
   const { tables } = useChorus();
   return tables[tableName] || { lastUpdate: null, isLoading: false, error: null };
+}
+
+/**
+ * Helper hook that automatically memoizes query functions for useHarmonics.
+ * Use this when your query depends on reactive values to prevent infinite re-renders.
+ * 
+ * @example
+ * const query = useHarmonicsQuery<Message>(
+ *   (table) => selectedPlatform 
+ *     ? table.where('platform_id').equals(selectedPlatform)
+ *     : table,
+ *   [selectedPlatform] // dependencies
+ * );
+ * const { data } = useHarmonics('messages', query);
+ */
+export function useHarmonicsQuery<T extends { id: string | number }>(
+  queryFn: (table: Table<T>) => Table<T> | Collection<T, any>,
+  deps: React.DependencyList
+): (table: Table<T>) => Table<T> | Collection<T, any> {
+  return useCallback(queryFn, deps);
 }

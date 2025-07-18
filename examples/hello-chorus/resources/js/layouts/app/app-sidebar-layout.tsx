@@ -6,22 +6,23 @@ import { AppSidebarHeader } from '@/components/app-sidebar-header';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { ChorusProvider, type HarmonicEvent } from '@chorus/js';
 import { usePage } from '@inertiajs/react';
-import { type PropsWithChildren } from 'react';
+import { type PropsWithChildren, useCallback } from 'react';
 import { RejectedHarmonicsProvider, useRejectedHarmonics } from '@/contexts/RejectedHarmonicsContext';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 import { AlertTriangle, XCircle, AlertCircle } from 'lucide-react';
+import { ThemeProvider as NextThemesProvider } from "next-themes"
 
 function AppSidebarLayoutContent({ children, breadcrumbs = [] }: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[] }>) {
     const { addNotification } = useRejectedHarmonics();
 
-    const handleRejectedHarmonic = (harmonic: HarmonicEvent) => {
+    const handleRejectedHarmonic = useCallback((harmonic: HarmonicEvent) => {
         // Add to context for dashboard display
         addNotification(harmonic);
 
         // Show Sonner toast notification
         const message = `Failed to ${harmonic.operation}: ${harmonic.rejected_reason}`;
-        
+
         if (harmonic.rejected_reason?.includes('Validation failed')) {
             toast.warning(message, {
                 description: 'Please check your input and try again.',
@@ -53,12 +54,12 @@ function AppSidebarLayoutContent({ children, breadcrumbs = [] }: PropsWithChildr
                 },
             });
         }
-    };
+    }, [addNotification]);
 
     return (
-        <ChorusProvider 
-            userId={usePage<SharedData>().props.auth.user?.id} 
-            channelPrefix={usePage<SharedData>().props.auth.user?.tenant_id.toString()} 
+        <ChorusProvider
+            userId={usePage<SharedData>().props.auth.user?.id}
+            channelPrefix={usePage<SharedData>().props.auth.user?.tenant_id.toString()}
             schema={chorusSchema}
             onRejectedHarmonic={handleRejectedHarmonic}
         >
@@ -76,10 +77,17 @@ function AppSidebarLayoutContent({ children, breadcrumbs = [] }: PropsWithChildr
 
 export default function AppSidebarLayout({ children, breadcrumbs = [] }: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[] }>) {
     return (
-        <RejectedHarmonicsProvider>
-            <AppSidebarLayoutContent breadcrumbs={breadcrumbs}>
-                {children}
-            </AppSidebarLayoutContent>
-        </RejectedHarmonicsProvider>
+        <NextThemesProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+        >
+            <RejectedHarmonicsProvider>
+                <AppSidebarLayoutContent breadcrumbs={breadcrumbs}>
+                    {children}
+                </AppSidebarLayoutContent>
+            </RejectedHarmonicsProvider>
+        </NextThemesProvider>
     );
 }

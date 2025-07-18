@@ -1,1 +1,1 @@
-export { ChorusProvider, useHarmonics } from './providers/ChorusProvider';
+export { ChorusProvider, useHarmonics, useHarmonicsQuery } from './providers/ChorusProvider';

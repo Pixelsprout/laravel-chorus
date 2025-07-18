@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 import { useEcho } from "@laravel/echo-react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { ChorusCore } from "../../core/chorus";
 import React from "react";
 // Create a new ChorusCore instance
@@ -30,7 +30,6 @@ export function ChorusProvider({ children, userId, channelPrefix, schema, onReje
     const [tables, setTables] = useState({});
     const handleHarmonicEvent = (event) => __awaiter(this, void 0, void 0, function* () {
         var _a;
-        console.log("Harmonic event", event);
         if (!chorusCore.getIsInitialized())
             return;
         const db = chorusCore.getDb();
@@ -118,7 +117,6 @@ export function ChorusProvider({ children, userId, channelPrefix, schema, onReje
     useEffect(() => {
         let isCancelled = false;
         const initialize = () => __awaiter(this, void 0, void 0, function* () {
-            chorusCore.reset();
             chorusCore.setup(userId !== null && userId !== void 0 ? userId : "guest", schema !== null && schema !== void 0 ? schema : {}, onRejectedHarmonic);
             yield chorusCore.initializeTables();
             if (!isCancelled) {
@@ -129,7 +127,6 @@ export function ChorusProvider({ children, userId, channelPrefix, schema, onReje
         initialize();
         return () => {
             isCancelled = true;
-            chorusCore.reset();
         };
     }, [userId, channelPrefix, schema, onRejectedHarmonic]);
     const contextValue = useMemo(() => ({
@@ -194,7 +191,7 @@ export function useHarmonics(tableName, query) {
         const deleteIds = new Set(pendingDeletes.map((delta) => delta.data.id));
         return merged.filter((item) => !deleteIds.has(item.id));
     }), [tableName, query, tableState.lastUpdate]);
-    const actions = {
+    const actions = useMemo(() => ({
         create: (data, sideEffect) => __awaiter(this, void 0, void 0, function* () {
             const db = chorusCore.getDb();
             if (!db)
@@ -243,7 +240,7 @@ export function useHarmonics(tableName, query) {
                 sideEffect(data).catch((error) => console.error("[Chorus] Side effect for delete failed:", error));
             }
         }),
-    };
+    }), [shadowTableName, deltaTableName]);
     return {
         data,
         isLoading: tableState.isLoading,
@@ -255,4 +252,20 @@ export function useHarmonics(tableName, query) {
 export function useChorusStatus(tableName) {
     const { tables } = useChorus();
     return tables[tableName] || { lastUpdate: null, isLoading: false, error: null };
+}
+/**
+ * Helper hook that automatically memoizes query functions for useHarmonics.
+ * Use this when your query depends on reactive values to prevent infinite re-renders.
+ *
+ * @example
+ * const query = useHarmonicsQuery<Message>(
+ *   (table) => selectedPlatform
+ *     ? table.where('platform_id').equals(selectedPlatform)
+ *     : table,
+ *   [selectedPlatform] // dependencies
+ * );
+ * const { data } = useHarmonics('messages', query);
+ */
+export function useHarmonicsQuery(queryFn, deps) {
+    return useCallback(queryFn, deps);
 }

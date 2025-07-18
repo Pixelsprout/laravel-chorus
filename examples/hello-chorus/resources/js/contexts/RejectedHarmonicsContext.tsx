@@ -1,5 +1,5 @@
 import { type HarmonicEvent } from '@chorus/js';
-import { createContext, useContext, useState, type PropsWithChildren } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, type PropsWithChildren } from 'react';
 
 interface RejectedNotification {
     id: string;
@@ -28,7 +28,7 @@ const RejectedHarmonicsContext = createContext<RejectedHarmonicsContextType>(def
 export function RejectedHarmonicsProvider({ children }: PropsWithChildren) {
     const [notifications, setNotifications] = useState<RejectedNotification[]>([]);
 
-    const addNotification = (harmonic: HarmonicEvent) => {
+    const addNotification = useCallback((harmonic: HarmonicEvent) => {
         console.log('🚫 Rejected harmonic received:', {
             id: harmonic.id,
             operation: harmonic.operation,
@@ -65,23 +65,25 @@ export function RejectedHarmonicsProvider({ children }: PropsWithChildren) {
             // Add new notification (keep last 20 for dashboard display)
             return [notification, ...prev.slice(0, 19)];
         });
-    };
+    }, []);
 
-    const dismissNotification = (id: string) => {
+    const dismissNotification = useCallback((id: string) => {
         setNotifications(prev => prev.filter(n => n.id !== id));
-    };
+    }, []);
 
-    const clearAllNotifications = () => {
+    const clearAllNotifications = useCallback(() => {
         setNotifications([]);
-    };
+    }, []);
+
+    const contextValue = useMemo(() => ({
+        notifications,
+        addNotification,
+        dismissNotification,
+        clearAllNotifications,
+    }), [notifications, addNotification, dismissNotification, clearAllNotifications]);
 
     return (
-        <RejectedHarmonicsContext.Provider value={{
-            notifications,
-            addNotification,
-            dismissNotification,
-            clearAllNotifications,
-        }}>
+        <RejectedHarmonicsContext.Provider value={contextValue}>
             {children}
         </RejectedHarmonicsContext.Provider>
     );

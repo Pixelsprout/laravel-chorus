@@ -1,5 +1,5 @@
 // db.ts
-import { ChorusDatabase, createChorusDb } from '@/chorus';
+import { ChorusDatabase, createChorusDb } from '@chorus/js';
 import Dexie from 'dexie';
 
 interface User {
