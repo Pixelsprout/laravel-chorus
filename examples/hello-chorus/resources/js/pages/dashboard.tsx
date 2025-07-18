@@ -5,17 +5,18 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
-import type { Message, Platform } from '@/stores/db';
+import type { Message, Platform, User } from '@/stores/db';
 import { type BreadcrumbItem } from '@/types';
 import { useHarmonics } from '@chorus/js';
 import { Head, router, usePage } from '@inertiajs/react';
-import { ClockIcon, SendIcon } from 'lucide-react';
+import { ClockIcon, SendIcon, EditIcon, TrashIcon, XIcon } from 'lucide-react';
 import { useForm } from '@tanstack/react-form';
 import createMessageAction from '@/actions/App/Actions/CreateMessage';
 import { uuidv7 } from 'uuidv7';
 import type { AnyFieldApi } from '@tanstack/react-form';
 import { useState, useEffect } from 'react';
 import { useRejectedHarmonics } from '@/contexts/RejectedHarmonicsContext';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 function FieldInfo({ field }: { field: AnyFieldApi }) {
     return (
@@ -38,6 +39,8 @@ const breadcrumbs: BreadcrumbItem[] = [
 function DashboardContent() {
     const { auth, tenantName } = usePage().props;
     const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
+    const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+    const [deletingMessage, setDeletingMessage] = useState<Message | null>(null);
     const { notifications: rejectedNotifications, clearAllNotifications } = useRejectedHarmonics();
 
     // Only log when notifications change (for debugging)
@@ -68,15 +71,28 @@ function DashboardContent() {
         lastUpdate
         } = useHarmonics<Platform>('platforms');
 
+    // Sync users with the server
+    const {
+        data: users,
+        isLoading: usersLoading,
+        error: usersError,
+    } = useHarmonics<User>('users');
+
     // Format the date in a readable format
     const formatDate = (date: Date) => {
         return new Intl.DateTimeFormat('en-US', {
             month: 'short',
             day: 'numeric',
             hour: 'numeric',
-            minute: 'numeric',
+            minute: '2-digit',
             hour12: true,
         }).format(date);
+    };
+
+    // Get user name by user_id
+    const getUserName = (userId: string) => {
+        const user = users?.find(u => u.id.toString() === userId.toString());
+        return user?.name || `User ${userId}`;
     };
 
     // Forms
@@ -116,7 +132,61 @@ function DashboardContent() {
                 });
             }
         },
-    })
+    });
+
+    // Edit message form
+    const editMessageForm = useForm({
+        defaultValues: {
+            platformId: editingMessage?.platform_id || '',
+            message: editingMessage?.body || '',
+        },
+        onSubmit: async ({ value, formApi }) => {
+            if (messageActions.update && editingMessage) {
+                const updatedMessage: Message = {
+                    ...editingMessage,
+                    body: value.message,
+                    platform_id: value.platformId,
+                    updated_at: new Date(),
+                };
+
+                messageActions.update(updatedMessage, async (data: Message) => {
+                    router.put(
+                        route('messages.update', data.id),
+                        {
+                            message: data.body,
+                            platformId: data.platform_id,
+                        },
+                        {
+                            preserveScroll: true,
+                        }
+                    );
+                        // Reset form and clear editing message
+                        setEditingMessage(null);
+                        formApi.reset();
+                });
+            }
+        },
+    });
+
+    // Update edit form when editing message changes
+    useEffect(() => {
+        if (editingMessage) {
+            editMessageForm.setFieldValue('platformId', editingMessage.platform_id);
+            editMessageForm.setFieldValue('message', editingMessage.body);
+        }
+    }, [editingMessage]);
+
+    // Confirm delete message
+    const confirmDeleteMessage = () => {
+        if (messageActions.delete && deletingMessage) {
+            messageActions.delete({ id: deletingMessage.id }, async (data: { id: string }) => {
+                router.delete(route('messages.destroy', data.id), {
+                    preserveScroll: true,
+                });
+            });
+            setDeletingMessage(null);
+        }
+    };
 
     // Group messages by platform
     const groupedMessages =
@@ -412,12 +482,178 @@ function DashboardContent() {
                                             {platformMessages
                                                 .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                                                 .map((message) => (
-                                                    <li key={message.id} className="p-4">
+                                                    <li key={message.id} className="group p-4 hover:bg-muted/50 transition-colors">
                                                         <div className="flex items-start justify-between">
-                                                            <p className="text-card-foreground">{message.body}</p>
-                                                            <div className="text-muted-foreground ml-2 flex items-center gap-4 text-xs whitespace-nowrap">
-                                                                <span>{message.id}</span>
-                                                                <span>{formatDate(new Date(message.created_at))}</span>
+                                                            <div className="flex-1 pr-4">
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <span className="text-sm font-medium text-muted-foreground">
+                                                                        {getUserName(message.user_id)}
+                                                                    </span>
+                                                                    {message.user_id === auth.user.id && (
+                                                                        <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                                                                            You
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-card-foreground">{message.body}</p>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                {/* Edit/Delete buttons for user's own messages */}
+                                                                {message.user_id === auth.user.id && (
+                                                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                                                        <Dialog>
+                                                                            <DialogTrigger asChild>
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="ghost"
+                                                                                    onClick={() => setEditingMessage(message)}
+                                                                                    className="h-6 w-6 p-0"
+                                                                                >
+                                                                                    <EditIcon className="h-3 w-3" />
+                                                                                </Button>
+                                                                            </DialogTrigger>
+                                                                            <DialogContent className="sm:max-w-[425px]">
+                                                                                <DialogHeader>
+                                                                                    <DialogTitle>Edit Message</DialogTitle>
+                                                                                    <DialogDescription>
+                                                                                        Make changes to your message here. Click save when you're done.
+                                                                                    </DialogDescription>
+                                                                                </DialogHeader>
+                                                                                <form
+                                                                                    onSubmit={(e) => {
+                                                                                        e.preventDefault();
+                                                                                        e.stopPropagation();
+                                                                                        editMessageForm.handleSubmit();
+                                                                                    }}
+                                                                                >
+                                                                                    <div className="grid gap-4 py-4">
+                                                                                        <div className="grid gap-2">
+                                                                                            <editMessageForm.Field
+                                                                                                name="platformId"
+                                                                                                validators={{
+                                                                                                    onChange: ({ value }) =>
+                                                                                                        !value ? 'Platform is required' : undefined,
+                                                                                                }}
+                                                                                                children={(field) => (
+                                                                                                    <>
+                                                                                                        <Label htmlFor={field.name}>Platform</Label>
+                                                                                                        <Select
+                                                                                                            value={field.state.value}
+                                                                                                            onValueChange={(value) => field.handleChange(value)}
+                                                                                                            disabled={platformsLoading}
+                                                                                                        >
+                                                                                                            <SelectTrigger>
+                                                                                                                <SelectValue placeholder="Select a platform" />
+                                                                                                            </SelectTrigger>
+                                                                                                            <SelectContent>
+                                                                                                                {platforms?.map((platform) => (
+                                                                                                                    <SelectItem key={platform.id} value={platform.id}>
+                                                                                                                        {platform.name}
+                                                                                                                    </SelectItem>
+                                                                                                                ))}
+                                                                                                            </SelectContent>
+                                                                                                        </Select>
+                                                                                                        <FieldInfo field={field} />
+                                                                                                    </>
+                                                                                                )}
+                                                                                            />
+                                                                                        </div>
+                                                                                        <div className="grid gap-2">
+                                                                                            <editMessageForm.Field
+                                                                                                name="message"
+                                                                                                validators={{
+                                                                                                    onChange: ({ value }) =>
+                                                                                                        !value ? 'Message is required' : undefined,
+                                                                                                }}
+                                                                                                children={(field) => (
+                                                                                                    <>
+                                                                                                        <Label htmlFor={field.name}>Message</Label>
+                                                                                                        <Textarea
+                                                                                                            id={field.name}
+                                                                                                            name={field.name}
+                                                                                                            value={field.state.value}
+                                                                                                            onBlur={field.handleBlur}
+                                                                                                            onChange={(e) => field.handleChange(e.target.value)}
+                                                                                                            placeholder="What's on your mind?"
+                                                                                                            rows={3}
+                                                                                                        />
+                                                                                                        <FieldInfo field={field} />
+                                                                                                    </>
+                                                                                                )}
+                                                                                            />
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <DialogFooter>
+                                                                                        <DialogClose asChild>
+                                                                                            <Button
+                                                                                                type="button"
+                                                                                                variant="outline"
+                                                                                                onClick={() => setEditingMessage(null)}
+                                                                                            >
+                                                                                                Cancel
+                                                                                            </Button>
+                                                                                        </DialogClose>
+                                                                                        <Button type="submit">Save Changes</Button>
+                                                                                    </DialogFooter>
+                                                                                </form>
+                                                                            </DialogContent>
+                                                                        </Dialog>
+
+                                                                        <Dialog>
+                                                                            <DialogTrigger asChild>
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="ghost"
+                                                                                    onClick={() => setDeletingMessage(message)}
+                                                                                    className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                                                                                >
+                                                                                    <TrashIcon className="h-3 w-3" />
+                                                                                </Button>
+                                                                            </DialogTrigger>
+                                                                            <DialogContent className="sm:max-w-[425px]">
+                                                                                <DialogHeader>
+                                                                                    <DialogTitle>Delete Message</DialogTitle>
+                                                                                    <DialogDescription>
+                                                                                        Are you sure you want to delete this message? This action cannot be undone.
+                                                                                    </DialogDescription>
+                                                                                </DialogHeader>
+                                                                                {deletingMessage && (
+                                                                                    <div className="py-4">
+                                                                                        <div className="bg-muted p-3 rounded-md">
+                                                                                            <p className="text-sm font-medium text-muted-foreground mb-1">
+                                                                                                Message to delete:
+                                                                                            </p>
+                                                                                            <p className="text-sm">{deletingMessage.body}</p>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
+                                                                                <DialogFooter>
+                                                                                    <DialogClose asChild>
+                                                                                        <Button
+                                                                                            type="button"
+                                                                                            variant="outline"
+                                                                                            autoFocus
+                                                                                        >
+                                                                                            Cancel
+                                                                                        </Button>
+                                                                                    </DialogClose>
+                                                                                    <DialogClose asChild>
+                                                                                        <Button
+                                                                                            type="button"
+                                                                                            variant="destructive"
+                                                                                            onClick={confirmDeleteMessage}
+                                                                                        >
+                                                                                            Delete Message
+                                                                                        </Button>
+                                                                                    </DialogClose>
+                                                                                </DialogFooter>
+                                                                            </DialogContent>
+                                                                        </Dialog>
+                                                                    </div>
+                )}                                                                <div className="text-muted-foreground flex items-center gap-4 text-xs whitespace-nowrap">
+                                                                    <span>{message.id}</span>
+                                                                    <span>{formatDate(new Date(message.created_at))}</span>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </li>

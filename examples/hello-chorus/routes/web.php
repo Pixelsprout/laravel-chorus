@@ -16,7 +16,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('dashboard');
 
     // Actions
-    Route::post('messages', '\App\Actions\CreateMessage')->name('messages.create');
+    Route::post('messages', '\\App\\Actions\\CreateMessage')->name('messages.create');
+    Route::put('messages/{messageId}', '\\App\\Actions\\UpdateMessage')->name('messages.update');
+    Route::delete('messages/{messageId}', '\\App\\Actions\\DeleteMessage')->name('messages.destroy');
 });
 
 require __DIR__ . '/settings.php';
