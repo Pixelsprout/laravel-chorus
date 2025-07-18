@@ -88,6 +88,6 @@ export default function AppSidebarLayout({ children, breadcrumbs = [] }: PropsWi
                     {children}
                 </AppSidebarLayoutContent>
             </RejectedHarmonicsProvider>
-        </ThemeProvider>
+        </NextThemesProvider>
     );
 }
