@@ -1,6 +1,6 @@
 import { useEcho } from "@laravel/echo-react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { ChorusCore, HarmonicEvent, TableState } from "../../core/chorus";
 
 import React from "react";
@@ -256,7 +256,7 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
     return merged.filter((item) => !deleteIds.has(item.id));
   }, [tableName, query, tableState.lastUpdate]);
 
-  const actions: HarmonicActions<T, TInput> = {
+  const actions: HarmonicActions<T, TInput> = useMemo(() => ({
     create: async (data, sideEffect) => {
       const db = chorusCore.getDb();
       if (!db) return;
@@ -308,7 +308,7 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
         );
       }
     },
-  };
+  }), [shadowTableName, deltaTableName]);
 
   return {
     data,

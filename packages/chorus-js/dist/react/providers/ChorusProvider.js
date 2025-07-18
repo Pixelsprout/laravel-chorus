@@ -191,7 +191,7 @@ export function useHarmonics(tableName, query) {
         const deleteIds = new Set(pendingDeletes.map((delta) => delta.data.id));
         return merged.filter((item) => !deleteIds.has(item.id));
     }), [tableName, query, tableState.lastUpdate]);
-    const actions = {
+    const actions = useMemo(() => ({
         create: (data, sideEffect) => __awaiter(this, void 0, void 0, function* () {
             const db = chorusCore.getDb();
             if (!db)
@@ -240,7 +240,7 @@ export function useHarmonics(tableName, query) {
                 sideEffect(data).catch((error) => console.error("[Chorus] Side effect for delete failed:", error));
             }
         }),
-    };
+    }), [shadowTableName, deltaTableName]);
     return {
         data,
         isLoading: tableState.isLoading,
