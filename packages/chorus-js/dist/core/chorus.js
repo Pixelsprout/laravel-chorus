@@ -8,6 +8,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 import { createChorusDb } from "./db";
+import { offlineManager } from "./offline";
+import { offlineFetch } from "./fetch";
 // Storage key
 const getLatestHarmonicIdKey = (userId) => `chorus_latest_harmonic_id_${userId !== null && userId !== void 0 ? userId : "guest"}`;
 const FAILED_EVENTS_KEY = "chorus_failed_events";
@@ -29,7 +31,40 @@ export class ChorusCore {
         this.tableStates = {};
         this.userId = null;
         this.processedRejectedHarmonics = new Set();
+        this.isOnline = true;
         this.tableNames = [];
+        this.setupOfflineHandlers();
+    }
+    /**
+     * Set up offline event handlers
+     */
+    setupOfflineHandlers() {
+        offlineManager.onOnline(() => {
+            this.isOnline = true;
+            this.log("Device came online - processing pending requests and syncing");
+            this.handleOnlineReconnection();
+        });
+        offlineManager.onOffline(() => {
+            this.isOnline = false;
+            this.log("Device went offline");
+        });
+        this.isOnline = offlineManager.getIsOnline();
+    }
+    /**
+     * Handle reconnection when device comes back online
+     */
+    handleOnlineReconnection() {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                // Process any pending offline requests first
+                yield offlineManager.processPendingRequests();
+                // Don't sync harmonics here - they will come through WebSocket channels
+                // The bulk sync would conflict with optimistic updates from offline requests
+            }
+            catch (err) {
+                console.error("Error during online reconnection:", err);
+            }
+        });
     }
     /**
      * Reset the ChorusCore state
@@ -267,8 +302,8 @@ export class ChorusCore {
                         url += `?after=${latestHarmonicId}`;
                     }
                     this.log(`Syncing ${tableName}: ${isInitialSync ? "Initial sync" : "Incremental sync"}`);
-                    // Fetch data
-                    const response = yield fetch(url);
+                    // Fetch data using offline-aware fetch
+                    const response = yield offlineFetch(url, { skipOfflineCache: true });
                     if (!response.ok) {
                         const errorText = yield response.text();
                         console.error("Error response body:", errorText);
@@ -359,6 +394,26 @@ export class ChorusCore {
                 throw new Error("Database not initialized. Call setup() first.");
             }
             return this.db.table(tableName).toArray();
+        });
+    }
+    /**
+     * Get current online/offline status
+     */
+    getIsOnline() {
+        return this.isOnline;
+    }
+    /**
+     * Get offline manager instance for advanced offline operations
+     */
+    getOfflineManager() {
+        return offlineManager;
+    }
+    /**
+     * Make an offline-aware API request
+     */
+    makeRequest(url_1) {
+        return __awaiter(this, arguments, void 0, function* (url, options = {}) {
+            return offlineFetch(url, options);
         });
     }
 }

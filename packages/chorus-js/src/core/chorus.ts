@@ -1,4 +1,6 @@
 import { createChorusDb } from "./db";
+import { offlineManager } from "./offline";
+import { offlineFetch } from "./fetch";
 
 // Define the HarmonicEvent interface
 export interface HarmonicEvent {
@@ -49,9 +51,48 @@ export class ChorusCore {
   private userId: string | number | null = null;
   private onRejectedHarmonic?: (harmonic: HarmonicEvent) => void;
   private processedRejectedHarmonics = new Set<string>();
+  private isOnline: boolean = true;
 
   constructor() {
     this.tableNames = [];
+    this.setupOfflineHandlers();
+  }
+
+  /**
+   * Set up offline event handlers
+   */
+  private setupOfflineHandlers(): void {
+    offlineManager.onOnline(() => {
+      this.isOnline = true;
+      this.log("Device came online - processing pending requests and syncing");
+      this.handleOnlineReconnection();
+    });
+
+    offlineManager.onOffline(() => {
+      this.isOnline = false;
+      this.log("Device went offline");
+    });
+
+
+
+    this.isOnline = offlineManager.getIsOnline();
+  }
+
+
+
+  /**
+   * Handle reconnection when device comes back online
+   */
+  private async handleOnlineReconnection(): Promise<void> {
+    try {
+      // Process any pending offline requests first
+      await offlineManager.processPendingRequests();
+      
+      // Don't sync harmonics here - they will come through WebSocket channels
+      // The bulk sync would conflict with optimistic updates from offline requests
+    } catch (err) {
+      console.error("Error during online reconnection:", err);
+    }
   }
 
   /**
@@ -337,8 +378,8 @@ export class ChorusCore {
           `Syncing ${tableName}: ${isInitialSync ? "Initial sync" : "Incremental sync"}`,
         );
 
-        // Fetch data
-        const response = await fetch(url);
+        // Fetch data using offline-aware fetch
+        const response = await offlineFetch(url, { skipOfflineCache: true });
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -455,5 +496,26 @@ export class ChorusCore {
       throw new Error("Database not initialized. Call setup() first.");
     }
     return this.db.table<T>(tableName).toArray();
+  }
+
+  /**
+   * Get current online/offline status
+   */
+  public getIsOnline(): boolean {
+    return this.isOnline;
+  }
+
+  /**
+   * Get offline manager instance for advanced offline operations
+   */
+  public getOfflineManager() {
+    return offlineManager;
+  }
+
+  /**
+   * Make an offline-aware API request
+   */
+  public async makeRequest(url: string, options: RequestInit = {}): Promise<Response> {
+    return offlineFetch(url, options);
   }
 }

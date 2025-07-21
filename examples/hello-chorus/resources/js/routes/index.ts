@@ -50,6 +50,55 @@ home.head = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
 
 /**
 * @see routes/web.php:11
+* @route '/csrf-token'
+*/
+export const csrfToken = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
+    url: string,
+    method: 'get',
+} => ({
+    url: csrfToken.url(options),
+    method: 'get',
+})
+
+csrfToken.definition = {
+    methods: ['get','head'],
+    url: '/csrf-token',
+}
+
+/**
+* @see routes/web.php:11
+* @route '/csrf-token'
+*/
+csrfToken.url = (options?: { query?: QueryParams, mergeQuery?: QueryParams }) => {
+    return csrfToken.definition.url + queryParams(options)
+}
+
+/**
+* @see routes/web.php:11
+* @route '/csrf-token'
+*/
+csrfToken.get = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
+    url: string,
+    method: 'get',
+} => ({
+    url: csrfToken.url(options),
+    method: 'get',
+})
+
+/**
+* @see routes/web.php:11
+* @route '/csrf-token'
+*/
+csrfToken.head = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
+    url: string,
+    method: 'head',
+} => ({
+    url: csrfToken.url(options),
+    method: 'head',
+})
+
+/**
+* @see routes/web.php:18
 * @route '/dashboard'
 */
 export const dashboard = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -66,7 +115,7 @@ dashboard.definition = {
 }
 
 /**
-* @see routes/web.php:11
+* @see routes/web.php:18
 * @route '/dashboard'
 */
 dashboard.url = (options?: { query?: QueryParams, mergeQuery?: QueryParams }) => {
@@ -74,7 +123,7 @@ dashboard.url = (options?: { query?: QueryParams, mergeQuery?: QueryParams }) =>
 }
 
 /**
-* @see routes/web.php:11
+* @see routes/web.php:18
 * @route '/dashboard'
 */
 dashboard.get = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -86,7 +135,7 @@ dashboard.get = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
 })
 
 /**
-* @see routes/web.php:11
+* @see routes/web.php:18
 * @route '/dashboard'
 */
 dashboard.head = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {

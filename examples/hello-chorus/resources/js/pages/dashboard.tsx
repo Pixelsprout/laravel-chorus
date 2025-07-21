@@ -2,6 +2,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { Message, Platform, User } from '@/stores/db';
 import { type BreadcrumbItem } from '@/types';
 import { useHarmonics, useHarmonicsQuery } from '@chorus/js';
+import { OfflineBanner, OfflineIndicator } from '@chorus/js';
 import { Head, usePage } from '@inertiajs/react';
 import { type SharedData } from '@/types';
 import { ClockIcon } from 'lucide-react';
@@ -54,18 +55,26 @@ function DashboardContent() {
     return (
         <>
             <Head title={`${String(tenantName)}: Messages Dashboard`} />
+            <OfflineBanner className="bg-orange-100 border-b border-orange-200 text-orange-800 p-3 text-center" />
             <div className="p-6">
                 <div className="mb-6 flex flex-wrap gap-y-2 items-center justify-between">
                     <h1 className="text-2xl font-bold">Hi {auth.user.name}</h1>
                     <div className="flex flex-wrap flex-col gap-y-1.5">
                         <h2 className="text-xl font-semibold">{String(tenantName)}</h2>
                         {/* Sync status */}
-                        {messagesLastUpdate && (
-                            <div className="text-muted-foreground flex justify-end items-center text-sm">
-                                <ClockIcon className="mr-1 h-3 w-3" />
-                                Last synchronized: {messagesLastUpdate.toLocaleTimeString()}
-                            </div>
-                        )}
+                        <div className="flex flex-col items-end gap-1">
+                            {messagesLastUpdate && (
+                                <div className="text-muted-foreground flex items-center text-sm">
+                                    <ClockIcon className="mr-1 h-3 w-3" />
+                                    Last synchronized: {messagesLastUpdate.toLocaleTimeString()}
+                                </div>
+                            )}
+                            <OfflineIndicator 
+                                className="flex items-center gap-2 text-sm"
+                                showPendingCount={true}
+                                showRetryButton={true}
+                            />
+                        </div>
                     </div>
                 </div>
 

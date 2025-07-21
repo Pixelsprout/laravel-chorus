@@ -7,6 +7,13 @@ Route::get('/', function () {
     return Inertia::render('welcome');
 })->name('home');
 
+// CSRF token refresh endpoint (no auth required for token refresh)
+Route::get('/csrf-token', function () {
+    return response()->json([
+        'csrf_token' => csrf_token()
+    ]);
+})->name('csrf-token');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {
         $tenantName = auth()->user()->tenant->name;
@@ -16,9 +23,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('dashboard');
 
     // Actions
-    Route::post('messages', '\\App\\Actions\\CreateMessage')->name('messages.create');
-    Route::put('messages/{messageId}', '\\App\\Actions\\UpdateMessage')->name('messages.update');
-    Route::delete('messages/{messageId}', '\\App\\Actions\\DeleteMessage')->name('messages.destroy');
+    Route::post('messages', \App\Actions\CreateMessage::class)->name('messages.create');
+    Route::put('messages/{messageId}', \App\Actions\UpdateMessage::class)->name('messages.update');
+    Route::delete('messages/{messageId}', \App\Actions\DeleteMessage::class)->name('messages.destroy');
 });
 
 require __DIR__ . '/settings.php';

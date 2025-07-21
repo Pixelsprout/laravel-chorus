@@ -7,7 +7,9 @@ import type { Message, Platform } from '@/stores/db';
 
 import { router, usePage } from '@inertiajs/react';
 import { type SharedData } from '@/types';
-import { SendIcon } from 'lucide-react';
+import { SendIcon, WifiOffIcon } from 'lucide-react';
+import { createOfflineRouter } from '@chorus/js';
+import { useOffline } from '@chorus/js';
 import { useForm } from '@tanstack/react-form';
 import createMessageAction from '@/actions/App/Actions/CreateMessage';
 import { uuidv7 } from 'uuidv7';
@@ -39,6 +41,8 @@ export default function CreateMessageForm({
     messageActions 
 }: CreateMessageFormProps) {
     const { auth } = usePage<SharedData>().props;
+    const { isOnline } = useOffline();
+    const offlineRouter = createOfflineRouter(router);
 
     // Forms
     const createMessageForm = useForm({
@@ -60,7 +64,7 @@ export default function CreateMessageForm({
                 };
 
                 messageActions.create(optimisticMessage, async (data: Message) => {
-                    router.post(
+                    await offlineRouter.post(
                         createMessageAction.post().url,
                         {
                             id: data.id,
@@ -70,6 +74,9 @@ export default function CreateMessageForm({
                         {
                             preserveScroll: true,
                             only: [],
+                            onOfflineCached: (requestId: string) => {
+                                console.log('Message cached for offline processing:', requestId);
+                            }
                         }
                     );
 
@@ -83,8 +90,18 @@ export default function CreateMessageForm({
     return (
         <Card className="mb-8">
             <CardHeader>
-                <CardTitle>Send a New Message</CardTitle>
-                <CardDescription>Create a new message that will be synced in real-time</CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                    Send a New Message
+                    {!isOnline && <WifiOffIcon className="h-4 w-4 text-orange-500" />}
+                </CardTitle>
+                <CardDescription>
+                    Create a new message that will be synced in real-time
+                    {!isOnline && (
+                        <span className="block text-orange-600 mt-1">
+                            You're offline. Messages will be sent when you reconnect.
+                        </span>
+                    )}
+                </CardDescription>
             </CardHeader>
             <CardContent>
                 <form id="new-message-form" onSubmit={(e) => {
@@ -163,9 +180,19 @@ export default function CreateMessageForm({
                                 type="submit"
                                 form="new-message-form"
                                 disabled={!canSubmit}
+                                className={!isOnline ? 'bg-orange-600 hover:bg-orange-700' : ''}
                             >
-                                <SendIcon className="mr-2 h-4 w-4" />
-                                {isSubmitting ? 'Sending...' : 'Send message'}
+                                {!isOnline ? (
+                                    <WifiOffIcon className="mr-2 h-4 w-4" />
+                                ) : (
+                                    <SendIcon className="mr-2 h-4 w-4" />
+                                )}
+                                {isSubmitting 
+                                    ? 'Sending...' 
+                                    : !isOnline 
+                                        ? 'Queue message' 
+                                        : 'Send message'
+                                }
                             </Button>
                             <Button
                                 type="button"
