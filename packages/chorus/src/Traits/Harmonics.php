@@ -73,4 +73,58 @@ trait Harmonics
 
         return "chorus.$prefix.user.{$user->getAuthIdentifier()}";
     }
+
+    /**
+     * Get write actions defined for this model
+     */
+    public function getWriteActions(): array
+    {
+        $writeActions = [];
+
+        if (property_exists($this, 'writeActions') && is_array($this->writeActions)) {
+            $writeActions = $this->writeActions;
+        } elseif (method_exists($this, 'writeActions')) {
+            $writeActions = $this->writeActions();
+        }
+
+        return $writeActions;
+    }
+
+    /**
+     * Get a specific write action by name
+     */
+    public function getWriteAction(string $actionName): ?object
+    {
+        $actions = $this->getWriteActions();
+        
+        foreach ($actions as $name => $actionConfig) {
+            if ($name === $actionName) {
+                if (is_string($actionConfig)) {
+                    // Simple class name
+                    return app($actionConfig);
+                } elseif (is_array($actionConfig) && isset($actionConfig[0])) {
+                    // [ClassName, options] format
+                    $actionClass = $actionConfig[0];
+                    $options = $actionConfig[1] ?? [];
+                    
+                    $action = app($actionClass);
+                    if (method_exists($action, 'setConfig')) {
+                        $action->setConfig($options);
+                    }
+                    
+                    return $action;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get the table name for routing purposes
+     */
+    public function getChorusTableName(): string
+    {
+        return $this->getTable();
+    }
 }

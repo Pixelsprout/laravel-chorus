@@ -4,11 +4,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import type { Message, Platform } from '@/stores/db';
-import { router } from '@inertiajs/react';
 import { EditIcon } from 'lucide-react';
 import { useForm } from '@tanstack/react-form';
 import type { AnyFieldApi } from '@tanstack/react-form';
 import { useEffect, useState } from 'react';
+import { useTable } from '@chorus/js';
 
 function FieldInfo({ field }: { field: AnyFieldApi }) {
     return (
@@ -37,6 +37,13 @@ export default function UpdateMessageForm({
 }: UpdateMessageFormProps) {
     const [editingMessage, setEditingMessage] = useState<Message | null>(null);
     const [isOpen, setIsOpen] = useState(false);
+    const messages = useTable<Message>('messages', {
+        optimisticActions: {
+            create: messageActions.create,
+            update: messageActions.update,
+            delete: messageActions.delete
+        }
+    });
 
     // Edit message form
     const editMessageForm = useForm({
@@ -45,7 +52,10 @@ export default function UpdateMessageForm({
             message: editingMessage?.body || '',
         },
         onSubmit: async ({ value, formApi }) => {
-            if (messageActions.update && editingMessage) {
+            if (!editingMessage) return;
+
+            try {
+                // Create optimistic update data
                 const updatedMessage: Message = {
                     ...editingMessage,
                     body: value.message,
@@ -53,23 +63,28 @@ export default function UpdateMessageForm({
                     updated_at: new Date(),
                 };
 
-                messageActions.update(updatedMessage, async (data: Message) => {
-                    router.put(
-                        route('messages.update', data.id),
-                        {
-                            message: data.body,
-                            platformId: data.platform_id,
-                        },
-                        {
-                            preserveScroll: true,
+                // Use unified API: optimistic data, server data, callback
+                await messages.update(
+                    updatedMessage,        // Optimistic data for immediate UI update
+                    {                      // Server data
+                        id: editingMessage.id,
+                        message: value.message,
+                        platformId: value.platformId,
+                    },
+                    (result) => {          // Server response callback
+                        if (result.success) {
+                            // Reset form, clear editing message, and close modal
+                            setEditingMessage(null);
+                            formApi.reset();
+                            setIsOpen(false);
+                            console.log('Message updated successfully:', result.data);
+                        } else {
+                            console.error('Message update failed:', result.error);
                         }
-                    );
-
-                    // Reset form, clear editing message, and close modal
-                    setEditingMessage(null);
-                    formApi.reset();
-                    setIsOpen(false);
-                });
+                    }
+                );
+            } catch (err) {
+                console.error('Error updating message:', err);
             }
         },
     });
@@ -104,6 +119,7 @@ export default function UpdateMessageForm({
                         Make changes to your message here. Click save when you're done.
                     </DialogDescription>
                 </DialogHeader>
+
                 <form
                     onSubmit={(e) => {
                         e.preventDefault();
@@ -181,7 +197,14 @@ export default function UpdateMessageForm({
                                 Cancel
                             </Button>
                         </DialogClose>
-                        <Button type="submit">Save Changes</Button>
+                        <editMessageForm.Subscribe
+                            selector={(state) => [state.isSubmitting]}
+                            children={([isSubmitting]) => (
+                                <Button type="submit" disabled={isSubmitting}>
+                                    {isSubmitting ? 'Saving...' : 'Save Changes'}
+                                </Button>
+                            )}
+                        />
                     </DialogFooter>
                 </form>
             </DialogContent>

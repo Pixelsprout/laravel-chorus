@@ -5,13 +5,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import type { Message, Platform } from '@/stores/db';
 
-import { router, usePage } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import { type SharedData } from '@/types';
 import { SendIcon, WifiOffIcon } from 'lucide-react';
-import { createOfflineRouter } from '@chorus/js';
-import { useOffline } from '@chorus/js';
+import { useOffline, useTable } from '@chorus/js';
 import { useForm } from '@tanstack/react-form';
-import createMessageAction from '@/actions/App/Actions/CreateMessage';
 import { uuidv7 } from 'uuidv7';
 import type { AnyFieldApi } from '@tanstack/react-form';
 
@@ -34,15 +32,21 @@ interface CreateMessageFormProps {
     messageActions: any;
 }
 
-export default function CreateMessageForm({ 
-    platforms, 
-    platformsLoading, 
-    platformsError, 
-    messageActions 
+export default function CreateMessageForm({
+    platforms,
+    platformsLoading,
+    platformsError,
+    messageActions
 }: CreateMessageFormProps) {
     const { auth } = usePage<SharedData>().props;
     const { isOnline } = useOffline();
-    const offlineRouter = createOfflineRouter(router);
+    const messages = useTable<Message>('messages', {
+        optimisticActions: {
+            create: messageActions.create,
+            update: messageActions.update,
+            delete: messageActions.delete
+        }
+    });
 
     // Forms
     const createMessageForm = useForm({
@@ -51,10 +55,13 @@ export default function CreateMessageForm({
             message: '',
         },
         onSubmit: async ({ value, formApi }) => {
-            if (messageActions.create) {
+            try {
+                const messageId = uuidv7();
                 const now = new Date();
+
+                // Create optimistic message for immediate UI update
                 const optimisticMessage: Message = {
-                    id: uuidv7(),
+                    id: messageId,
                     body: value.message,
                     platform_id: value.platformId,
                     tenant_id: String(auth.user.tenant_id),
@@ -63,26 +70,26 @@ export default function CreateMessageForm({
                     updated_at: now,
                 };
 
-                messageActions.create(optimisticMessage, async (data: Message) => {
-                    await offlineRouter.post(
-                        createMessageAction.post().url,
-                        {
-                            id: data.id,
-                            message: data.body,
-                            platformId: data.platform_id,
-                        },
-                        {
-                            preserveScroll: true,
-                            only: [],
-                            onOfflineCached: (requestId: string) => {
-                                console.log('Message cached for offline processing:', requestId);
-                            }
+                // Execute the write action using the unified API (optimistic + server)
+                await messages.create(
+                    optimisticMessage, // Optimistic data for immediate UI update
+                    {                  // Server data
+                        id: messageId,
+                        message: value.message,
+                        platformId: value.platformId,
+                    },
+                    (result) => {      // Callback for server response
+                        if (result.success) {
+                            // Clear form on success
+                            formApi.reset();
+                            console.log('Message created successfully:', result.data);
+                        } else {
+                            console.error('Message creation failed:', result.error);
                         }
-                    );
-
-                    // clear form
-                    formApi.reset();
-                });
+                    }
+                );
+            } catch (err) {
+                console.error('Error creating message:', err);
             }
         },
     });
@@ -187,22 +194,25 @@ export default function CreateMessageForm({
                                 ) : (
                                     <SendIcon className="mr-2 h-4 w-4" />
                                 )}
-                                {isSubmitting 
-                                    ? 'Sending...' 
-                                    : !isOnline 
-                                        ? 'Queue message' 
+                                {isSubmitting
+                                    ? 'Sending...'
+                                    : !isOnline
+                                        ? 'Queue message'
                                         : 'Send message'
                                 }
                             </Button>
                             <Button
                                 type="button"
                                 variant="outline"
-                                onClick={() => {
+                                onClick={async () => {
                                     // Test rejected harmonic by sending invalid data
-                                    if (messageActions.create) {
+                                    try {
+                                        const invalidMessageId = uuidv7();
                                         const now = new Date();
+
+                                        // Create optimistic message for immediate UI update
                                         const invalidMessage: Message = {
-                                            id: uuidv7(),
+                                            id: invalidMessageId,
                                             body: '', // This will fail validation
                                             platform_id: 'invalid-platform-id', // This will also fail
                                             tenant_id: String(auth.user.tenant_id),
@@ -211,23 +221,24 @@ export default function CreateMessageForm({
                                             updated_at: now,
                                         };
 
-                                        messageActions.create(invalidMessage, async (data: Message) => {
-                                            router.post(
-                                                createMessageAction.post().url,
-                                                {
-                                                    id: data.id,
-                                                    message: data.body,
-                                                    platformId: data.platform_id,
-                                                },
-                                                {
-                                                    preserveScroll: true,
-                                                    only: [],
-                                                }
-                                            );
-                                        });
+                                        // Execute the write action with invalid data using unified API
+                                        await messages.create(
+                                            invalidMessage, // Optimistic data
+                                            {               // Server data (invalid)
+                                                id: invalidMessageId,
+                                                message: '', // This will fail validation
+                                                platformId: 'invalid-platform-id', // This will also fail
+                                            },
+                                            (result) => {   // Callback
+                                                console.log('Test rejection result:', result);
+                                            }
+                                        );
+                                    } catch (err) {
+                                        console.error('Test rejection error:', err);
                                     }
                                 }}
                                 className="text-xs"
+                                disabled={isSubmitting}
                             >
                                 Test Rejection
                             </Button>

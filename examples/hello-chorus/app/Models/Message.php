@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Actions\WriteActions\CreateMessageAction;
+use App\Actions\WriteActions\DeleteMessageAction;
+use App\Actions\WriteActions\UpdateMessageAction;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -38,6 +41,15 @@ class Message extends Model
     ];
 
     /**
+     * Define write actions for this model
+     */
+    protected $writeActions = [
+        'create' => [CreateMessageAction::class, ['allowOfflineWrites' => true]],
+        'update' => [UpdateMessageAction::class, ['allowOfflineWrites' => true]],
+        'delete' => [DeleteMessageAction::class, ['allowOfflineWrites' => true]],
+    ];
+
+    /**
      * Filter messages to only sync those belonging to the current user
      */
     protected function syncFilter(): Builder
@@ -69,4 +81,6 @@ class Message extends Model
     {
         return $this->belongsTo(Tenant::class);
     }
+
+
 }

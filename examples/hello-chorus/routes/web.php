@@ -21,11 +21,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
             'tenantName' => $tenantName
         ]);
     })->name('dashboard');
-
-    // Actions
-    Route::post('messages', \App\Actions\CreateMessage::class)->name('messages.create');
-    Route::put('messages/{messageId}', \App\Actions\UpdateMessage::class)->name('messages.update');
-    Route::delete('messages/{messageId}', \App\Actions\DeleteMessage::class)->name('messages.destroy');
 });
 
 require __DIR__ . '/settings.php';

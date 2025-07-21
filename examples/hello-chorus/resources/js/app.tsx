@@ -5,6 +5,7 @@ import { configureEcho } from '@laravel/echo-react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 import { initializeTheme } from './hooks/use-appearance';
+import { csrfManager } from '@chorus/js';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -35,3 +36,11 @@ createInertiaApp({
 
 // This will set light / dark mode on load...
 initializeTheme();
+
+// Initialize CSRF token if not present
+if (!csrfManager.getToken()) {
+    console.log('[Chorus] No CSRF token found, attempting to refresh...');
+    csrfManager.refreshToken().catch(error => {
+        console.error('[Chorus] Failed to initialize CSRF token:', error);
+    });
+}
