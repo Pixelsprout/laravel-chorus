@@ -122,24 +122,4 @@ abstract class WriteAction implements WriteActionInterface
     {
         $this->config = array_merge($this->config, $config);
     }
-
-    /**
-     * Get the action name (used for routing and frontend)
-     */
-    public function getName(): string
-    {
-        $className = class_basename(static::class);
-        
-        // Convert "CreateMessageAction" to "create"
-        if (str_ends_with($className, 'Action')) {
-            $className = substr($className, 0, -6);
-        }
-
-        return strtolower(preg_replace('/([A-Z])/', '_$1', lcfirst($className)));
-    }
-
-    /**
-     * Get the model class this action operates on
-     */
-    abstract public function getModelClass(): string;
 }

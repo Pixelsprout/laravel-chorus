@@ -51,11 +51,6 @@ class DeleteMessageAction extends WriteAction
         ];
     }
 
-    public function getModelClass(): string
-    {
-        return Message::class;
-    }
-
     /**
      * Override handleBatch for more efficient bulk deletion
      */

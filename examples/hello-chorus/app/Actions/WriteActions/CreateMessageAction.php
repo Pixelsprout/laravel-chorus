@@ -5,7 +5,6 @@ namespace App\Actions\WriteActions;
 use App\Models\Message;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Pixelsprout\LaravelChorus\Models\Harmonic;
 use Pixelsprout\LaravelChorus\Support\WriteAction;
 
 class CreateMessageAction extends WriteAction
@@ -43,11 +42,6 @@ class CreateMessageAction extends WriteAction
             'platformId' => 'required|string|uuid|exists:platforms,id',
             'id' => 'nullable|string|uuid',
         ];
-    }
-
-    public function getModelClass(): string
-    {
-        return Message::class;
     }
 
     /**

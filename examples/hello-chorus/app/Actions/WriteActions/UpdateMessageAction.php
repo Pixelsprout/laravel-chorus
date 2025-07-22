@@ -49,9 +49,4 @@ class UpdateMessageAction extends WriteAction
             'message' => 'required|string|max:255',
         ];
     }
-
-    public function getModelClass(): string
-    {
-        return Message::class;
-    }
 }
