@@ -9,28 +9,21 @@ import { usePage } from '@inertiajs/react';
 import { type PropsWithChildren, useCallback } from 'react';
 import { RejectedHarmonicsProvider, useRejectedHarmonics } from '@/contexts/RejectedHarmonicsContext';
 import { Toaster } from '@/components/ui/sonner';
-import { ThemeProvider as NextThemesProvider } from "next-themes"
+import { ThemeProvider as NextThemesProvider } from "next-themes";
+import { toast } from "sonner";
 
 function AppSidebarLayoutContent({ children, breadcrumbs = [] }: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[] }>) {
     const { addNotification } = useRejectedHarmonics();
 
     const handleRejectedHarmonic = useCallback((harmonic: HarmonicEvent) => {
-        if (harmonic.rejected_reason) {
-            addNotification({
-                title: 'Action Rejected',
-                description: harmonic.rejected_reason,
-                variant: 'destructive',
-            });
-        }
+        addNotification(harmonic);
     }, [addNotification]);
 
     const handleDatabaseVersionChange = useCallback((oldVersion: string | null, newVersion: string) => {
-        addNotification({
-            title: 'Database Updated',
-            description: `Database has been updated (${oldVersion || 'unknown'} → ${newVersion}). Data is being refreshed...`,
-            variant: 'default',
+        toast.info(`Database has been updated (${oldVersion || 'unknown'} → ${newVersion}). Data is being refreshed...`, {
+            duration: 5000,
         });
-    }, [addNotification]);
+    }, []);
 
     return (
         <ChorusProvider

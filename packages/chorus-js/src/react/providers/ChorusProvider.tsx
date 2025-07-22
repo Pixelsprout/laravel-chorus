@@ -53,9 +53,16 @@ export function ChorusProvider({
 }: ChorusProviderProps) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [tables, setTables] = useState<Record<string, TableState>>({});
+  const [initializationError, setInitializationError] = useState<string | null>(null);
 
   const handleHarmonicEvent = async (event: HarmonicEvent) => {
     if (!chorusCore.getIsInitialized()) return;
+
+    // Skip processing harmonics during database rebuild
+    if (chorusCore.getIsRebuilding()) {
+      console.log('[Chorus] Skipping harmonic event during database rebuild:', event);
+      return;
+    }
 
     const db = chorusCore.getDb();
     if (!db) return;
@@ -148,10 +155,17 @@ export function ChorusProvider({
     let isCancelled = false;
     const initialize = async () => {
       try {
+        setInitializationError(null);
         chorusCore.setup(userId ?? "guest", schema, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange);
+        
+        console.log("[Chorus] Starting schema fetch and initialization...");
         await chorusCore.fetchAndInitializeSchema(schema);
+        
+        console.log("[Chorus] Starting table initialization...");
         await chorusCore.initializeTables();
+        
         if (!isCancelled) {
+          console.log("[Chorus] Initialization complete, updating state...");
           setIsInitialized(chorusCore.getIsInitialized());
           setTables(chorusCore.getAllTableStates());
         }
@@ -159,6 +173,7 @@ export function ChorusProvider({
         console.error("[Chorus] Failed to initialize:", error);
         if (!isCancelled) {
           setIsInitialized(false);
+          setInitializationError(error instanceof Error ? error.message : String(error));
           // Set error state for all tables
           const errorTables: Record<string, TableState> = {};
           Object.keys(schema ?? {}).forEach(tableName => {
@@ -182,6 +197,11 @@ export function ChorusProvider({
     isInitialized,
     tables,
   }), [isInitialized, tables]);
+
+  // Show initialization error if there is one
+  if (initializationError) {
+    console.error("[Chorus] Initialization error:", initializationError);
+  }
 
   return (
     <ChorusContext.Provider value={contextValue}>
@@ -231,10 +251,32 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
 
 
   const data = useLiveQuery<T[]>(async () => {
-    const mainCollection = chorusCore.getDb()?.table(tableName);
-    const shadowCollection = chorusCore.getDb()?.table(shadowTableName);
+    // Check if Chorus is initialized before trying to access tables
+    if (!chorusCore.getIsInitialized()) {
+      console.log(`[Chorus] Database not yet initialized, skipping query for ${tableName}`);
+      return [];
+    }
 
-    if (!mainCollection || !shadowCollection) return [];
+    // Check if the specific table exists
+    if (!chorusCore.hasTable(tableName)) {
+      console.warn(`[Chorus] Table ${tableName} does not exist in schema`);
+      return [];
+    }
+
+    const db = chorusCore.getDb();
+    if (!db || !db.isOpen()) {
+      console.log(`[Chorus] Database not available or not open for ${tableName}`);
+      return [];
+    }
+
+    try {
+      const mainCollection = db.table(tableName);
+      const shadowCollection = db.table(shadowTableName);
+
+      if (!mainCollection || !shadowCollection) {
+        console.warn(`[Chorus] Tables not found: ${tableName}, ${shadowTableName}`);
+        return [];
+      }
 
     const toArray = async (result: any): Promise<T[]> => {
       if (Array.isArray(result)) {
@@ -276,8 +318,12 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
         .where('[operation+sync_status]')
         .equals(['delete', 'pending'])
         .toArray();
-    const deleteIds = new Set(pendingDeletes.map((delta) => delta.data.id));
-    return merged.filter((item) => !deleteIds.has(item.id));
+      const deleteIds = new Set(pendingDeletes.map((delta) => delta.data.id));
+      return merged.filter((item) => !deleteIds.has(item.id));
+    } catch (error) {
+      console.error(`[Chorus] Error querying ${tableName}:`, error);
+      return [];
+    }
   }, [tableName, query, tableState.lastUpdate]);
 
   const actions: HarmonicActions<T, TInput> = useMemo(() => ({

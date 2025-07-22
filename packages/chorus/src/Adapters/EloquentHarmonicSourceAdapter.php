@@ -94,7 +94,7 @@ class EloquentHarmonicSourceAdapter implements HarmonicSourceAdapterInterface
      * @param string $operation
      * @return void
      */
-    public function recordHarmonic(Model $model, string $operation, User $user = null): void
+    public function recordHarmonic(Model $model, string $operation, ?User $user = null): void
     {
         $tableName = $model->getTable();
         $recordId = $model->getKey();

@@ -29,6 +29,12 @@ export function RejectedHarmonicsProvider({ children }: PropsWithChildren) {
     const [notifications, setNotifications] = useState<RejectedNotification[]>([]);
 
     const addNotification = useCallback((harmonic: HarmonicEvent) => {
+        // Validate that the harmonic object has required properties
+        if (!harmonic || !harmonic.id) {
+            console.warn('🚫 Received invalid rejected harmonic (missing ID):', harmonic);
+            return;
+        }
+
         console.log('🚫 Rejected harmonic received:', {
             id: harmonic.id,
             operation: harmonic.operation,

@@ -54,6 +54,7 @@ export class ChorusCore {
   private onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void;
   private processedRejectedHarmonics = new Set<string>();
   private isOnline: boolean = true;
+  private isRebuilding: boolean = false;
 
   constructor() {
     this.tableNames = [];
@@ -181,24 +182,46 @@ export class ChorusCore {
           }
         }
         
+        this.isRebuilding = true;
         await this.rebuildDatabase();
+        
+        // Store versions AFTER rebuild to ensure they're updated
+        if (newSchemaVersion) {
+          localStorage.setItem(`chorus_schema_version_${this.userId}`, newSchemaVersion.toString());
+        }
+        if (newDatabaseVersion) {
+          localStorage.setItem(`chorus_database_version_${this.userId}`, newDatabaseVersion.toString());
+        }
+        
+        await this.initializeWithSchema(schema, newDatabaseVersion, newSchemaVersion);
+        
+        // After rebuilding, we need to do a full resync for all tables
+        // This ensures we have all the data before processing any harmonics
+        this.log("Database rebuilt, performing full resync...");
+        await this.performFullResync();
+        
+        // After full resync, wait a moment to ensure any pending harmonics are processed
+        // before we start normal operation
+        this.log("Full resync completed, waiting for system to stabilize...");
+        this.isRebuilding = false;
+        
+      } else {
+        // Store versions for future reference
+        if (newSchemaVersion) {
+          localStorage.setItem(`chorus_schema_version_${this.userId}`, newSchemaVersion.toString());
+        }
+        if (newDatabaseVersion) {
+          localStorage.setItem(`chorus_database_version_${this.userId}`, newDatabaseVersion.toString());
+        }
+        
+        await this.initializeWithSchema(schema, newDatabaseVersion, newSchemaVersion);
       }
-      
-      // Store versions for future reference
-      if (newSchemaVersion) {
-        localStorage.setItem(`chorus_schema_version_${this.userId}`, newSchemaVersion.toString());
-      }
-      if (newDatabaseVersion) {
-        localStorage.setItem(`chorus_database_version_${this.userId}`, newDatabaseVersion.toString());
-      }
-      
-      this.initializeWithSchema(schema);
     } catch (err) {
       this.log("Failed to fetch schema from server, using fallback", err);
       
       if (fallbackSchema) {
         this.log("Using fallback schema", fallbackSchema);
-        this.initializeWithSchema(fallbackSchema);
+        await this.initializeWithSchema(fallbackSchema);
       } else {
         throw new Error("No schema available and no fallback provided");
       }
@@ -232,9 +255,78 @@ export class ChorusCore {
   }
 
   /**
+   * Perform a full resync of all tables after database rebuild
+   */
+  private async performFullResync(): Promise<void> {
+    if (this.tableNames.length === 0) {
+      this.log("No tables to resync");
+      return;
+    }
+
+    this.log("Starting full resync for all tables...");
+
+    for (const tableName of this.tableNames) {
+      try {
+        // Set table to loading state
+        this.updateTableState(tableName, {
+          lastUpdate: null,
+          isLoading: true,
+          error: null,
+        });
+
+        // Force initial sync by requesting all data
+        const url = `/api/sync/${tableName}?initial=true`;
+        
+        this.log(`Full resyncing ${tableName}...`);
+        
+        const response = await offlineFetch(url, { skipOfflineCache: true });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to sync ${tableName}: ${response.status}`);
+        }
+
+        const responseData = await response.json();
+
+        // Save latest harmonic ID
+        if (responseData.latest_harmonic_id) {
+          this.saveLatestHarmonicId(responseData.latest_harmonic_id);
+        }
+
+        // Clear the table first to ensure clean state
+        await this.db!.table(tableName).clear();
+        
+        // NOTE: We don't need to add records here as this will happen naturally though the bulkAdd phase.
+
+        // Update state for this table
+        this.updateTableState(tableName, {
+          lastUpdate: new Date(),
+          isLoading: false,
+          error: null,
+        });
+
+      } catch (err) {
+        console.error(`Failed to resync ${tableName}:`, err);
+        
+        // Update state with error
+        this.updateTableState(tableName, {
+          ...this.getTableState(tableName),
+          isLoading: false,
+          error: `Failed to resync ${tableName}: ${err instanceof Error ? err.message : String(err)}`,
+        });
+      }
+    }
+
+    this.log("Full resync completed");
+  }
+
+  /**
    * Initialize database with the provided schema
    */
-  private initializeWithSchema(schema: Record<string, any>): void {
+  private async initializeWithSchema(
+    schema: Record<string, any>, 
+    databaseVersion?: string,
+    schemaVersion?: string | number
+  ): Promise<void> {
     if (!this.db) {
       throw new Error("Database not initialized. Call setup() first.");
     }
@@ -250,7 +342,23 @@ export class ChorusCore {
       };
     });
 
-    this.db.initializeSchema(schema);
+    // Calculate a version number based on database version and schema version
+    let forceVersion: number | undefined;
+    if (databaseVersion || schemaVersion) {
+      // Create a combined version hash from database and schema versions
+      const versionString = `${databaseVersion || 'v1'}_${schemaVersion || '1'}`;
+      let hash = 0;
+      for (let i = 0; i < versionString.length; i++) {
+        const char = versionString.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32-bit integer
+      }
+      // Ensure version is positive and reasonable (between 1 and 999999)
+      forceVersion = Math.abs(hash) % 999999 + 1;
+      this.log(`Calculated IndexedDB version ${forceVersion} from database version ${databaseVersion} and schema version ${schemaVersion}`);
+    }
+
+    await this.db.initializeSchema(schema, forceVersion);
     this.isInitialized = true;
   }
 
@@ -287,27 +395,34 @@ export class ChorusCore {
    * Process a batch of harmonics
    */
   public async processHarmonics(
-    tableName: string,
     harmonics: HarmonicEvent[],
+    tableName: string,
   ): Promise<boolean> {
-    if (!harmonics.length) return true;
+    if (!this.db) {
+      throw new SyncError("Database not initialized");
+    }
 
-    // Group by operation type
+    // Skip processing harmonics during database rebuild
+    if (this.isRebuilding) {
+      this.log(`Skipping batch harmonic processing during database rebuild for ${tableName}`);
+      return true;
+    }
+
+    if (harmonics.length === 0) {
+      return true;
+    }
+
     const creates: any[] = [];
     const updates: any[] = [];
-    const deletes: (string | number)[] = [];
-    const errors: Error[] = [];
+    const deletes: any[] = [];
+    const errors: SyncError[] = [];
 
+    // Process each harmonic
     for (const harmonic of harmonics) {
       try {
-        // Handle rejected harmonics
+        // Skip rejected harmonics in batch processing
         if (harmonic.rejected) {
-          this.log(`Processing rejected harmonic: ${harmonic.rejected_reason}`, harmonic);
-          // Only call callback if we haven't processed this rejected harmonic before
-          if (this.onRejectedHarmonic && !this.processedRejectedHarmonics.has(harmonic.id)) {
-            this.processedRejectedHarmonics.add(harmonic.id);
-            this.onRejectedHarmonic(harmonic);
-          }
+          this.log(`Skipping rejected harmonic in batch: ${harmonic.rejected_reason}`, harmonic);
           continue;
         }
 
@@ -377,16 +492,25 @@ export class ChorusCore {
    * Process a single harmonic event
    */
   public async processHarmonic(event: HarmonicEvent): Promise<boolean> {
+    // Skip processing harmonics during database rebuild
+    if (this.isRebuilding) {
+      this.log(`Skipping harmonic processing during database rebuild`, event);
+      return true;
+    }
+
     // Handle rejected harmonics
     if (event.rejected) {
       this.log(`Processing rejected harmonic: ${event.rejected_reason}`, event);
       // Only call callback if we haven't processed this rejected harmonic before
-      if (this.onRejectedHarmonic && !this.processedRejectedHarmonics.has(event.id)) {
+      // and if the event has a valid ID
+      if (this.onRejectedHarmonic && event.id && !this.processedRejectedHarmonics.has(event.id)) {
         this.processedRejectedHarmonics.add(event.id);
         this.onRejectedHarmonic(event);
       }
-      // Save the latest harmonic ID even for rejected events
-      this.saveLatestHarmonicId(event.id);
+      // Save the latest harmonic ID even for rejected events (only if ID exists)
+      if (event.id) {
+        this.saveLatestHarmonicId(event.id);
+      }
       return true;
     }
 
@@ -530,7 +654,7 @@ export class ChorusCore {
           this.log(
             `Incremental sync: received ${responseData.harmonics.length} harmonics for ${tableName}`,
           );
-          await this.processHarmonics(tableName, responseData.harmonics);
+          await this.processHarmonics(responseData.harmonics, tableName);
         } else {
           this.log(`No changes to sync for ${tableName}`);
         }
@@ -606,6 +730,23 @@ export class ChorusCore {
   }
 
   /**
+   * Check if a table exists in the database
+   */
+  public hasTable(tableName: string): boolean {
+    if (!this.db || !this.isInitialized) {
+      return false;
+    }
+    
+    try {
+      // Check if table exists in the schema
+      return this.tableNames.includes(tableName);
+    } catch (err) {
+      console.warn(`[Chorus] Error checking table ${tableName}:`, err);
+      return false;
+    }
+  }
+
+  /**
    * Get data from a specific table
    */
   public async getTableData<T = any>(tableName: string): Promise<T[]> {
@@ -623,6 +764,13 @@ export class ChorusCore {
    */
   public getIsOnline(): boolean {
     return this.isOnline;
+  }
+
+  /**
+   * Check if the system is currently rebuilding the database
+   */
+  public getIsRebuilding(): boolean {
+    return this.isRebuilding;
   }
 
   /**

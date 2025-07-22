@@ -34,6 +34,7 @@ export declare class ChorusCore {
     private onDatabaseVersionChange?;
     private processedRejectedHarmonics;
     private isOnline;
+    private isRebuilding;
     constructor();
     /**
      * Set up offline event handlers
@@ -60,6 +61,10 @@ export declare class ChorusCore {
      */
     private rebuildDatabase;
     /**
+     * Perform a full resync of all tables after database rebuild
+     */
+    private performFullResync;
+    /**
      * Initialize database with the provided schema
      */
     private initializeWithSchema;
@@ -78,7 +83,7 @@ export declare class ChorusCore {
     /**
      * Process a batch of harmonics
      */
-    processHarmonics(tableName: string, harmonics: HarmonicEvent[]): Promise<boolean>;
+    processHarmonics(harmonics: HarmonicEvent[], tableName: string): Promise<boolean>;
     /**
      * Process a single harmonic event
      */
@@ -108,6 +113,10 @@ export declare class ChorusCore {
      */
     getDb(): import("./db").ChorusDatabase | null;
     /**
+     * Check if a table exists in the database
+     */
+    hasTable(tableName: string): boolean;
+    /**
      * Get data from a specific table
      */
     getTableData<T = any>(tableName: string): Promise<T[]>;
@@ -115,6 +124,10 @@ export declare class ChorusCore {
      * Get current online/offline status
      */
     getIsOnline(): boolean;
+    /**
+     * Check if the system is currently rebuilding the database
+     */
+    getIsRebuilding(): boolean;
     /**
      * Get offline manager instance for advanced offline operations
      */
