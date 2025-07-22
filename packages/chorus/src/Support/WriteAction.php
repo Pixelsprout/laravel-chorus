@@ -15,7 +15,6 @@ abstract class WriteAction implements WriteActionInterface
     protected array $config = [
         'allowOfflineWrites' => false,
         'supportsBatch' => true,
-        'maxBatchSize' => 100,
     ];
 
     /**

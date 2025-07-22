@@ -11,7 +11,6 @@ class UpdateMessageAction extends WriteAction
     protected array $config = [
         'allowOfflineWrites' => true,
         'supportsBatch' => true,
-        'maxBatchSize' => 50,
     ];
 
     public function handle(Request $request, array $data): Message

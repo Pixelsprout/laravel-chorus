@@ -11,7 +11,6 @@ class DeleteMessageAction extends WriteAction
     protected array $config = [
         'allowOfflineWrites' => true,
         'supportsBatch' => true,
-        'maxBatchSize' => 100,
     ];
 
     public function handle(Request $request, array $data): array

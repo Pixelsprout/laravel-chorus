@@ -44,9 +44,9 @@ class Message extends Model
      * Define write actions for this model
      */
     protected $writeActions = [
-        'create' => [CreateMessageAction::class, ['allowOfflineWrites' => true]],
-        'update' => [UpdateMessageAction::class, ['allowOfflineWrites' => true]],
-        'delete' => [DeleteMessageAction::class, ['allowOfflineWrites' => true]],
+        'create' => CreateMessageAction::class,
+        'update' => UpdateMessageAction::class,
+        'delete' => DeleteMessageAction::class,
     ];
 
     /**
@@ -81,6 +81,4 @@ class Message extends Model
     {
         return $this->belongsTo(Tenant::class);
     }
-
-
 }
