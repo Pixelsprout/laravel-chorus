@@ -4,8 +4,6 @@ namespace App\Actions\WriteActions;
 
 use App\Models\Message;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Pixelsprout\LaravelChorus\Support\WriteAction;
 
 class CreateMessageAction extends WriteAction

@@ -2,6 +2,7 @@
 
 namespace Pixelsprout\LaravelChorus\Support;
 
+use Illuminate\Container\Attributes\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -25,7 +26,10 @@ abstract class WriteAction implements WriteActionInterface
     /**
      * Get validation rules for this action
      */
-    abstract public function rules(): array;
+    public function rules(): array
+    {
+        return [];
+    }
 
     /**
      * Handle batch write operations
@@ -36,16 +40,11 @@ abstract class WriteAction implements WriteActionInterface
             throw new \Exception('This action does not support batch operations');
         }
 
-        if (count($items) > $this->config['maxBatchSize']) {
-            throw new \Exception("Batch size exceeds maximum of {$this->config['maxBatchSize']}");
-        }
-
         $results = [];
         $errors = [];
 
         foreach ($items as $index => $item) {
             try {
-                $this->validateItem($item);
                 $result = $this->handle($request, $item);
                 $results[] = [
                     'success' => true,

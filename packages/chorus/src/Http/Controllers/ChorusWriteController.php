@@ -7,7 +7,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
+use Pixelsprout\LaravelChorus\Models\Harmonic;
 use Pixelsprout\LaravelChorus\Support\ModelsThat;
+use Pixelsprout\LaravelChorus\Traits\Harmonics;
 
 class ChorusWriteController extends Controller
 {
@@ -71,9 +75,22 @@ class ChorusWriteController extends Controller
             $data = $request->all();
             
             // Validate the data first
-            $validator = \Illuminate\Support\Facades\Validator::make($data, $action->rules());
+            $validator = Validator::make($data, $action->rules());
             if ($validator->fails()) {
-                throw new \Illuminate\Validation\ValidationException($validator);
+
+                // We create a harmonic that marks the event as rejected.
+                // This is so a our frontend can process the failure.
+                Harmonic::createValidationRejected(
+                    'create',
+                    $request->all(),
+                    $validator->errors()->first(),
+                    auth()->id(),
+                    // it's helpful if the id exists as we can then know what event failed on the client-side
+                    $request->input('id') ?? Str::uuid()
+                );
+
+                // Throw validation exception for Inertia to handle
+                throw new ValidationException($validator);
             }
             
             DB::beginTransaction();
@@ -95,7 +112,7 @@ class ChorusWriteController extends Controller
                 'table' => $tableName
             ]);
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             DB::rollBack();
             
             return response()->json([
@@ -232,7 +249,7 @@ class ChorusWriteController extends Controller
      */
     protected function getModelClassByTableName(string $tableName): ?string
     {
-        $models = ModelsThat::useTrait(\Pixelsprout\LaravelChorus\Traits\Harmonics::class);
+        $models = ModelsThat::useTrait(Harmonics::class);
         
         foreach ($models as $modelClass) {
             $model = new $modelClass();
