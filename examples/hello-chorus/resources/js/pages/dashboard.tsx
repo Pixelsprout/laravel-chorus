@@ -7,7 +7,7 @@ import { Head, usePage } from '@inertiajs/react';
 import { type SharedData } from '@/types';
 import { ClockIcon } from 'lucide-react';
 import { useState } from 'react';
-import CreateMessageForm from '@/components/CreateMessageForm';
+import CreateMessageForm from '@/components/forms/CreateMessageForm';
 import RejectedMessages from '@/components/RejectedMessages';
 import MessagesFilter from '@/components/MessagesFilter';
 import MessagesList from '@/components/MessagesList';
@@ -69,7 +69,7 @@ function DashboardContent() {
                                     Last synchronized: {messagesLastUpdate.toLocaleTimeString()}
                                 </div>
                             )}
-                            <OfflineIndicator 
+                            <OfflineIndicator
                                 className="flex items-center gap-2 text-sm"
                                 showPendingCount={true}
                                 showRetryButton={true}

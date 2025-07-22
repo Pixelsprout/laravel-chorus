@@ -59,20 +59,17 @@ export default function CreateMessageForm({
                 const messageId = uuidv7();
                 const now = new Date();
 
-                // Create optimistic message for immediate UI update
-                const optimisticMessage: Message = {
-                    id: messageId,
-                    body: value.message,
-                    platform_id: value.platformId,
-                    tenant_id: String(auth.user.tenant_id),
-                    user_id: String(auth.user.id),
-                    created_at: now,
-                    updated_at: now,
-                };
-
                 // Execute the write action using the unified API (optimistic + server)
                 await messages.create(
-                    optimisticMessage, // Optimistic data for immediate UI update
+                    {                  // Optimistic data for immediate UI update
+                        id: messageId,
+                        body: value.message,
+                        platform_id: value.platformId,
+                        tenant_id: String(auth.user.tenant_id),
+                        user_id: String(auth.user.id),
+                        created_at: now,
+                        updated_at: now,
+                    },
                     {                  // Server data
                         id: messageId,
                         message: value.message,

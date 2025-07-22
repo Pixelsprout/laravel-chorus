@@ -29,11 +29,11 @@ interface UpdateMessageFormProps {
     messageActions: any;
 }
 
-export default function UpdateMessageForm({ 
-    message, 
-    platforms, 
-    platformsLoading, 
-    messageActions 
+export default function UpdateMessageForm({
+    message,
+    platforms,
+    platformsLoading,
+    messageActions
 }: UpdateMessageFormProps) {
     const [editingMessage, setEditingMessage] = useState<Message | null>(null);
     const [isOpen, setIsOpen] = useState(false);
@@ -55,17 +55,13 @@ export default function UpdateMessageForm({
             if (!editingMessage) return;
 
             try {
-                // Create optimistic update data
-                const updatedMessage: Message = {
-                    ...editingMessage,
-                    body: value.message,
-                    platform_id: value.platformId,
-                    updated_at: new Date(),
-                };
-
-                // Use unified API: optimistic data, server data, callback
                 await messages.update(
-                    updatedMessage,        // Optimistic data for immediate UI update
+                    {
+                        ...editingMessage,
+                        body: value.message,
+                        platform_id: value.platformId,
+                        updated_at: new Date(),
+                    },                     // Optimistic data for immediate UI update
                     {                      // Server data
                         id: editingMessage.id,
                         message: value.message,
