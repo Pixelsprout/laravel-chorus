@@ -3,6 +3,7 @@
 namespace Pixelsprout\LaravelChorus\Http\Controllers;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Pixelsprout\LaravelChorus\Support\ModelsThat;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -13,6 +14,72 @@ use ReflectionClass;
 
 class SyncController extends Controller
 {
+    public function getSchema(): \Illuminate\Http\JsonResponse
+    {
+        try {
+            // Get all available models with Harmonics trait from config
+            $modelMap = config("chorus.models", []);
+            $schema = [];
+            
+            foreach ($modelMap as $tableName => $modelClass) {
+                try {
+                    $instance = new $modelClass();
+                    $syncFields = $instance->getSyncFields();
+                    $primaryKey = $instance->getKeyName();
+                    
+                    // Create IndexedDB table schema
+                    // Format: tableName: 'primaryKey, field1, field2, ...'
+                    $fields = implode(', ', array_filter($syncFields, fn($field) => $field !== $primaryKey));
+                    $schema[$tableName] = $primaryKey . ($fields ? ', ' . $fields : '');
+                } catch (\Exception $e) {
+                    Log::warning("Error generating schema for {$modelClass}: " . $e->getMessage());
+                    continue;
+                }
+            }
+            
+            // Get database version based on migrations (if enabled)
+            $databaseVersion = config('chorus.track_database_version', true) 
+                ? $this->getDatabaseVersion() 
+                : null;
+            
+            return response()->json([
+                'schema' => $schema,
+                'schema_version' => config('chorus.schema_version', 1),
+                'database_version' => $databaseVersion,
+                'generated_at' => now()->toISOString()
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Error in getSchema", [
+                "error" => $e->getMessage(),
+                "trace" => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                "error" => "Internal server error",
+                "message" => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get database version based on migration state
+     */
+    private function getDatabaseVersion(): string
+    {
+        try {
+            // Get the latest migration batch and count of migrations
+            $latestBatch = DB::table('migrations')->max('batch') ?? 0;
+            $migrationCount = DB::table('migrations')->count();
+            
+            // Create a version string that changes when migrations are run
+            // Format: batch_count (e.g., "5_23" means batch 5 with 23 total migrations)
+            return "{$latestBatch}_{$migrationCount}";
+        } catch (\Exception $e) {
+            Log::warning("Could not determine database version: " . $e->getMessage());
+            // Fallback to timestamp-based version
+            return (string) time();
+        }
+    }
     public function getInitialData(
         Request $request,
         string $table
@@ -147,7 +214,7 @@ class SyncController extends Controller
                 ->header("Cache-Control", "private, max-age=10"); // 10-second client cache
         } catch (\Exception $e) {
             // Log the error
-            \Log::error("Error in getInitialData", [
+            Log::error("Error in getInitialData", [
                 "table" => $table,
                 "error" => $e->getMessage(),
                 "trace" => $e->getTraceAsString(),

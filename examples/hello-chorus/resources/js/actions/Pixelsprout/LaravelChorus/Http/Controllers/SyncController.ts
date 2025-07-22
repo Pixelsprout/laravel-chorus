@@ -1,7 +1,60 @@
-import { queryParams, type QueryParams } from './../../../../../wayfinder'
+import { queryParams, type QueryParams } from '@/wayfinder'
+/**
+* @see \Pixelsprout\LaravelChorus\Http\Controllers\SyncController::getSchema
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/SyncController.php:16
+* @route '/api/schema'
+*/
+export const getSchema = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
+    url: string,
+    method: 'get',
+} => ({
+    url: getSchema.url(options),
+    method: 'get',
+})
+
+getSchema.definition = {
+    methods: ['get','head'],
+    url: '/api/schema',
+}
+
+/**
+* @see \Pixelsprout\LaravelChorus\Http\Controllers\SyncController::getSchema
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/SyncController.php:16
+* @route '/api/schema'
+*/
+getSchema.url = (options?: { query?: QueryParams, mergeQuery?: QueryParams }) => {
+    return getSchema.definition.url + queryParams(options)
+}
+
+/**
+* @see \Pixelsprout\LaravelChorus\Http\Controllers\SyncController::getSchema
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/SyncController.php:16
+* @route '/api/schema'
+*/
+getSchema.get = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
+    url: string,
+    method: 'get',
+} => ({
+    url: getSchema.url(options),
+    method: 'get',
+})
+
+/**
+* @see \Pixelsprout\LaravelChorus\Http\Controllers\SyncController::getSchema
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/SyncController.php:16
+* @route '/api/schema'
+*/
+getSchema.head = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
+    url: string,
+    method: 'head',
+} => ({
+    url: getSchema.url(options),
+    method: 'head',
+})
+
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\SyncController::getInitialData
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/SyncController.php:16
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/SyncController.php:80
 * @route '/api/sync/{table}'
 */
 export const getInitialData = (args: { table: string | number } | [table: string | number ] | string | number, options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -19,7 +72,7 @@ getInitialData.definition = {
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\SyncController::getInitialData
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/SyncController.php:16
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/SyncController.php:80
 * @route '/api/sync/{table}'
 */
 getInitialData.url = (args: { table: string | number } | [table: string | number ] | string | number, options?: { query?: QueryParams, mergeQuery?: QueryParams }) => {
@@ -44,7 +97,7 @@ getInitialData.url = (args: { table: string | number } | [table: string | number
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\SyncController::getInitialData
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/SyncController.php:16
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/SyncController.php:80
 * @route '/api/sync/{table}'
 */
 getInitialData.get = (args: { table: string | number } | [table: string | number ] | string | number, options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -57,7 +110,7 @@ getInitialData.get = (args: { table: string | number } | [table: string | number
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\SyncController::getInitialData
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/SyncController.php:16
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/SyncController.php:80
 * @route '/api/sync/{table}'
 */
 getInitialData.head = (args: { table: string | number } | [table: string | number ] | string | number, options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -68,6 +121,6 @@ getInitialData.head = (args: { table: string | number } | [table: string | numbe
     method: 'head',
 })
 
-const SyncController = { getInitialData }
+const SyncController = { getSchema, getInitialData }
 
 export default SyncController

@@ -25,7 +25,7 @@ const HarmonicListener = ({ channel, onEvent }) => {
     });
     return null;
 };
-export function ChorusProvider({ children, userId, channelPrefix, schema, onRejectedHarmonic, }) {
+export function ChorusProvider({ children, userId, channelPrefix, schema, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange, }) {
     const [isInitialized, setIsInitialized] = useState(false);
     const [tables, setTables] = useState({});
     const handleHarmonicEvent = (event) => __awaiter(this, void 0, void 0, function* () {
@@ -117,18 +117,37 @@ export function ChorusProvider({ children, userId, channelPrefix, schema, onReje
     useEffect(() => {
         let isCancelled = false;
         const initialize = () => __awaiter(this, void 0, void 0, function* () {
-            chorusCore.setup(userId !== null && userId !== void 0 ? userId : "guest", schema !== null && schema !== void 0 ? schema : {}, onRejectedHarmonic);
-            yield chorusCore.initializeTables();
-            if (!isCancelled) {
-                setIsInitialized(chorusCore.getIsInitialized());
-                setTables(chorusCore.getAllTableStates());
+            try {
+                chorusCore.setup(userId !== null && userId !== void 0 ? userId : "guest", schema, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange);
+                yield chorusCore.fetchAndInitializeSchema(schema);
+                yield chorusCore.initializeTables();
+                if (!isCancelled) {
+                    setIsInitialized(chorusCore.getIsInitialized());
+                    setTables(chorusCore.getAllTableStates());
+                }
+            }
+            catch (error) {
+                console.error("[Chorus] Failed to initialize:", error);
+                if (!isCancelled) {
+                    setIsInitialized(false);
+                    // Set error state for all tables
+                    const errorTables = {};
+                    Object.keys(schema !== null && schema !== void 0 ? schema : {}).forEach(tableName => {
+                        errorTables[tableName] = {
+                            lastUpdate: null,
+                            isLoading: false,
+                            error: `Failed to initialize: ${error instanceof Error ? error.message : String(error)}`
+                        };
+                    });
+                    setTables(errorTables);
+                }
             }
         });
         initialize();
         return () => {
             isCancelled = true;
         };
-    }, [userId, channelPrefix, schema, onRejectedHarmonic]);
+    }, [userId, channelPrefix, schema, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange]);
     const contextValue = useMemo(() => ({
         isInitialized,
         tables,

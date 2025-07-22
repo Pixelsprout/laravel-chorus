@@ -50,6 +50,8 @@ export class ChorusCore {
   private tableStates: Record<string, TableState> = {};
   private userId: string | number | null = null;
   private onRejectedHarmonic?: (harmonic: HarmonicEvent) => void;
+  private onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void;
+  private onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void;
   private processedRejectedHarmonics = new Set<string>();
   private isOnline: boolean = true;
 
@@ -111,13 +113,132 @@ export class ChorusCore {
   }
 
   /**
-   * Set up the ChorusCore with a userId and schema
+   * Set up the ChorusCore with a userId and optional fallback schema
    */
-  public setup(userId: string | number, schema: Record<string, any>, onRejectedHarmonic?: (harmonic: HarmonicEvent) => void): void {
+  public setup(
+    userId: string | number, 
+    fallbackSchema?: Record<string, any>, 
+    onRejectedHarmonic?: (harmonic: HarmonicEvent) => void,
+    onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void,
+    onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void
+  ): void {
     this.userId = userId;
     this.onRejectedHarmonic = onRejectedHarmonic;
+    this.onSchemaVersionChange = onSchemaVersionChange;
+    this.onDatabaseVersionChange = onDatabaseVersionChange;
     const dbName = `chorus_db_${userId || "guest"}`;
     this.db = createChorusDb(dbName);
+    
+    // Don't initialize schema here - it will be fetched from server
+    this.log("Setting up ChorusCore with userId", userId);
+  }
+
+  /**
+   * Fetch schema from server and initialize database
+   */
+  public async fetchAndInitializeSchema(fallbackSchema?: Record<string, any>): Promise<void> {
+    try {
+      this.log("Fetching schema from server...");
+      const response = await offlineFetch("/api/schema");
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch schema: ${response.status}`);
+      }
+      
+      const schemaData = await response.json();
+      const schema = schemaData.schema || {};
+      const newSchemaVersion = schemaData.schema_version;
+      const newDatabaseVersion = schemaData.database_version;
+      
+      this.log("Received schema from server", { schema, schemaVersion: newSchemaVersion, databaseVersion: newDatabaseVersion });
+      
+      // Check if schema version has changed
+      const currentSchemaVersion = localStorage.getItem(`chorus_schema_version_${this.userId}`);
+      const schemaVersionChanged = currentSchemaVersion && newSchemaVersion && currentSchemaVersion !== newSchemaVersion.toString();
+      
+      // Check if database version has changed (migrations were run)
+      const currentDatabaseVersion = localStorage.getItem(`chorus_database_version_${this.userId}`);
+      const databaseVersionChanged = currentDatabaseVersion && newDatabaseVersion && currentDatabaseVersion !== newDatabaseVersion.toString();
+      
+      const shouldRebuildDb = schemaVersionChanged || databaseVersionChanged;
+      
+      if (shouldRebuildDb) {
+        if (schemaVersionChanged) {
+          this.log(`Schema version changed from ${currentSchemaVersion} to ${newSchemaVersion}, rebuilding database...`);
+          
+          // Notify about schema version change
+          if (this.onSchemaVersionChange) {
+            this.onSchemaVersionChange(currentSchemaVersion, newSchemaVersion.toString());
+          }
+        }
+        
+        if (databaseVersionChanged) {
+          this.log(`Database version changed from ${currentDatabaseVersion} to ${newDatabaseVersion}, rebuilding database...`);
+          
+          // Notify about database version change (migrations were run)
+          if (this.onDatabaseVersionChange) {
+            this.onDatabaseVersionChange(currentDatabaseVersion, newDatabaseVersion.toString());
+          }
+        }
+        
+        await this.rebuildDatabase();
+      }
+      
+      // Store versions for future reference
+      if (newSchemaVersion) {
+        localStorage.setItem(`chorus_schema_version_${this.userId}`, newSchemaVersion.toString());
+      }
+      if (newDatabaseVersion) {
+        localStorage.setItem(`chorus_database_version_${this.userId}`, newDatabaseVersion.toString());
+      }
+      
+      this.initializeWithSchema(schema);
+    } catch (err) {
+      this.log("Failed to fetch schema from server, using fallback", err);
+      
+      if (fallbackSchema) {
+        this.log("Using fallback schema", fallbackSchema);
+        this.initializeWithSchema(fallbackSchema);
+      } else {
+        throw new Error("No schema available and no fallback provided");
+      }
+    }
+  }
+
+  /**
+   * Rebuild the database by deleting it and clearing stored harmonic IDs
+   */
+  private async rebuildDatabase(): Promise<void> {
+    try {
+      if (this.db && this.db.isOpen()) {
+        await this.db.close();
+      }
+      
+      // Delete the database
+      const dbName = `chorus_db_${this.userId || "guest"}`;
+      await indexedDB.deleteDatabase(dbName);
+      
+      // Clear stored harmonic IDs to force full resync
+      localStorage.removeItem(getLatestHarmonicIdKey(this.userId?.toString()));
+      
+      // Recreate the database
+      this.db = createChorusDb(dbName);
+      
+      this.log("Database rebuilt successfully - will perform full resync");
+    } catch (err) {
+      console.error("Error rebuilding database:", err);
+      throw err;
+    }
+  }
+
+  /**
+   * Initialize database with the provided schema
+   */
+  private initializeWithSchema(schema: Record<string, any>): void {
+    if (!this.db) {
+      throw new Error("Database not initialized. Call setup() first.");
+    }
+
     this.tableNames = Object.keys(schema || {});
 
     // Initialize table states
@@ -129,7 +250,6 @@ export class ChorusCore {
       };
     });
 
-    this.log("Setting up ChorusCore with userId", userId);
     this.db.initializeSchema(schema);
     this.isInitialized = true;
   }

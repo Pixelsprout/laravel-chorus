@@ -1,7 +1,7 @@
-import { queryParams, type QueryParams } from './../../../../../wayfinder'
+import { queryParams, type QueryParams } from '@/wayfinder'
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::getActions
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:187
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:204
 * @route '/api/actions/{table}'
 */
 export const getActions = (args: { table: string | number } | [table: string | number ] | string | number, options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -19,7 +19,7 @@ getActions.definition = {
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::getActions
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:187
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:204
 * @route '/api/actions/{table}'
 */
 getActions.url = (args: { table: string | number } | [table: string | number ] | string | number, options?: { query?: QueryParams, mergeQuery?: QueryParams }) => {
@@ -44,7 +44,7 @@ getActions.url = (args: { table: string | number } | [table: string | number ] |
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::getActions
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:187
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:204
 * @route '/api/actions/{table}'
 */
 getActions.get = (args: { table: string | number } | [table: string | number ] | string | number, options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -57,7 +57,7 @@ getActions.get = (args: { table: string | number } | [table: string | number ] |
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::getActions
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:187
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:204
 * @route '/api/actions/{table}'
 */
 getActions.head = (args: { table: string | number } | [table: string | number ] | string | number, options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -70,7 +70,7 @@ getActions.head = (args: { table: string | number } | [table: string | number ] 
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::handleAction
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:17
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:21
 * @route '/api/write/{table}/{action}'
 */
 const handleAction7fc1cac8b58214e489024827a2037df3 = (args: { table: string | number, action: string | number } | [table: string | number, action: string | number ], options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -88,7 +88,7 @@ handleAction7fc1cac8b58214e489024827a2037df3.definition = {
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::handleAction
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:17
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:21
 * @route '/api/write/{table}/{action}'
 */
 handleAction7fc1cac8b58214e489024827a2037df3.url = (args: { table: string | number, action: string | number } | [table: string | number, action: string | number ], options?: { query?: QueryParams, mergeQuery?: QueryParams }) => {
@@ -112,7 +112,7 @@ handleAction7fc1cac8b58214e489024827a2037df3.url = (args: { table: string | numb
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::handleAction
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:17
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:21
 * @route '/api/write/{table}/{action}'
 */
 handleAction7fc1cac8b58214e489024827a2037df3.post = (args: { table: string | number, action: string | number } | [table: string | number, action: string | number ], options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -125,7 +125,7 @@ handleAction7fc1cac8b58214e489024827a2037df3.post = (args: { table: string | num
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::handleAction
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:17
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:21
 * @route '/api/chorus/messages/create'
 */
 const handleAction192658bf3759fb50dab209cd9cd5ef73 = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -143,7 +143,7 @@ handleAction192658bf3759fb50dab209cd9cd5ef73.definition = {
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::handleAction
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:17
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:21
 * @route '/api/chorus/messages/create'
 */
 handleAction192658bf3759fb50dab209cd9cd5ef73.url = (options?: { query?: QueryParams, mergeQuery?: QueryParams }) => {
@@ -152,7 +152,7 @@ handleAction192658bf3759fb50dab209cd9cd5ef73.url = (options?: { query?: QueryPar
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::handleAction
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:17
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:21
 * @route '/api/chorus/messages/create'
 */
 handleAction192658bf3759fb50dab209cd9cd5ef73.post = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -165,7 +165,7 @@ handleAction192658bf3759fb50dab209cd9cd5ef73.post = (options?: { query?: QueryPa
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::handleAction
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:17
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:21
 * @route '/api/chorus/messages/update'
 */
 const handleActionb10423843c061d139be7b67a21b48fdd = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -183,7 +183,7 @@ handleActionb10423843c061d139be7b67a21b48fdd.definition = {
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::handleAction
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:17
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:21
 * @route '/api/chorus/messages/update'
 */
 handleActionb10423843c061d139be7b67a21b48fdd.url = (options?: { query?: QueryParams, mergeQuery?: QueryParams }) => {
@@ -192,7 +192,7 @@ handleActionb10423843c061d139be7b67a21b48fdd.url = (options?: { query?: QueryPar
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::handleAction
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:17
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:21
 * @route '/api/chorus/messages/update'
 */
 handleActionb10423843c061d139be7b67a21b48fdd.post = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -205,7 +205,7 @@ handleActionb10423843c061d139be7b67a21b48fdd.post = (options?: { query?: QueryPa
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::handleAction
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:17
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:21
 * @route '/api/chorus/messages/delete'
 */
 const handleAction64842abe8a2d33c10b519b6157010a0e = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -223,7 +223,7 @@ handleAction64842abe8a2d33c10b519b6157010a0e.definition = {
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::handleAction
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:17
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:21
 * @route '/api/chorus/messages/delete'
 */
 handleAction64842abe8a2d33c10b519b6157010a0e.url = (options?: { query?: QueryParams, mergeQuery?: QueryParams }) => {
@@ -232,7 +232,7 @@ handleAction64842abe8a2d33c10b519b6157010a0e.url = (options?: { query?: QueryPar
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::handleAction
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:17
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:21
 * @route '/api/chorus/messages/delete'
 */
 handleAction64842abe8a2d33c10b519b6157010a0e.post = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {

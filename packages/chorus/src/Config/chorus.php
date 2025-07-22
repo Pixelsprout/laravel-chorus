@@ -101,4 +101,28 @@ return [
         "initial_sync_limit" => env("CHORUS_INITIAL_SYNC_LIMIT", 1000),
         "incremental_sync_limit" => env("CHORUS_INCREMENTAL_SYNC_LIMIT", 500),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Schema Version
+    |--------------------------------------------------------------------------
+    |
+    | Version number for the current schema. Increment this when you make
+    | breaking changes to your model structure to trigger client-side
+    | database rebuilds.
+    |
+    */
+    "schema_version" => env("CHORUS_SCHEMA_VERSION", 1),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Database Version Tracking
+    |--------------------------------------------------------------------------
+    |
+    | Enable automatic database version tracking based on migration state.
+    | When enabled, clients will automatically rebuild their local database
+    | when migrations are run (e.g., migrate:fresh, new migrations, rollbacks).
+    |
+    */
+    "track_database_version" => env("CHORUS_TRACK_DATABASE_VERSION", true),
 ];

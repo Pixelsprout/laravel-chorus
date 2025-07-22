@@ -28,6 +28,8 @@ interface ChorusProviderProps {
   channelPrefix?: string;
   schema?: Record<string, any>;
   onRejectedHarmonic?: (harmonic: HarmonicEvent) => void;
+  onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void;
+  onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void;
 }
 
 const HarmonicListener: React.FC<{
@@ -46,6 +48,8 @@ export function ChorusProvider({
   channelPrefix,
   schema,
   onRejectedHarmonic,
+  onSchemaVersionChange,
+  onDatabaseVersionChange,
 }: ChorusProviderProps) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [tables, setTables] = useState<Record<string, TableState>>({});
@@ -143,18 +147,36 @@ export function ChorusProvider({
   useEffect(() => {
     let isCancelled = false;
     const initialize = async () => {
-      chorusCore.setup(userId ?? "guest", schema ?? {}, onRejectedHarmonic);
-      await chorusCore.initializeTables();
-      if (!isCancelled) {
-        setIsInitialized(chorusCore.getIsInitialized());
-        setTables(chorusCore.getAllTableStates());
+      try {
+        chorusCore.setup(userId ?? "guest", schema, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange);
+        await chorusCore.fetchAndInitializeSchema(schema);
+        await chorusCore.initializeTables();
+        if (!isCancelled) {
+          setIsInitialized(chorusCore.getIsInitialized());
+          setTables(chorusCore.getAllTableStates());
+        }
+      } catch (error) {
+        console.error("[Chorus] Failed to initialize:", error);
+        if (!isCancelled) {
+          setIsInitialized(false);
+          // Set error state for all tables
+          const errorTables: Record<string, TableState> = {};
+          Object.keys(schema ?? {}).forEach(tableName => {
+            errorTables[tableName] = {
+              lastUpdate: null,
+              isLoading: false,
+              error: `Failed to initialize: ${error instanceof Error ? error.message : String(error)}`
+            };
+          });
+          setTables(errorTables);
+        }
       }
     };
     initialize();
     return () => {
       isCancelled = true;
     };
-  }, [userId, channelPrefix, schema, onRejectedHarmonic]);
+  }, [userId, channelPrefix, schema, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange]);
 
   const contextValue = useMemo(() => ({
     isInitialized,

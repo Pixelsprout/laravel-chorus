@@ -9,51 +9,27 @@ import { usePage } from '@inertiajs/react';
 import { type PropsWithChildren, useCallback } from 'react';
 import { RejectedHarmonicsProvider, useRejectedHarmonics } from '@/contexts/RejectedHarmonicsContext';
 import { Toaster } from '@/components/ui/sonner';
-import { toast } from 'sonner';
-import { AlertTriangle, XCircle, AlertCircle } from 'lucide-react';
 import { ThemeProvider as NextThemesProvider } from "next-themes"
 
 function AppSidebarLayoutContent({ children, breadcrumbs = [] }: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[] }>) {
     const { addNotification } = useRejectedHarmonics();
 
     const handleRejectedHarmonic = useCallback((harmonic: HarmonicEvent) => {
-        // Add to context for dashboard display
-        addNotification(harmonic);
-
-        // Show Sonner toast notification
-        const message = `Failed to ${harmonic.operation}: ${harmonic.rejected_reason}`;
-
-        if (harmonic.rejected_reason?.includes('Validation failed')) {
-            toast.warning(message, {
-                description: 'Please check your input and try again.',
-                duration: 6000,
-                icon: <AlertTriangle className="h-4 w-4" />,
-                action: {
-                    label: 'Dismiss',
-                    onClick: () => {},
-                },
-            });
-        } else if (harmonic.rejected_reason === 'Permission denied') {
-            toast.error(message, {
-                description: 'You do not have permission to perform this action.',
-                duration: 6000,
-                icon: <XCircle className="h-4 w-4" />,
-                action: {
-                    label: 'Dismiss',
-                    onClick: () => {},
-                },
-            });
-        } else {
-            toast.error(message, {
-                description: 'An error occurred while processing your request.',
-                duration: 6000,
-                icon: <AlertCircle className="h-4 w-4" />,
-                action: {
-                    label: 'Dismiss',
-                    onClick: () => {},
-                },
+        if (harmonic.rejected_reason) {
+            addNotification({
+                title: 'Action Rejected',
+                description: harmonic.rejected_reason,
+                variant: 'destructive',
             });
         }
+    }, [addNotification]);
+
+    const handleDatabaseVersionChange = useCallback((oldVersion: string | null, newVersion: string) => {
+        addNotification({
+            title: 'Database Updated',
+            description: `Database has been updated (${oldVersion || 'unknown'} → ${newVersion}). Data is being refreshed...`,
+            variant: 'default',
+        });
     }, [addNotification]);
 
     return (
@@ -62,6 +38,7 @@ function AppSidebarLayoutContent({ children, breadcrumbs = [] }: PropsWithChildr
             channelPrefix={usePage<SharedData>().props.auth.user?.tenant_id.toString()}
             schema={chorusSchema}
             onRejectedHarmonic={handleRejectedHarmonic}
+            onDatabaseVersionChange={handleDatabaseVersionChange}
         >
             <AppShell variant="sidebar">
                 <AppSidebar />

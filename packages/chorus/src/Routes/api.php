@@ -14,6 +14,7 @@ use Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController;
 |
 */
 
+Route::get("schema", [SyncController::class, "getSchema"]);
 Route::get("sync/{table}", [SyncController::class, "getInitialData"]);
 
 // Write Actions API
