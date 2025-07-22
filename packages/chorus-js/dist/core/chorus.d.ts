@@ -31,7 +31,16 @@ export declare class ChorusCore {
     private userId;
     private onRejectedHarmonic?;
     private processedRejectedHarmonics;
+    private isOnline;
     constructor();
+    /**
+     * Set up offline event handlers
+     */
+    private setupOfflineHandlers;
+    /**
+     * Handle reconnection when device comes back online
+     */
+    private handleOnlineReconnection;
     /**
      * Reset the ChorusCore state
      */
@@ -88,4 +97,16 @@ export declare class ChorusCore {
      * Get data from a specific table
      */
     getTableData<T = any>(tableName: string): Promise<T[]>;
+    /**
+     * Get current online/offline status
+     */
+    getIsOnline(): boolean;
+    /**
+     * Get offline manager instance for advanced offline operations
+     */
+    getOfflineManager(): import("./offline").OfflineManager;
+    /**
+     * Make an offline-aware API request
+     */
+    makeRequest(url: string, options?: RequestInit): Promise<Response>;
 }

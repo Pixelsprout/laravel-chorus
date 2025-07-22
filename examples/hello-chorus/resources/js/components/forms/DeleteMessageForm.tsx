@@ -1,9 +1,9 @@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import type { Message } from '@/stores/db';
-import { router } from '@inertiajs/react';
 import { TrashIcon } from 'lucide-react';
 import { useState } from 'react';
+import { useTable } from '@chorus/js';
 
 interface DeleteMessageFormProps {
     message: Message;
@@ -16,26 +16,54 @@ export default function DeleteMessageForm({
     messageActions
 }: DeleteMessageFormProps) {
     const [deletingMessage, setDeletingMessage] = useState<Message | null>(null);
+    const [isOpen, setIsOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const messages = useTable<Message>('messages', {
+        optimisticActions: {
+            create: messageActions.create,
+            update: messageActions.update,
+            delete: messageActions.delete
+        }
+    });
 
     // Confirm delete message
-    const confirmDeleteMessage = () => {
-        if (messageActions.delete && deletingMessage) {
-            messageActions.delete({ id: deletingMessage.id }, async (data: { id: string }) => {
-                router.delete(route('messages.destroy', data.id), {
-                    preserveScroll: true,
-                });
-            });
-            setDeletingMessage(null);
+    const confirmDeleteMessage = async () => {
+        if (!deletingMessage) return;
+
+        try {
+            setIsDeleting(true);
+
+            // Use unified API: optimistic data, server data, callback
+            await messages.delete(
+                { id: deletingMessage.id }, // Optimistic data for immediate UI update
+                { id: deletingMessage.id }, // Server data
+                (result) => {               // Server response callback
+                    if (result.success) {
+                        setDeletingMessage(null);
+                        setIsOpen(false);
+                        console.log('Message deleted successfully:', result.data);
+                    } else {
+                        console.error('Message deletion failed:', result.error);
+                    }
+                    setIsDeleting(false);
+                }
+            );
+        } catch (err) {
+            console.error('Error deleting message:', err);
+            setIsDeleting(false);
         }
     };
 
     return (
-        <Dialog>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
                 <Button
                     size="sm"
                     variant="destructive"
-                    onClick={() => setDeletingMessage(message)}
+                    onClick={() => {
+                        setDeletingMessage(message);
+                        setIsOpen(true);
+                    }}
                     className="h-6 w-6 p-0"
                 >
                     <TrashIcon className="h-3 w-3" />
@@ -48,6 +76,7 @@ export default function DeleteMessageForm({
                         Are you sure you want to delete this message? This action cannot be undone.
                     </DialogDescription>
                 </DialogHeader>
+
                 {deletingMessage && (
                     <div className="py-4">
                         <div className="bg-muted p-3 rounded-md">
@@ -64,19 +93,23 @@ export default function DeleteMessageForm({
                             type="button"
                             variant="outline"
                             autoFocus
+                            disabled={isDeleting}
+                            onClick={() => {
+                                setDeletingMessage(null);
+                                setIsOpen(false);
+                            }}
                         >
                             Cancel
                         </Button>
                     </DialogClose>
-                    <DialogClose asChild>
-                        <Button
-                            type="button"
-                            variant="destructive"
-                            onClick={confirmDeleteMessage}
-                        >
-                            Delete Message
-                        </Button>
-                    </DialogClose>
+                    <Button
+                        type="button"
+                        variant="destructive"
+                        onClick={confirmDeleteMessage}
+                        disabled={isDeleting}
+                    >
+                        {isDeleting ? 'Deleting...' : 'Delete Message'}
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

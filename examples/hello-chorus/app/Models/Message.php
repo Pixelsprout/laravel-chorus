@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Actions\WriteActions\CreateMessageAction;
+use App\Actions\WriteActions\DeleteMessageAction;
+use App\Actions\WriteActions\UpdateMessageAction;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -35,6 +38,15 @@ class Message extends Model
         'platform_id',
         'created_at',
         'updated_at',
+    ];
+
+    /**
+     * Define write actions for this model
+     */
+    protected $writeActions = [
+        'create' => CreateMessageAction::class,
+        'update' => UpdateMessageAction::class,
+        'delete' => DeleteMessageAction::class,
     ];
 
     /**

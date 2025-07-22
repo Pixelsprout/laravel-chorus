@@ -2,8 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Message, Platform, User } from '@/stores/db';
 import { usePage } from '@inertiajs/react';
 import { type SharedData } from '@/types';
-import UpdateMessageForm from './UpdateMessageForm';
-import DeleteMessageForm from './DeleteMessageForm';
+import UpdateMessageForm from './forms/UpdateMessageForm';
+import DeleteMessageForm from './forms/DeleteMessageForm';
 
 interface MessagesListProps {
     messages: Message[] | undefined;
