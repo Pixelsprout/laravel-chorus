@@ -1,7 +1,7 @@
 import AppLayout from '@/layouts/app-layout';
-import type { Message, Platform, User } from '@/stores/db';
+import type { Message, Platform, User } from '@/types';
 import { type BreadcrumbItem } from '@/types';
-import { useHarmonics, useHarmonicsQuery } from '@chorus/js';
+import { useTable, useHarmonics, useHarmonicsQuery } from '@chorus/js';
 import { OfflineBanner, OfflineIndicator } from '@chorus/js';
 import { Head, usePage } from '@inertiajs/react';
 import { type SharedData } from '@/types';
@@ -31,14 +31,13 @@ function DashboardContent() {
         [selectedPlatform]
     );
 
-    // Sync messages with the server
+    // Sync messages with the server and get write actions
     const {
         data: messages,
         isLoading: messagesLoading,
         error: messagesError,
         lastUpdate: messagesLastUpdate,
-        actions: messageActions,
-    } = useHarmonics<Message, { platformId: string; message: string }>('messages', messagesQuery);
+    } = useTable<Message>('messages', { query: messagesQuery });
 
     // Sync platforms with the server
     const {
@@ -86,7 +85,6 @@ function DashboardContent() {
                     platforms={platforms}
                     platformsLoading={platformsLoading}
                     platformsError={platformsError}
-                    messageActions={messageActions}
                 />
 
                 {/* Filter section */}
@@ -107,7 +105,6 @@ function DashboardContent() {
                     platformsLoading={platformsLoading}
                     messagesError={messagesError}
                     platformsError={platformsError}
-                    messageActions={messageActions}
                 />
             </div>
         </>

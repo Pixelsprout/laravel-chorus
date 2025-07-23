@@ -4,17 +4,17 @@ import { Collection, Table } from "dexie";
 interface ChorusContextState {
     isInitialized: boolean;
     tables: Record<string, TableState>;
+    schema: Record<string, any>;
 }
 interface ChorusProviderProps {
     children: React.ReactNode;
     userId?: number;
     channelPrefix?: string;
-    schema?: Record<string, any>;
     onRejectedHarmonic?: (harmonic: HarmonicEvent) => void;
     onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void;
     onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void;
 }
-export declare function ChorusProvider({ children, userId, channelPrefix, schema, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange, }: ChorusProviderProps): React.JSX.Element;
+export declare function ChorusProvider({ children, userId, channelPrefix, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange, }: ChorusProviderProps): React.JSX.Element;
 export declare function useChorus(): ChorusContextState;
 type Action<TInput, T> = (data: TInput, sideEffect?: (data: TInput) => Promise<void>) => void;
 interface HarmonicActions<T, TInput> {

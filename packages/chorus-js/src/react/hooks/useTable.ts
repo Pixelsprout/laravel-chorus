@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { writeActions, TableWriteActions, OptimisticCallback } from '../../core/write-actions';
+import { useHarmonics } from '../providers/ChorusProvider';
 
 /**
  * Options for configuring table actions
@@ -10,27 +11,31 @@ export interface UseTableOptions<T = any> {
     update?: OptimisticCallback<T>;
     delete?: OptimisticCallback<T>;
   };
+  query?: (table: any) => any;
 }
 
 /**
- * Simple hook that returns a table instance with clean write actions API
+ * Combined hook that provides both data access and write actions for a table
  * 
  * Usage:
- * const messages = useTable('messages', {
- *   optimisticActions: {
- *     create: messageActions.create,
- *     update: messageActions.update,
- *     delete: messageActions.delete
- *   }
- * });
- * 
- * await messages.create(optimisticData, serverData, callback);
+ * const { 
+ *   data, 
+ *   isLoading, 
+ *   error, 
+ *   create, 
+ *   update, 
+ *   delete: remove 
+ * } = useTable<Message>('messages');
  */
-export function useTable<T = any>(
+export function useTable<T extends { id: string | number } = any>(
   tableName: string, 
   options?: UseTableOptions<T>
-): TableWriteActions<T> {
-  return useMemo(() => {
+) {
+  // Get data from harmonics stream
+  const { data, isLoading, error, lastUpdate } = useHarmonics<T>(tableName, options?.query);
+  
+  // Get write actions
+  const writeActionsTable = useMemo(() => {
     const table = writeActions.table<T>(tableName);
     
     // Set up optimistic callbacks if provided
@@ -46,6 +51,18 @@ export function useTable<T = any>(
     
     return table;
   }, [tableName, options?.optimisticActions]);
+
+  return {
+    // Data access from harmonics
+    data,
+    isLoading,
+    error,
+    lastUpdate,
+    // Write actions (bound to preserve 'this' context)
+    create: writeActionsTable.create.bind(writeActionsTable),
+    update: writeActionsTable.update.bind(writeActionsTable),
+    delete: writeActionsTable.delete.bind(writeActionsTable),
+  };
 }
 
 /**

@@ -106,7 +106,7 @@ Chorus comes with built-in TypeScript utilities for integrating with IndexedDB a
 First, set up the database:
 
 ```typescript
-// stores/db.ts
+// stores/types.ts
 import { ChorusDatabase, createChorusDb } from '@/chorus';
 
 interface User {
@@ -116,25 +116,25 @@ interface User {
     created_at: Date;
 }
 
-const db = createChorusDb('ChorusDatabase') as ChorusDatabase & {
+const types = createChorusDb('ChorusDatabase') as ChorusDatabase & {
     users: Dexie.Table<
         User,
         'id' // primary key
     >;
 };
 
-db.initializeSchema({
+types.initializeSchema({
     users: '++id,name,email,created_at',
 });
 
-export { db };
+export { types };
 ```
 
 Then use the hook in your components:
 
 ```typescript
 // pages/dashboard.tsx
-import { db } from '@/stores/db';
+import { types } from '@/stores/types';
 import { useHarmonics } from '@/chorus/use-harmonics';
 
 interface User {
@@ -144,7 +144,7 @@ interface User {
 }
 
 export default function Dashboard() {
-    const { data: users, isLoading, error, lastUpdate } = useHarmonics<User>('users', db);
+    const { data: users, isLoading, error, lastUpdate } = useHarmonics<User>('users', types);
 
     return (
         <div>

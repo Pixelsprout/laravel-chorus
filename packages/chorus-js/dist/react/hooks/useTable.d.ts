@@ -8,22 +8,43 @@ export interface UseTableOptions<T = any> {
         update?: OptimisticCallback<T>;
         delete?: OptimisticCallback<T>;
     };
+    query?: (table: any) => any;
 }
 /**
- * Simple hook that returns a table instance with clean write actions API
+ * Combined hook that provides both data access and write actions for a table
  *
  * Usage:
- * const messages = useTable('messages', {
- *   optimisticActions: {
- *     create: messageActions.create,
- *     update: messageActions.update,
- *     delete: messageActions.delete
- *   }
- * });
- *
- * await messages.create(optimisticData, serverData, callback);
+ * const {
+ *   data,
+ *   isLoading,
+ *   error,
+ *   create,
+ *   update,
+ *   delete: remove
+ * } = useTable<Message>('messages');
  */
-export declare function useTable<T = any>(tableName: string, options?: UseTableOptions<T>): TableWriteActions<T>;
+export declare function useTable<T extends {
+    id: string | number;
+} = any>(tableName: string, options?: UseTableOptions<T>): {
+    data: T[] | undefined;
+    isLoading: boolean;
+    error: any;
+    lastUpdate: Date | null;
+    create: {
+        (optimisticData: T, serverData: Record<string, any>, callback?: ((response: import("../../core/write-actions").WriteActionResponse<T>) => void) | undefined): Promise<import("../../core/write-actions").WriteActionResponse<T>>;
+        (serverData: Record<string, any>, callback?: ((response: import("../../core/write-actions").WriteActionResponse<T>) => void) | undefined): Promise<import("../../core/write-actions").WriteActionResponse<T>>;
+    };
+    update: {
+        (optimisticData: T, serverData: Record<string, any>, callback?: ((response: import("../../core/write-actions").WriteActionResponse<T>) => void) | undefined): Promise<import("../../core/write-actions").WriteActionResponse<T>>;
+        (serverData: Record<string, any>, callback?: ((response: import("../../core/write-actions").WriteActionResponse<T>) => void) | undefined): Promise<import("../../core/write-actions").WriteActionResponse<T>>;
+    };
+    delete: {
+        (optimisticData: {
+            id: string | number;
+        }, serverData: Record<string, any>, callback?: ((response: import("../../core/write-actions").WriteActionResponse<T>) => void) | undefined): Promise<import("../../core/write-actions").WriteActionResponse<T>>;
+        (serverData: Record<string, any>, callback?: ((response: import("../../core/write-actions").WriteActionResponse<T>) => void) | undefined): Promise<import("../../core/write-actions").WriteActionResponse<T>>;
+    };
+};
 /**
  * Hook that returns multiple table instances
  *

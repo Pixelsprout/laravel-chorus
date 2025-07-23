@@ -1,6 +1,6 @@
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { Platform } from '@/stores/db';
+import type { Platform } from '@/types';
 
 interface MessagesFilterProps {
     platforms: Platform[] | undefined;
@@ -10,20 +10,20 @@ interface MessagesFilterProps {
     onPlatformChange: (platformId: string | null) => void;
 }
 
-export default function MessagesFilter({ 
-    platforms, 
-    platformsLoading, 
-    platformsError, 
-    selectedPlatform, 
-    onPlatformChange 
+export default function MessagesFilter({
+    platforms,
+    platformsLoading,
+    platformsError,
+    selectedPlatform,
+    onPlatformChange
 }: MessagesFilterProps) {
     return (
         <div className="mb-4 flex justify-end">
             <div className="w-full max-w-xs">
                 <Label htmlFor="platform-filter">Filter by Platform</Label>
-                <Select 
-                    value={selectedPlatform || 'all'} 
-                    onValueChange={(value) => onPlatformChange(value === 'all' ? null : value)} 
+                <Select
+                    value={selectedPlatform || 'all'}
+                    onValueChange={(value) => onPlatformChange(value === 'all' ? null : value)}
                     disabled={platformsLoading}
                 >
                     <SelectTrigger id="platform-filter">

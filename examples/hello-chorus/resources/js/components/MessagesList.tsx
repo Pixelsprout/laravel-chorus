@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { Message, Platform, User } from '@/stores/db';
+import type { Message, Platform, User } from '@/types';
 import { usePage } from '@inertiajs/react';
 import { type SharedData } from '@/types';
 import UpdateMessageForm from './forms/UpdateMessageForm';
@@ -13,8 +13,6 @@ interface MessagesListProps {
     platformsLoading: boolean;
     messagesError: string | null;
     platformsError: string | null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    messageActions: any;
 }
 
 export default function MessagesList({
@@ -25,7 +23,6 @@ export default function MessagesList({
     platformsLoading,
     messagesError,
     platformsError,
-    messageActions
 }: MessagesListProps) {
     const { auth } = usePage<SharedData>().props;
 
@@ -145,12 +142,10 @@ export default function MessagesList({
                                                             message={message}
                                                             platforms={platforms}
                                                             platformsLoading={platformsLoading}
-                                                            messageActions={messageActions}
                                                         />
 
                                                         <DeleteMessageForm
                                                             message={message}
-                                                            messageActions={messageActions}
                                                         />
                                                     </div>
                                                 )}

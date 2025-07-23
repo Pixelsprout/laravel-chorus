@@ -615,16 +615,16 @@ minutes. See below for more details:
 
     ```php
     // old
-    $app = function (Request $request, Response $response) use ($db) {
-        $db->query()->then(function ($result) use ($response) {
+    $app = function (Request $request, Response $response) use ($types) {
+        $types->query()->then(function ($result) use ($response) {
             $response->writeHead(200, array('Content-Type' => 'text/plain'));
             $response->end($result);
         });
     };
 
     // new
-    $app = function (ServerRequestInterface $request) use ($db) {
-        return $db->query()->then(function ($result) {
+    $app = function (ServerRequestInterface $request) use ($types) {
+        return $types->query()->then(function ($result) {
             return new Response(
                 200,
                 array('Content-Type' => 'text/plain'),

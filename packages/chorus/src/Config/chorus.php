@@ -80,7 +80,7 @@ return [
     |
     */
     "frontend" => [
-        "db_name" => env("CHORUS_DB_NAME", "chorus-db"),
+        "db_name" => env("CHORUS_DB_NAME", "chorus-types"),
         "storage_prefix" => env("CHORUS_STORAGE_PREFIX", "chorus_"),
         "broadcast_channel_format" => env(
             "CHORUS_BROADCAST_FORMAT",

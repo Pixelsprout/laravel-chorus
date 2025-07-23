@@ -3,7 +3,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import type { Message, Platform } from '@/stores/db';
+import type { Message, Platform } from '@/types';
 import { EditIcon } from 'lucide-react';
 import { useForm } from '@tanstack/react-form';
 import type { AnyFieldApi } from '@tanstack/react-form';
@@ -25,25 +25,16 @@ interface UpdateMessageFormProps {
     message: Message;
     platforms: Platform[] | undefined;
     platformsLoading: boolean;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    messageActions: any;
 }
 
 export default function UpdateMessageForm({
     message,
     platforms,
-    platformsLoading,
-    messageActions
+    platformsLoading
 }: UpdateMessageFormProps) {
     const [editingMessage, setEditingMessage] = useState<Message | null>(null);
     const [isOpen, setIsOpen] = useState(false);
-    const messages = useTable<Message>('messages', {
-        optimisticActions: {
-            create: messageActions.create,
-            update: messageActions.update,
-            delete: messageActions.delete
-        }
-    });
+    const { update: updateMessage } = useTable<Message>('messages');
 
     // Edit message form
     const editMessageForm = useForm({
@@ -55,7 +46,7 @@ export default function UpdateMessageForm({
             if (!editingMessage) return;
 
             try {
-                await messages.update(
+                await updateMessage(
                     {
                         ...editingMessage,
                         body: value.message,

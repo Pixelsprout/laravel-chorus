@@ -46,6 +46,7 @@ export class SyncError extends Error {
 export class ChorusCore {
   private db: ReturnType<typeof createChorusDb> | null = null;
   private tableNames: string[];
+  private schema: Record<string, any> = {};
   private isInitialized: boolean = false;
   private tableStates: Record<string, TableState> = {};
   private userId: string | number | null = null;
@@ -118,7 +119,6 @@ export class ChorusCore {
    */
   public setup(
     userId: string | number, 
-    fallbackSchema?: Record<string, any>, 
     onRejectedHarmonic?: (harmonic: HarmonicEvent) => void,
     onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void,
     onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void
@@ -137,19 +137,22 @@ export class ChorusCore {
   /**
    * Fetch schema from server and initialize database
    */
-  public async fetchAndInitializeSchema(fallbackSchema?: Record<string, any>): Promise<void> {
+  public async fetchAndInitializeSchema(): Promise<Record<string, any>> {
     try {
       this.log("Fetching schema from server...");
       const response = await offlineFetch("/api/schema");
       
       if (!response.ok) {
-        throw new Error(`Failed to fetch schema: ${response.status}`);
+        this.log(`Failed to fetch schema: ${response.status}`)
       }
       
       const schemaData = await response.json();
       const schema = schemaData.schema || {};
       const newSchemaVersion = schemaData.schema_version;
       const newDatabaseVersion = schemaData.database_version;
+      
+      // Store the schema in the class property
+      this.schema = schema;
       
       this.log("Received schema from server", { schema, schemaVersion: newSchemaVersion, databaseVersion: newDatabaseVersion });
       
@@ -216,16 +219,21 @@ export class ChorusCore {
         
         await this.initializeWithSchema(schema, newDatabaseVersion, newSchemaVersion);
       }
+      
+      return this.schema;
     } catch (err) {
       this.log("Failed to fetch schema from server, using fallback", err);
-      
-      if (fallbackSchema) {
-        this.log("Using fallback schema", fallbackSchema);
-        await this.initializeWithSchema(fallbackSchema);
-      } else {
-        throw new Error("No schema available and no fallback provided");
-      }
+      // Return empty schema on error, but still store it
+      this.schema = {};
+      return this.schema;
     }
+  }
+
+  /**
+   * Get the current schema
+   */
+  public getSchema(): Record<string, any> {
+    return this.schema;
   }
 
   /**
@@ -282,7 +290,7 @@ export class ChorusCore {
         const response = await offlineFetch(url, { skipOfflineCache: true });
         
         if (!response.ok) {
-          throw new Error(`Failed to sync ${tableName}: ${response.status}`);
+          this.log(`Failed to sync ${tableName}: ${response.status}`)
         }
 
         const responseData = await response.json();

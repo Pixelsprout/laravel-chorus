@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import type { Message, Platform } from '@/stores/db';
+import type { Message, Platform } from '@/types';
 
 import { usePage } from '@inertiajs/react';
 import { type SharedData } from '@/types';
@@ -28,25 +28,18 @@ interface CreateMessageFormProps {
     platforms: Platform[] | undefined;
     platformsLoading: boolean;
     platformsError: string | null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    messageActions: any;
 }
 
 export default function CreateMessageForm({
     platforms,
     platformsLoading,
     platformsError,
-    messageActions
 }: CreateMessageFormProps) {
     const { auth } = usePage<SharedData>().props;
     const { isOnline } = useOffline();
-    const messages = useTable<Message>('messages', {
-        optimisticActions: {
-            create: messageActions.create,
-            update: messageActions.update,
-            delete: messageActions.delete
-        }
-    });
+    
+    // Get both data and actions from the combined hook
+    const { create: createMessage } = useTable<Message>('messages');
 
     // Forms
     const createMessageForm = useForm({
@@ -60,7 +53,7 @@ export default function CreateMessageForm({
                 const now = new Date();
 
                 // Execute the write action using the unified API (optimistic + server)
-                await messages.create(
+                await createMessage(
                     {                  // Optimistic data for immediate UI update
                         id: messageId,
                         body: value.message,
@@ -219,7 +212,7 @@ export default function CreateMessageForm({
                                         };
 
                                         // Execute the write action with invalid data using unified API
-                                        await messages.create(
+                                        await createMessage(
                                             invalidMessage, // Optimistic data
                                             {               // Server data (invalid)
                                                 id: invalidMessageId,

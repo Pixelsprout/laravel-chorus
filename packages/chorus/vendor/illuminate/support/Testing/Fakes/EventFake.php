@@ -350,8 +350,8 @@ class EventFake implements Dispatcher, Fake
      */
     protected function fakeEvent($event, $name, $arguments)
     {
-        if ($event instanceof ShouldDispatchAfterCommit && Container::getInstance()->bound('db.transactions')) {
-            return Container::getInstance()->make('db.transactions')
+        if ($event instanceof ShouldDispatchAfterCommit && Container::getInstance()->bound('types.transactions')) {
+            return Container::getInstance()->make('types.transactions')
                 ->addCallback(fn () => $this->events[$name][] = $arguments);
         }
 

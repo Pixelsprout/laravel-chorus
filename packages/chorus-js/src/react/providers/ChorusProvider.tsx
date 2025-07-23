@@ -13,12 +13,14 @@ const chorusCore = new ChorusCore();
 interface ChorusContextState {
   isInitialized: boolean;
   tables: Record<string, TableState>;
+  schema: Record<string, any>;
 }
 
 // Create the context with default values
 const ChorusContext = createContext<ChorusContextState>({
   isInitialized: false,
   tables: {},
+  schema: {},
 });
 
 // The Provider component
@@ -26,7 +28,6 @@ interface ChorusProviderProps {
   children: React.ReactNode;
   userId?: number;
   channelPrefix?: string;
-  schema?: Record<string, any>;
   onRejectedHarmonic?: (harmonic: HarmonicEvent) => void;
   onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void;
   onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void;
@@ -46,13 +47,13 @@ export function ChorusProvider({
   children,
   userId,
   channelPrefix,
-  schema,
   onRejectedHarmonic,
   onSchemaVersionChange,
   onDatabaseVersionChange,
 }: ChorusProviderProps) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [tables, setTables] = useState<Record<string, TableState>>({});
+  const [schema, setSchema] = useState<Record<string, any>>({});
   const [initializationError, setInitializationError] = useState<string | null>(null);
 
   const handleHarmonicEvent = async (event: HarmonicEvent) => {
@@ -156,13 +157,17 @@ export function ChorusProvider({
     const initialize = async () => {
       try {
         setInitializationError(null);
-        chorusCore.setup(userId ?? "guest", schema, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange);
+        chorusCore.setup(userId ?? "guest", onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange);
         
         console.log("[Chorus] Starting schema fetch and initialization...");
-        await chorusCore.fetchAndInitializeSchema(schema);
+        const fetchedSchema = await chorusCore.fetchAndInitializeSchema();
         
         console.log("[Chorus] Starting table initialization...");
         await chorusCore.initializeTables();
+        
+        if (!isCancelled) {
+          setSchema(fetchedSchema);
+        }
         
         if (!isCancelled) {
           console.log("[Chorus] Initialization complete, updating state...");
@@ -176,7 +181,8 @@ export function ChorusProvider({
           setInitializationError(error instanceof Error ? error.message : String(error));
           // Set error state for all tables
           const errorTables: Record<string, TableState> = {};
-          Object.keys(schema ?? {}).forEach(tableName => {
+          const currentSchema = chorusCore.getSchema();
+          Object.keys(currentSchema).forEach(tableName => {
             errorTables[tableName] = {
               lastUpdate: null,
               isLoading: false,
@@ -191,12 +197,13 @@ export function ChorusProvider({
     return () => {
       isCancelled = true;
     };
-  }, [userId, channelPrefix, schema, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange]);
+  }, [userId, channelPrefix, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange]);
 
   const contextValue = useMemo(() => ({
     isInitialized,
     tables,
-  }), [isInitialized, tables]);
+    schema,
+  }), [isInitialized, tables, schema]);
 
   // Show initialization error if there is one
   if (initializationError) {
@@ -247,8 +254,6 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
     isLoading: false,
     error: null,
   };
-
-
 
   const data = useLiveQuery<T[]>(async () => {
     // Check if Chorus is initialized before trying to access tables

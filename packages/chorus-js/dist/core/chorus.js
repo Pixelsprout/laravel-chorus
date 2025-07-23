@@ -27,6 +27,7 @@ export class SyncError extends Error {
 export class ChorusCore {
     constructor() {
         this.db = null;
+        this.schema = {};
         this.isInitialized = false;
         this.tableStates = {};
         this.userId = null;
@@ -84,7 +85,7 @@ export class ChorusCore {
     /**
      * Set up the ChorusCore with a userId and optional fallback schema
      */
-    setup(userId, fallbackSchema, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange) {
+    setup(userId, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange) {
         this.userId = userId;
         this.onRejectedHarmonic = onRejectedHarmonic;
         this.onSchemaVersionChange = onSchemaVersionChange;
@@ -97,7 +98,7 @@ export class ChorusCore {
     /**
      * Fetch schema from server and initialize database
      */
-    fetchAndInitializeSchema(fallbackSchema) {
+    fetchAndInitializeSchema() {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 this.log("Fetching schema from server...");
@@ -109,6 +110,8 @@ export class ChorusCore {
                 const schema = schemaData.schema || {};
                 const newSchemaVersion = schemaData.schema_version;
                 const newDatabaseVersion = schemaData.database_version;
+                // Store the schema in the class property
+                this.schema = schema;
                 this.log("Received schema from server", { schema, schemaVersion: newSchemaVersion, databaseVersion: newDatabaseVersion });
                 // Check if schema version has changed
                 const currentSchemaVersion = localStorage.getItem(`chorus_schema_version_${this.userId}`);
@@ -161,18 +164,21 @@ export class ChorusCore {
                     }
                     yield this.initializeWithSchema(schema, newDatabaseVersion, newSchemaVersion);
                 }
+                return this.schema;
             }
             catch (err) {
                 this.log("Failed to fetch schema from server, using fallback", err);
-                if (fallbackSchema) {
-                    this.log("Using fallback schema", fallbackSchema);
-                    yield this.initializeWithSchema(fallbackSchema);
-                }
-                else {
-                    throw new Error("No schema available and no fallback provided");
-                }
+                // Return empty schema on error, but still store it
+                this.schema = {};
+                return this.schema;
             }
         });
+    }
+    /**
+     * Get the current schema
+     */
+    getSchema() {
+        return this.schema;
     }
     /**
      * Rebuild the database by deleting it and clearing stored harmonic IDs

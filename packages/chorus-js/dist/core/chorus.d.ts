@@ -26,6 +26,7 @@ export declare class SyncError extends Error {
 export declare class ChorusCore {
     private db;
     private tableNames;
+    private schema;
     private isInitialized;
     private tableStates;
     private userId;
@@ -51,11 +52,15 @@ export declare class ChorusCore {
     /**
      * Set up the ChorusCore with a userId and optional fallback schema
      */
-    setup(userId: string | number, fallbackSchema?: Record<string, any>, onRejectedHarmonic?: (harmonic: HarmonicEvent) => void, onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void, onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void): void;
+    setup(userId: string | number, onRejectedHarmonic?: (harmonic: HarmonicEvent) => void, onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void, onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void): void;
     /**
      * Fetch schema from server and initialize database
      */
-    fetchAndInitializeSchema(fallbackSchema?: Record<string, any>): Promise<void>;
+    fetchAndInitializeSchema(): Promise<Record<string, any>>;
+    /**
+     * Get the current schema
+     */
+    getSchema(): Record<string, any>;
     /**
      * Rebuild the database by deleting it and clearing stored harmonic IDs
      */

@@ -1,30 +1,21 @@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import type { Message } from '@/stores/db';
+import type { Message } from '@/types';
 import { TrashIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useTable } from '@chorus/js';
 
 interface DeleteMessageFormProps {
     message: Message;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    messageActions: any;
 }
 
 export default function DeleteMessageForm({
-    message,
-    messageActions
+    message
 }: DeleteMessageFormProps) {
     const [deletingMessage, setDeletingMessage] = useState<Message | null>(null);
     const [isOpen, setIsOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
-    const messages = useTable<Message>('messages', {
-        optimisticActions: {
-            create: messageActions.create,
-            update: messageActions.update,
-            delete: messageActions.delete
-        }
-    });
+    const { delete: deleteMessage } = useTable<Message>('messages');
 
     // Confirm delete message
     const confirmDeleteMessage = async () => {
@@ -34,7 +25,7 @@ export default function DeleteMessageForm({
             setIsDeleting(true);
 
             // Use unified API: optimistic data, server data, callback
-            await messages.delete(
+            await deleteMessage(
                 { id: deletingMessage.id }, // Optimistic data for immediate UI update
                 { id: deletingMessage.id }, // Server data
                 (result) => {               // Server response callback

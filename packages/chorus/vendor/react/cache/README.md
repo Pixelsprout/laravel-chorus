@@ -312,7 +312,7 @@ $cache
 
 public function getAndCacheFooFromDb()
 {
-    return $this->db
+    return $this->types
         ->get('foo')
         ->then(array($this, 'cacheFooFromDb'));
 }

@@ -1,21 +1,24 @@
 import { useMemo } from 'react';
 import { writeActions } from '../../core/write-actions';
+import { useHarmonics } from '../providers/ChorusProvider';
 /**
- * Simple hook that returns a table instance with clean write actions API
+ * Combined hook that provides both data access and write actions for a table
  *
  * Usage:
- * const messages = useTable('messages', {
- *   optimisticActions: {
- *     create: messageActions.create,
- *     update: messageActions.update,
- *     delete: messageActions.delete
- *   }
- * });
- *
- * await messages.create(optimisticData, serverData, callback);
+ * const {
+ *   data,
+ *   isLoading,
+ *   error,
+ *   create,
+ *   update,
+ *   delete: remove
+ * } = useTable<Message>('messages');
  */
 export function useTable(tableName, options) {
-    return useMemo(() => {
+    // Get data from harmonics stream
+    const { data, isLoading, error, lastUpdate } = useHarmonics(tableName, options === null || options === void 0 ? void 0 : options.query);
+    // Get write actions
+    const writeActionsTable = useMemo(() => {
         var _a, _b, _c;
         const table = writeActions.table(tableName);
         // Set up optimistic callbacks if provided
@@ -30,6 +33,17 @@ export function useTable(tableName, options) {
         }
         return table;
     }, [tableName, options === null || options === void 0 ? void 0 : options.optimisticActions]);
+    return {
+        // Data access from harmonics
+        data,
+        isLoading,
+        error,
+        lastUpdate,
+        // Write actions (bound to preserve 'this' context)
+        create: writeActionsTable.create.bind(writeActionsTable),
+        update: writeActionsTable.update.bind(writeActionsTable),
+        delete: writeActionsTable.delete.bind(writeActionsTable),
+    };
 }
 /**
  * Hook that returns multiple table instances

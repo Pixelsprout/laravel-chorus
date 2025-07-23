@@ -1,4 +1,3 @@
-import { chorusSchema } from '@/_generated/schema';
 import { AppContent } from '@/components/app-content';
 import { AppShell } from '@/components/app-shell';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -29,7 +28,6 @@ function AppSidebarLayoutContent({ children, breadcrumbs = [] }: PropsWithChildr
         <ChorusProvider
             userId={usePage<SharedData>().props.auth.user?.id}
             channelPrefix={usePage<SharedData>().props.auth.user?.tenant_id.toString()}
-            schema={chorusSchema}
             onRejectedHarmonic={handleRejectedHarmonic}
             onDatabaseVersionChange={handleDatabaseVersionChange}
         >
