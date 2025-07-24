@@ -15,24 +15,31 @@ import { useHarmonics } from '../providers/ChorusProvider';
  * } = useTable<Message>('messages');
  */
 export function useTable(tableName, options) {
-    // Get data from harmonics stream
-    const { data, isLoading, error, lastUpdate } = useHarmonics(tableName, options === null || options === void 0 ? void 0 : options.query);
+    // Get data and actions from harmonics stream
+    const { data, isLoading, error, lastUpdate, actions } = useHarmonics(tableName, options === null || options === void 0 ? void 0 : options.query);
     // Get write actions
     const writeActionsTable = useMemo(() => {
         var _a, _b, _c;
         const table = writeActions.table(tableName);
-        // Set up optimistic callbacks if provided
-        if ((_a = options === null || options === void 0 ? void 0 : options.optimisticActions) === null || _a === void 0 ? void 0 : _a.create) {
-            table.setOptimisticCallback('create', options.optimisticActions.create);
+        // Set up optimistic callbacks - use harmonics actions or provided ones
+        // We need to wrap the harmonics actions to match the OptimisticCallback signature
+        const createCallback = ((_a = options === null || options === void 0 ? void 0 : options.optimisticActions) === null || _a === void 0 ? void 0 : _a.create) ||
+            (actions.create ? (optimisticData) => actions.create(optimisticData) : undefined);
+        const updateCallback = ((_b = options === null || options === void 0 ? void 0 : options.optimisticActions) === null || _b === void 0 ? void 0 : _b.update) ||
+            (actions.update ? (optimisticData) => actions.update(optimisticData) : undefined);
+        const deleteCallback = ((_c = options === null || options === void 0 ? void 0 : options.optimisticActions) === null || _c === void 0 ? void 0 : _c.delete) ||
+            (actions.delete ? (optimisticData) => actions.delete({ id: optimisticData.id }) : undefined);
+        if (createCallback) {
+            table.setOptimisticCallback('create', createCallback);
         }
-        if ((_b = options === null || options === void 0 ? void 0 : options.optimisticActions) === null || _b === void 0 ? void 0 : _b.update) {
-            table.setOptimisticCallback('update', options.optimisticActions.update);
+        if (updateCallback) {
+            table.setOptimisticCallback('update', updateCallback);
         }
-        if ((_c = options === null || options === void 0 ? void 0 : options.optimisticActions) === null || _c === void 0 ? void 0 : _c.delete) {
-            table.setOptimisticCallback('delete', options.optimisticActions.delete);
+        if (deleteCallback) {
+            table.setOptimisticCallback('delete', deleteCallback);
         }
         return table;
-    }, [tableName, options === null || options === void 0 ? void 0 : options.optimisticActions]);
+    }, [tableName, actions, options === null || options === void 0 ? void 0 : options.optimisticActions]);
     return {
         // Data access from harmonics
         data,

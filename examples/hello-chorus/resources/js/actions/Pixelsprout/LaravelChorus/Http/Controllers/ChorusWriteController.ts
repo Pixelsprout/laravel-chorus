@@ -1,4 +1,4 @@
-import { queryParams, type QueryParams } from '@/wayfinder'
+import { queryParams, type QueryParams } from './../../../../../wayfinder'
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::getActions
 * @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:204

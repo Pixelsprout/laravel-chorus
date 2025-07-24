@@ -104,7 +104,7 @@ export class ChorusCore {
                 this.log("Fetching schema from server...");
                 const response = yield offlineFetch("/api/schema");
                 if (!response.ok) {
-                    throw new Error(`Failed to fetch schema: ${response.status}`);
+                    this.log(`Failed to fetch schema: ${response.status}`);
                 }
                 const schemaData = yield response.json();
                 const schema = schemaData.schema || {};
@@ -228,7 +228,7 @@ export class ChorusCore {
                     this.log(`Full resyncing ${tableName}...`);
                     const response = yield offlineFetch(url, { skipOfflineCache: true });
                     if (!response.ok) {
-                        throw new Error(`Failed to sync ${tableName}: ${response.status}`);
+                        this.log(`Failed to sync ${tableName}: ${response.status}`);
                     }
                     const responseData = yield response.json();
                     // Save latest harmonic ID

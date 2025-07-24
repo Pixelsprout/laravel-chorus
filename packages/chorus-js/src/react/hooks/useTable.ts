@@ -31,26 +31,34 @@ export function useTable<T extends { id: string | number } = any>(
   tableName: string, 
   options?: UseTableOptions<T>
 ) {
-  // Get data from harmonics stream
-  const { data, isLoading, error, lastUpdate } = useHarmonics<T>(tableName, options?.query);
+  // Get data and actions from harmonics stream
+  const { data, isLoading, error, lastUpdate, actions } = useHarmonics<T, T>(tableName, options?.query);
   
   // Get write actions
   const writeActionsTable = useMemo(() => {
     const table = writeActions.table<T>(tableName);
     
-    // Set up optimistic callbacks if provided
-    if (options?.optimisticActions?.create) {
-      table.setOptimisticCallback('create', options.optimisticActions.create);
+    // Set up optimistic callbacks - use harmonics actions or provided ones
+    // We need to wrap the harmonics actions to match the OptimisticCallback signature
+    const createCallback = options?.optimisticActions?.create || 
+      (actions.create ? (optimisticData: T) => actions.create!(optimisticData as any) : undefined);
+    const updateCallback = options?.optimisticActions?.update || 
+      (actions.update ? (optimisticData: T) => actions.update!(optimisticData as any) : undefined);
+    const deleteCallback = options?.optimisticActions?.delete || 
+      (actions.delete ? (optimisticData: T) => actions.delete!({ id: optimisticData.id } as any) : undefined);
+    
+    if (createCallback) {
+      table.setOptimisticCallback('create', createCallback);
     }
-    if (options?.optimisticActions?.update) {
-      table.setOptimisticCallback('update', options.optimisticActions.update);
+    if (updateCallback) {
+      table.setOptimisticCallback('update', updateCallback);
     }
-    if (options?.optimisticActions?.delete) {
-      table.setOptimisticCallback('delete', options.optimisticActions.delete);
+    if (deleteCallback) {
+      table.setOptimisticCallback('delete', deleteCallback);
     }
     
     return table;
-  }, [tableName, options?.optimisticActions]);
+  }, [tableName, actions, options?.optimisticActions]);
 
   return {
     // Data access from harmonics
