@@ -9,7 +9,7 @@ export interface UseTableOptions<T = any> {
   optimisticActions?: {
     create?: OptimisticCallback<T>;
     update?: OptimisticCallback<T>;
-    delete?: OptimisticCallback<T>;
+    remove?: OptimisticCallback<T>;
   };
   query?: (table: any) => any;
 }
@@ -24,7 +24,7 @@ export interface UseTableOptions<T = any> {
  *   error, 
  *   create, 
  *   update, 
- *   delete: remove 
+ *   remove 
  * } = useTable<Message>('messages');
  */
 export function useTable<T extends { id: string | number } = any>(
@@ -44,7 +44,7 @@ export function useTable<T extends { id: string | number } = any>(
       (actions.create ? (optimisticData: T) => actions.create!(optimisticData as any) : undefined);
     const updateCallback = options?.optimisticActions?.update || 
       (actions.update ? (optimisticData: T) => actions.update!(optimisticData as any) : undefined);
-    const deleteCallback = options?.optimisticActions?.delete || 
+    const removeCallback = options?.optimisticActions?.remove || 
       (actions.delete ? (optimisticData: T) => actions.delete!({ id: optimisticData.id } as any) : undefined);
     
     if (createCallback) {
@@ -53,8 +53,8 @@ export function useTable<T extends { id: string | number } = any>(
     if (updateCallback) {
       table.setOptimisticCallback('update', updateCallback);
     }
-    if (deleteCallback) {
-      table.setOptimisticCallback('delete', deleteCallback);
+    if (removeCallback) {
+      table.setOptimisticCallback('delete', removeCallback);
     }
     
     return table;
@@ -69,7 +69,7 @@ export function useTable<T extends { id: string | number } = any>(
     // Write actions (bound to preserve 'this' context)
     create: writeActionsTable.create.bind(writeActionsTable),
     update: writeActionsTable.update.bind(writeActionsTable),
-    delete: writeActionsTable.delete.bind(writeActionsTable),
+    remove: writeActionsTable.delete.bind(writeActionsTable),
   };
 }
 

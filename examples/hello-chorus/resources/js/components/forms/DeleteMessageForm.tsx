@@ -15,7 +15,7 @@ export default function DeleteMessageForm({
     const [deletingMessage, setDeletingMessage] = useState<Message | null>(null);
     const [isOpen, setIsOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
-    const { delete: deleteMessage } = useTable<Message>('messages');
+    const { remove: deleteMessage } = useTable<Message>('messages');
 
     // Confirm delete message
     const confirmDeleteMessage = async () => {

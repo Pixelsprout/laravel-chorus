@@ -6,7 +6,7 @@ export interface UseTableOptions<T = any> {
     optimisticActions?: {
         create?: OptimisticCallback<T>;
         update?: OptimisticCallback<T>;
-        delete?: OptimisticCallback<T>;
+        remove?: OptimisticCallback<T>;
     };
     query?: (table: any) => any;
 }
@@ -20,7 +20,7 @@ export interface UseTableOptions<T = any> {
  *   error,
  *   create,
  *   update,
- *   delete: remove
+ *   remove
  * } = useTable<Message>('messages');
  */
 export declare function useTable<T extends {
@@ -38,7 +38,7 @@ export declare function useTable<T extends {
         (optimisticData: T, serverData: Record<string, any>, callback?: ((response: import("../../core/write-actions").WriteActionResponse<T>) => void) | undefined): Promise<import("../../core/write-actions").WriteActionResponse<T>>;
         (serverData: Record<string, any>, callback?: ((response: import("../../core/write-actions").WriteActionResponse<T>) => void) | undefined): Promise<import("../../core/write-actions").WriteActionResponse<T>>;
     };
-    delete: {
+    remove: {
         (optimisticData: {
             id: string | number;
         }, serverData: Record<string, any>, callback?: ((response: import("../../core/write-actions").WriteActionResponse<T>) => void) | undefined): Promise<import("../../core/write-actions").WriteActionResponse<T>>;

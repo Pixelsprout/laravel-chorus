@@ -11,7 +11,7 @@ import { useHarmonics } from '../providers/ChorusProvider';
  *   error,
  *   create,
  *   update,
- *   delete: remove
+ *   remove
  * } = useTable<Message>('messages');
  */
 export function useTable(tableName, options) {
@@ -27,7 +27,7 @@ export function useTable(tableName, options) {
             (actions.create ? (optimisticData) => actions.create(optimisticData) : undefined);
         const updateCallback = ((_b = options === null || options === void 0 ? void 0 : options.optimisticActions) === null || _b === void 0 ? void 0 : _b.update) ||
             (actions.update ? (optimisticData) => actions.update(optimisticData) : undefined);
-        const deleteCallback = ((_c = options === null || options === void 0 ? void 0 : options.optimisticActions) === null || _c === void 0 ? void 0 : _c.delete) ||
+        const removeCallback = ((_c = options === null || options === void 0 ? void 0 : options.optimisticActions) === null || _c === void 0 ? void 0 : _c.remove) ||
             (actions.delete ? (optimisticData) => actions.delete({ id: optimisticData.id }) : undefined);
         if (createCallback) {
             table.setOptimisticCallback('create', createCallback);
@@ -35,8 +35,8 @@ export function useTable(tableName, options) {
         if (updateCallback) {
             table.setOptimisticCallback('update', updateCallback);
         }
-        if (deleteCallback) {
-            table.setOptimisticCallback('delete', deleteCallback);
+        if (removeCallback) {
+            table.setOptimisticCallback('delete', removeCallback);
         }
         return table;
     }, [tableName, actions, options === null || options === void 0 ? void 0 : options.optimisticActions]);
@@ -49,7 +49,7 @@ export function useTable(tableName, options) {
         // Write actions (bound to preserve 'this' context)
         create: writeActionsTable.create.bind(writeActionsTable),
         update: writeActionsTable.update.bind(writeActionsTable),
-        delete: writeActionsTable.delete.bind(writeActionsTable),
+        remove: writeActionsTable.delete.bind(writeActionsTable),
     };
 }
 /**
