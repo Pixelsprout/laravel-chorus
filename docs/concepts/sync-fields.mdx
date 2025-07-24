@@ -1,0 +1,555 @@
+---
+title: "Sync Fields"
+description: "Master field selection strategies for optimal performance and security in Laravel Chorus."
+---
+
+# Sync Fields
+
+Sync fields determine which data from your models is synchronized to clients. Proper field selection is crucial for performance, security, and user experience.
+
+## Field Selection Strategies
+
+### 1. Essential Fields Only
+
+Start with the minimum required fields and add more as needed:
+
+```php
+class Message extends Model
+{
+    use Harmonics;
+    
+    // Minimal sync fields for basic functionality
+    protected $syncFields = [
+        'id',          // Required: Primary key
+        'body',        // Required: Main content
+        'user_id',     // Required: Ownership
+        'created_at'   // Required: Ordering/timestamps
+    ];
+}
+```
+
+### 2. Progressive Field Selection
+
+Add fields based on feature requirements:
+
+```php
+class Message extends Model
+{
+    use Harmonics;
+    
+    protected $syncFields = [
+        // Core fields (always needed)
+        'id',
+        'body',
+        'user_id',
+        'created_at',
+        
+        // UI enhancement fields
+        'updated_at',      // For "edited" indicators
+        'is_edited',       // Edit status
+        
+        // Feature-specific fields
+        'reply_to_id',     // Threading support
+        'attachment_url',  // File attachments
+        'reaction_counts', // Emoji reactions
+        
+        // Meta fields
+        'platform_id',     // Multi-platform support
+        'channel_id'       // Channel organization
+    ];
+}
+```
+
+### 3. Role-Based Field Selection
+
+Sync different fields based on user permissions:
+
+```php
+class User extends Model
+{
+    use Harmonics;
+    
+    public function getSyncFields(): array
+    {
+        $fields = [
+            'id',
+            'name',
+            'avatar_url',
+            'is_online',
+            'created_at'
+        ];
+        
+        // Add contact info for team members
+        if ($this->isTeamMember(auth()->user())) {
+            $fields[] = 'email';
+            $fields[] = 'phone';
+        }
+        
+        // Add admin fields for administrators
+        if (auth()->user()?->isAdmin()) {
+            $fields[] = 'last_login_at';
+            $fields[] = 'login_count';
+            $fields[] = 'is_verified';
+        }
+        
+        return $fields;
+    }
+    
+    private function isTeamMember(User $user): bool
+    {
+        return $this->teams()->whereHas('users', function($query) use ($user) {
+            $query->where('user_id', $user->id);
+        })->exists();
+    }
+}
+```
+
+## Dynamic Field Selection
+
+### Context-Aware Fields
+
+Adjust synced fields based on the current context:
+
+```php
+class Post extends Model
+{
+    use Harmonics;
+    
+    public function getSyncFields(): array
+    {
+        $fields = ['id', 'title', 'status', 'created_at'];
+        
+        // Include content based on post status and user permissions
+        if ($this->status === 'published') {
+            $fields[] = 'content';
+            $fields[] = 'excerpt';
+        } elseif ($this->author_id === auth()->id()) {
+            // Authors can see draft content
+            $fields[] = 'content';
+        }
+        
+        // Include edit fields for editors
+        if (auth()->user()?->can('edit', $this)) {
+            $fields[] = 'editor_notes';
+            $fields[] = 'seo_title';
+            $fields[] = 'seo_description';
+        }
+        
+        // Include analytics for post owners
+        if ($this->author_id === auth()->id()) {
+            $fields[] = 'view_count';
+            $fields[] = 'like_count';
+        }
+        
+        return $fields;
+    }
+}
+```
+
+### Relationship-Based Fields
+
+Include different fields based on model relationships:
+
+```php
+class Comment extends Model
+{
+    use Harmonics;
+    
+    public function getSyncFields(): array
+    {
+        $fields = [
+            'id',
+            'content',
+            'post_id',
+            'user_id',
+            'created_at'
+        ];
+        
+        // Include moderation fields for post authors and moderators
+        if (auth()->user()?->can('moderate', $this->post)) {
+            $fields[] = 'is_flagged';
+            $fields[] = 'flag_reason';
+            $fields[] = 'moderator_notes';
+        }
+        
+        // Include private fields for comment author
+        if ($this->user_id === auth()->id()) {
+            $fields[] = 'is_draft';
+            $fields[] = 'edit_history';
+        }
+        
+        return $fields;
+    }
+}
+```
+
+## Field Transformation
+
+### Computed Fields
+
+Add computed fields that don't exist in the database:
+
+```php
+class User extends Model
+{
+    use Harmonics;
+    
+    protected $syncFields = [
+        'id',
+        'name',
+        'email',
+        'created_at'
+    ];
+    
+    public function getSyncData(): array
+    {
+        $data = parent::getSyncData();
+        
+        // Add computed fields
+        $data['display_name'] = $this->getDisplayName();
+        $data['initials'] = $this->getInitials();
+        $data['is_online_now'] = $this->isCurrentlyOnline();
+        $data['unread_count'] = $this->unreadNotifications()->count();
+        
+        return $data;
+    }
+    
+    private function getDisplayName(): string
+    {
+        return $this->name ?: $this->email;
+    }
+    
+    private function getInitials(): string
+    {
+        return collect(explode(' ', $this->name))
+            ->take(2)
+            ->map(fn($word) => strtoupper(substr($word, 0, 1)))
+            ->join('');
+    }
+}
+```
+
+### Field Formatting
+
+Format fields for frontend consumption:
+
+```php
+class Event extends Model
+{
+    use Harmonics;
+    
+    protected $syncFields = [
+        'id',
+        'title',
+        'description',
+        'start_time',
+        'end_time',
+        'location'
+    ];
+    
+    protected $casts = [
+        'start_time' => 'datetime',
+        'end_time' => 'datetime',
+    ];
+    
+    public function getSyncData(): array
+    {
+        $data = parent::getSyncData();
+        
+        // Format dates for consistent frontend handling
+        $data['start_time'] = $this->start_time?->toISOString();
+        $data['end_time'] = $this->end_time?->toISOString();
+        
+        // Add duration in minutes
+        if ($this->start_time && $this->end_time) {
+            $data['duration_minutes'] = $this->start_time->diffInMinutes($this->end_time);
+        }
+        
+        // Add relative time descriptions
+        $data['starts_in'] = $this->start_time?->diffForHumans();
+        
+        return $data;
+    }
+}
+```
+
+## Performance Optimization
+
+### Field Size Considerations
+
+Be mindful of field sizes to optimize sync performance:
+
+```php
+class Article extends Model
+{
+    use Harmonics;
+    
+    public function getSyncFields(): array
+    {
+        $fields = [
+            'id',
+            'title',
+            'excerpt',      // ✅ Good: Short summary
+            'status',
+            'author_id',
+            'created_at',
+            'updated_at'
+            // 'content'    // ❌ Avoid: Large text field
+            // 'raw_html'   // ❌ Avoid: Even larger processed content
+        ];
+        
+        // Only include full content when specifically requested
+        if ($this->shouldSyncFullContent()) {
+            $fields[] = 'content';
+        }
+        
+        return $fields;
+    }
+    
+    private function shouldSyncFullContent(): bool
+    {
+        // Include full content only in specific contexts
+        return request()->routeIs('articles.show') ||
+               auth()->user()?->can('edit', $this);
+    }
+}
+```
+
+### Conditional Heavy Fields
+
+Load expensive fields only when necessary:
+
+```php
+class Product extends Model
+{
+    use Harmonics;
+    
+    protected $syncFields = [
+        'id',
+        'name',
+        'price',
+        'currency',
+        'is_available',
+        'created_at'
+    ];
+    
+    public function getSyncData(): array
+    {
+        $data = parent::getSyncData();
+        
+        // Add heavy computation only for detailed views
+        if ($this->shouldIncludeDetailedData()) {
+            $data['similar_products'] = $this->getSimilarProducts();
+            $data['review_summary'] = $this->getReviewSummary();
+            $data['inventory_details'] = $this->getInventoryDetails();
+        }
+        
+        return $data;
+    }
+    
+    private function shouldIncludeDetailedData(): bool
+    {
+        return request()->routeIs('products.show') ||
+               in_array('detailed', request()->get('include', []));
+    }
+}
+```
+
+## Security Best Practices
+
+### Field Whitelisting
+
+Always use explicit whitelisting rather than blacklisting:
+
+```php
+class UserProfile extends Model
+{
+    use Harmonics;
+    
+    // ✅ Good: Explicit whitelist
+    protected $syncFields = [
+        'id',
+        'username',
+        'display_name',
+        'bio',
+        'avatar_url',
+        'is_verified'
+    ];
+    
+    // ❌ Avoid: Blacklisting (easy to forget sensitive fields)
+    // public function getSyncFields(): array
+    // {
+    //     return array_diff(
+    //         array_keys($this->getAttributes()),
+    //         ['password', 'remember_token'] // Easy to miss new sensitive fields
+    //     );
+    // }
+}
+```
+
+### Sensitive Data Handling
+
+Never sync sensitive information:
+
+```php
+class PaymentMethod extends Model
+{
+    use Harmonics;
+    
+    protected $syncFields = [
+        'id',
+        'type',              // ✅ 'credit_card', 'paypal', etc.
+        'last_four',         // ✅ Last 4 digits only
+        'brand',             // ✅ 'visa', 'mastercard', etc.
+        'expires_at',        // ✅ Expiration date
+        'is_default',        // ✅ Default payment method flag
+        'created_at'
+        // 'card_number'     // ❌ Never sync full card number
+        // 'cvv'             // ❌ Never sync security code
+        // 'stripe_token'    // ❌ Never sync payment tokens
+    ];
+}
+```
+
+## Field Validation
+
+### Runtime Field Validation
+
+Validate sync fields at runtime to catch configuration errors:
+
+```php
+class BaseModel extends Model
+{
+    use Harmonics;
+    
+    public function getSyncFields(): array
+    {
+        $fields = $this->syncFields ?? [];
+        
+        // Validate required fields
+        if (!in_array($this->getKeyName(), $fields)) {
+            throw new InvalidArgumentException(
+                "Primary key '{$this->getKeyName()}' must be included in sync fields for " . static::class
+            );
+        }
+        
+        // Validate field existence
+        $invalidFields = array_diff($fields, array_keys($this->getAttributes()));
+        if (!empty($invalidFields)) {
+            throw new InvalidArgumentException(
+                "Invalid sync fields for " . static::class . ": " . implode(', ', $invalidFields)
+            );
+        }
+        
+        return $fields;
+    }
+}
+```
+
+## Testing Sync Fields
+
+### Unit Tests
+
+Test your sync field configuration:
+
+```php
+// tests/Unit/Models/UserTest.php
+class UserTest extends TestCase
+{
+    public function test_sync_fields_include_required_fields()
+    {
+        $user = User::factory()->create();
+        $syncFields = $user->getSyncFields();
+        
+        // Assert required fields are present
+        $this->assertContains('id', $syncFields);
+        $this->assertContains('name', $syncFields);
+        $this->assertContains('email', $syncFields);
+    }
+    
+    public function test_sync_fields_exclude_sensitive_data()
+    {
+        $user = User::factory()->create();
+        $syncFields = $user->getSyncFields();
+        
+        // Assert sensitive fields are excluded
+        $this->assertNotContains('password', $syncFields);
+        $this->assertNotContains('remember_token', $syncFields);
+        $this->assertNotContains('email_verified_at', $syncFields);
+    }
+    
+    public function test_admin_users_get_additional_fields()
+    {
+        $admin = User::factory()->admin()->create();
+        $this->actingAs($admin);
+        
+        $user = User::factory()->create();
+        $syncFields = $user->getSyncFields();
+        
+        $this->assertContains('last_login_at', $syncFields);
+        $this->assertContains('is_verified', $syncFields);
+    }
+}
+```
+
+## Debug and Monitoring
+
+### Field Usage Analytics
+
+Track which fields are actually used by clients:
+
+```php
+class FieldUsageMiddleware
+{
+    public function handle($request, Closure $next)
+    {
+        $response = $next($request);
+        
+        // Log sync field usage for analytics
+        if ($request->is('chorus/sync/*')) {
+            $this->logSyncFieldUsage($request, $response);
+        }
+        
+        return $response;
+    }
+    
+    private function logSyncFieldUsage($request, $response)
+    {
+        $data = $response->getData(true);
+        
+        if (isset($data['data'])) {
+            $fields = array_keys($data['data'][0] ?? []);
+            Log::info('Sync fields used', [
+                'table' => $request->route('table'),
+                'fields' => $fields,
+                'field_count' => count($fields),
+                'record_count' => count($data['data'])
+            ]);
+        }
+    }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Apply Sync Filters" href="/getting-started/sync-filters" icon="filter">
+Control which records are synchronized to each user
+</Card>
+
+<Card title="Write Actions" href="/concepts/write-path" icon="pen-tool">
+Set up server-side write operations and validation
+</Card>
+
+<Card title="Frontend Integration" href="/integrations/react" icon="react">
+Use synchronized fields in your React components
+</Card>
+
+<Card title="Performance Tips" href="/advanced/performance-optimization" icon="gauge">
+Optimize sync performance for large datasets
+</Card>
+</CardGroup>
+
+---
+
+You now understand how to effectively configure sync fields for optimal performance and security. Next, learn how to [apply sync filters](/getting-started/sync-filters) to control which records each user receives.

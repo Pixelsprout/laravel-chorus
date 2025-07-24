@@ -1,0 +1,254 @@
+---
+title: "How Chorus Works"
+description: "Deep dive into Laravel Chorus architecture, data flow, and synchronization mechanisms."
+---
+
+# How Chorus Works
+
+Laravel Chorus creates a **bidirectional synchronization system** between your Laravel backend and client applications. This page explains the core architecture and data flow patterns that make real-time synchronization possible.
+
+## Architecture Overview
+
+```mermaid
+graph TB
+    subgraph "Client Side"
+        UI[Client-side framework]
+        Hooks[Chorus Hooks]
+        IDB[(IndexedDB)]
+        WS[WebSocket Client]
+    end
+    
+    subgraph "Server Side"
+        Models[Laravel Models]
+        Harmonics[Harmonics Trait]
+        HTable[(Harmonics Table)]
+        Reverb[Laravel Reverb]
+    end
+    
+    UI --> Hooks
+    Hooks <--> IDB
+    Hooks <--> WS
+    WS <--> Reverb
+    
+    Models --> Harmonics
+    Harmonics --> HTable
+    HTable --> Reverb
+```
+
+## Core Components
+
+### Server-Side Components
+
+<AccordionGroup>
+<Accordion title="Harmonics Trait" icon="magic-wand">
+Applied to Laravel models to enable synchronization. Defines which fields to sync and provides filtering capabilities.
+
+```php
+class Message extends Model
+{
+    use Harmonics;
+    
+    protected $syncFields = ['id', 'body', 'user_id', 'created_at'];
+    
+    protected function syncFilter(): Builder
+    {
+        return $this->where('user_id', auth()->id());
+    }
+}
+```
+</Accordion>
+
+<Accordion title="Harmonics Table" icon="database">
+Central change log that records all create, update, and delete operations for tracked models.
+
+| Column | Purpose |
+|--------|---------|
+| `table_name` | Which model table changed |
+| `record_id` | Primary key of the changed record |
+| `operation` | Type of change (create/update/delete) |
+| `data` | JSON snapshot of the changed fields |
+| `user_id` | For user-scoped synchronization |
+</Accordion>
+
+<Accordion title="Write Actions" icon="pen-tool">
+Handle client write operations with validation, business logic, and conflict resolution.
+
+```php
+class CreateMessageAction extends WriteAction
+{
+    public function handle(Request $request, array $data): Message
+    {
+        return Message::create([
+            'id' => $data['id'] ?? Str::uuid(),
+            'body' => $data['message'],
+            'user_id' => auth()->id(),
+        ]);
+    }
+    
+    public function rules(): array
+    {
+        return [
+            'message' => 'required|string|max:255'
+        ];
+    }
+}
+```
+</Accordion>
+
+<Accordion title="Laravel Reverb Integration" icon="radio">
+WebSocket server that broadcasts change events to connected clients in real-time.
+</Accordion>
+</AccordionGroup>
+
+### Client-Side Components
+
+<AccordionGroup>
+<Accordion title="IndexedDB Storage" icon="hard-drive">
+Browser-based database that stores synchronized data locally for offline access and instant queries.
+</Accordion>
+
+<Accordion title="Chorus Hooks" icon="hook">
+React hooks that manage synchronization, provide optimistic updates, and handle real-time data binding.
+
+```typescript
+const { data: messages, create, update, delete: remove } = useTable(
+  'messages', 
+  types
+);
+```
+</Accordion>
+
+<Accordion title="WebSocket Connection" icon="signal">
+Persistent connection to Laravel Reverb for receiving real-time updates and broadcasting changes.
+</Accordion>
+
+<Accordion title="Optimistic Updates" icon="forward">
+Immediate UI updates before server confirmation, providing instant user feedback.
+</Accordion>
+</AccordionGroup>
+
+
+## Change Detection Methods
+
+Chorus supports multiple methods for detecting model changes:
+
+### 1. Laravel Model Events (Default)
+```php
+// Automatically triggers when models are saved/deleted
+public static function bootHarmonics()
+{
+    static::created(fn($model) => self::createHarmonic($model, 'create'));
+    static::updated(fn($model) => self::createHarmonic($model, 'update'));
+    static::deleted(fn($model) => self::createHarmonic($model, 'delete'));
+}
+```
+
+### 2. Database Triggers (Future Enhancement)
+```sql
+-- More reliable for bulk operations and external changes
+CREATE TRIGGER messages_insert_trigger
+AFTER INSERT ON messages
+FOR EACH ROW
+INSERT INTO harmonics (table_name, record_id, operation, data)
+VALUES ('messages', NEW.id, 'create', JSON_OBJECT('id', NEW.id, ...));
+```
+
+## Synchronization Strategies
+
+### **Selective Field Sync**
+Only specified fields are synchronized, reducing bandwidth and storage requirements.
+
+```php
+protected $syncFields = [
+    'id',           // Always include primary key
+    'title',        // User-visible content
+    'status',       // Business logic fields
+    'updated_at'    // Timestamp for conflict resolution
+    // 'password' excluded for security
+    // 'internal_notes' excluded to reduce size
+];
+```
+
+### **Filtered Synchronization**
+Apply custom logic to determine which records each user should receive.
+
+```php
+protected function syncFilter(): Builder
+{
+    $user = auth()->user();
+    
+    return $this->where(function($query) use ($user) {
+        $query->where('user_id', $user->id)              // Own records
+              ->orWhere('assigned_to', $user->id)         // Assigned records
+              ->orWhere('team_id', $user->team_id);       // Team records
+    });
+}
+```
+
+### **Channel-based Broadcasting**
+Different WebSocket channels for different data scopes and user permissions.
+
+```php
+// User-specific channel
+"chorus.user.{$userId}"
+
+// Tenant-specific channel  
+"chorus.tenant.{$tenantId}.user.{$userId}"
+
+// Table-wide updates
+"chorus.table.messages"
+
+// Record-specific updates
+"chorus.record.messages.{$messageId}"
+```
+
+## Conflict Resolution
+
+When multiple clients modify the same data simultaneously, Chorus handles conflicts using:
+
+### **Last-Write-Wins Strategy**
+- Server timestamps determine the "winning" version
+- Client changes are overwritten by server updates
+- Simple but may lose user edits in rare cases
+
+### **Optimistic Locking**
+- Version numbers or timestamps prevent conflicting updates
+- Failed updates trigger user notifications
+- Allows manual conflict resolution
+
+### **Field-Level Merging**
+- Different fields can be updated by different users
+- Complex but preserves maximum user input
+- Requires careful schema design
+
+## Performance Optimizations
+
+<CardGroup cols={2}>
+<Card title="Delta Compression" icon="compress">
+Only changed fields are transmitted, not entire records
+</Card>
+
+<Card title="Batch Processing" icon="layer-group">
+Multiple changes combined into single operations
+</Card>
+
+<Card title="Connection Pooling" icon="plug">
+Efficient WebSocket connection management
+</Card>
+
+<Card title="Local Caching" icon="memory">
+IndexedDB provides instant query performance
+</Card>
+</CardGroup>
+
+## Security Considerations
+
+- **Data Filtering**: `syncFilter()` ensures users only receive authorized data
+- **Write Validation**: All client operations validated server-side
+- **Channel Authorization**: WebSocket channels require proper authentication
+- **Field Selection**: Sensitive fields excluded from synchronization
+- **Tenant Isolation**: Automatic multi-tenant data separation
+
+---
+
+Next: Learn how to implement Chorus in your application with our [Getting Started](/getting-started) guide.

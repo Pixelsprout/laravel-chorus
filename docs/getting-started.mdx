@@ -1,0 +1,350 @@
+---
+title: "Getting Started"
+description: "Set up Laravel Chorus in your application and start synchronizing your models in minutes."
+---
+
+# Getting Started with Laravel Chorus
+
+This guide will walk you through installing and configuring Laravel Chorus in your Laravel application. You'll have real-time synchronization working in under 10 minutes.
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- **Laravel 10+** application
+- **PHP 8.1+**
+- **Laravel Reverb** (for WebSocket connections)
+- **Node.js 18+** (for frontend integration)
+
+## Installation
+
+### Step 1: Install the Package
+
+Install Laravel Chorus via Composer:
+
+```bash
+composer require pixelsprout/laravel-chorus
+```
+
+### Step 2: Run the Installer
+
+The installer sets up everything you need:
+
+```bash
+php artisan chorus:install
+```
+
+This command will:
+- Publish configuration files
+- Create the harmonics database migration
+- Set up Laravel Reverb (if not already installed)
+- Generate TypeScript utilities in `resources/js/chorus`
+- Configure broadcasting settings
+- Install client-side node module **chorus-js**
+
+### Step 3: Run Migrations
+
+Create the harmonics table:
+
+```bash
+php artisan migrate
+```
+
+## Configuration
+
+### Database Configuration
+
+The `config/chorus.php` file contains all Chorus settings:
+
+```php
+<?php
+
+return [
+    // Channel prefix resolver for multi-tenancy
+    'channel_prefix_resolver' => null, // e.g., App\Chorus\Resolvers\TenantPrefixResolver::class
+
+    // Where to recive change events (default: eloquent).
+    "harmonic_source_adapter" => env(
+        "CHORUS_HARMONIC_SOURCE_ADAPTER",
+        "eloquent"
+    ),
+
+    // What prefix and middleware to apply on chorus API routes.
+    "routes" => [
+        "prefix" => "api",
+        "middleware" => ["web", "api"],
+    ],
+];
+```
+
+## Your First Synchronized Model
+
+### Step 1: Add the Harmonics Trait
+
+Add the `Harmonics` trait to any model you want to synchronize:
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Pixelsprout\LaravelChorus\Traits\Harmonics;
+
+class Message extends Model
+{
+    use Harmonics;
+    
+    protected $fillable = [
+        'title',
+        'body', 
+        'user_id',
+        'status'
+    ];
+    
+    // Define which fields to synchronize
+    protected $syncFields = [
+        'id',
+        'title', 
+        'body',
+        'user_id',
+        'status',
+        'created_at',
+        'updated_at'
+    ];
+    
+    // Optional: Filter which records to sync per user
+    protected function syncFilter()
+    {
+        return $this->where('user_id', auth()->id());
+    }
+}
+```
+
+### Step 2: Create Write Actions
+
+Generate write actions for your model:
+
+```bash
+php artisan chorus:action CreateMessageAction
+```
+
+This creates action classes in `app/Actions/WriteActions/`:
+
+```php
+<?php
+
+namespace App\Actions\WriteActions;
+
+use App\Models\Message;
+use Illuminate\Http\Request;
+use Pixelsprout\LaravelChorus\Support\WriteAction;
+
+class CreateMessageAction extends WriteAction
+{
+    protected array $config = [
+        'allowOfflineWrites' => true,
+        'supportsBatch' => false,
+    ];
+
+    public function handle(Request $request, array $data): Message
+    {
+        return Message::create([
+            'id' => $data['id'] ?? null,
+            'title' => $data['title'],
+            'body' => $data['body'],
+            'user_id' => auth()->id(),
+            'status' => $data['status'] ?? 'draft',
+        ]);
+    }
+
+    public function rules(): array
+    {
+        return [
+            'title' => 'required|string|max:255',
+            'body' => 'required|string',
+            'status' => 'in:draft,published',
+            'id' => 'nullable|string|uuid',
+        ];
+    }
+}
+```
+
+Register the write actions in your model:
+
+```php
+class Message extends Model
+{
+    use Harmonics;
+    
+    // ... other code ...
+    
+    protected $writeActions = [
+        'create' => CreateMessageAction::class,
+        'update' => UpdateMessageAction::class,
+        'delete' => DeleteMessageAction::class,
+    ];
+}
+```
+
+### Step 3: Update Model Configuration
+
+Add your model to the `config/chorus.php`:
+
+```php
+'models' => [
+    'messages' => App\Models\Message::class,
+],
+```
+
+## Frontend Integration
+
+### Step 1: Add the Chorus Provider
+
+Wrap your app with the Chorus provider:
+
+```tsx
+// resources/js/app.tsx
+import { ChorusProvider } from '@/chorus/react';
+import { types } from '@/stores/types';
+
+function App() {
+    return (
+        <ChorusProvider
+            userId={user.id}
+            channelPrefix={user.tenant_id} // Optional for multi-tenancy
+            schema={types}
+        >
+            <YourAppComponents />
+        </ChorusProvider>
+    );
+}
+```
+
+### Step 2: Use Data in Components
+
+Use Chorus hooks to access synchronized data:
+
+```tsx
+// resources/js/components/MessagesList.tsx
+import { useTable } from '@chorus-js/react';
+import { types, Message } from '@stores/types';
+
+export default function MessagesList() {
+    const { 
+        data: messages, 
+        create, 
+        update, 
+        delete: remove,
+        isLoading,
+        error 
+    } = useTable<Message>('messages', types);
+    
+    const handleCreateMessage = async () => {
+        await create(
+            // Optimistic data for instant UI update
+            {
+                id: crypto.randomUUID(),
+                title: 'New Message',
+                body: 'Hello world!',
+                user_id: user.id,
+                status: 'draft',
+                created_at: new Date(),
+                updated_at: new Date(),
+            },
+            // Data sent to server
+            {
+                title: 'New Message',
+                body: 'Hello world!',
+            }
+        );
+    };
+    
+    if (isLoading) return <div>Loading...</div>;
+    if (error) return <div>Error: {error}</div>;
+    
+    return (
+        <div>
+            <button onClick={handleCreateMessage}>
+                Create Message
+            </button>
+            
+            {messages?.map((message) => (
+                <div key={message.id}>
+                    <h3>{message.title}</h3>
+                    <p>{message.body}</p>
+                    <small>Status: {message.status}</small>
+                </div>
+            ))}
+        </div>
+    );
+}
+```
+
+## Start the Servers
+
+### Start Reverb
+
+Start the Laravel Reverb WebSocket server:
+
+```bash
+php artisan reverb:start
+```
+
+### Start Your Frontend
+
+```bash
+composer run dev
+```
+
+## Testing Your Integration
+
+1. **Open multiple browser tabs** to your application
+2. **Create, update, or delete** messages in one tab
+3. **Watch changes appear instantly** in other tabs
+4. **Go offline** and make changes - they'll sync when back online
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Harmonics Trait" href="/concepts/harmonics-trait" icon="magic-wand">
+  Add the Harmonics trait to your models
+</Card>
+
+<Card title="React Integration" href="/integrations/react" icon="react">
+  Build real-time React components
+</Card>
+
+<Card title="Write Actions" href="/concepts/write-path" icon="pen-tool">
+  Master server-side write operations and validation
+</Card>
+
+<Card title="Advanced Features" href="/advanced/channel-prefixes" icon="gear">
+  Set up multi-tenancy and advanced features
+</Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+<Accordion title="WebSocket Connection Issues">
+Ensure Reverb is properly configured and running. Check the browser console for connection errors. You can also run
+    reverb with the `--debug` flag to see when harmonic events get fired.
+</Accordion>
+
+<Accordion title="Changes Not Syncing">
+Verify the model has the Harmonics trait. Check server logs for errors.
+</Accordion>
+
+<Accordion title="Offline Writes Failing">
+Ensure write actions have `allowOfflineWrites => true` and proper validation rules.
+</Accordion>
+
+<Accordion title="Type Errors in Frontend">
+Run `php artisan chorus:generate --types` to regenerate TypeScript definitions.
+</Accordion>
+</AccordionGroup>
+
+---
+
+Congratulations! You now have Laravel Chorus running in your application. Your users will experience instant, real-time updates with full offline support.

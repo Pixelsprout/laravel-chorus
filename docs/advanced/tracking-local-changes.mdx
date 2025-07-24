@@ -1,0 +1,709 @@
+---
+title: "Tracking Local Changes"
+description: "Advanced techniques for tracking and managing local changes in Laravel Chorus applications."
+---
+
+# Tracking Local Changes
+
+Tracking local changes is crucial for providing users with visibility into what's happening with their data, especially in offline scenarios where changes may queue up before syncing to the server.
+
+## Why Track Local Changes?
+
+Local change tracking enables:
+
+- **User awareness** of pending operations
+- **Conflict detection** before server sync
+- **Rollback capabilities** when operations fail
+- **Audit trails** for debugging
+- **Optimistic update management**
+
+## Basic Change Tracking
+
+### Client-Side Change Detection
+
+The Chorus client automatically tracks changes in IndexedDB:
+
+```javascript
+// Change tracking in vanilla JS
+class ChangeTracker {
+    constructor(database) {
+        this.types = database;
+        this.pendingChanges = new Map();
+        this.completedChanges = new Map();
+    }
+    
+    async trackChange(tableName, operation, recordId, data) {
+        const changeId = this.generateChangeId();
+        const change = {
+            id: changeId,
+            table: tableName,
+            operation,
+            recordId,
+            data,
+            timestamp: Date.now(),
+            status: 'pending',
+            attempts: 0
+        };
+        
+        // Store in pending changes
+        this.pendingChanges.set(changeId, change);
+        
+        // Persist to IndexedDB
+        await this.types._chorus_changes.add(change);
+        
+        // Notify observers
+        this.notifyChangeObservers(change);
+        
+        return changeId;
+    }
+    
+    async markChangeCompleted(changeId, serverResponse = null) {
+        const change = this.pendingChanges.get(changeId);
+        if (!change) return;
+        
+        change.status = 'completed';
+        change.completedAt = Date.now();
+        change.serverResponse = serverResponse;
+        
+        // Move to completed
+        this.pendingChanges.delete(changeId);
+        this.completedChanges.set(changeId, change);
+        
+        // Update in database
+        await this.types._chorus_changes.update(changeId, {
+            status: 'completed',
+            completedAt: change.completedAt,
+            serverResponse
+        });
+        
+        this.notifyChangeObservers(change);
+    }
+    
+    async markChangeFailed(changeId, error) {
+        const change = this.pendingChanges.get(changeId);
+        if (!change) return;
+        
+        change.status = 'failed';
+        change.error = error.message;
+        change.failedAt = Date.now();
+        change.attempts++;
+        
+        await this.types._chorus_changes.update(changeId, {
+            status: 'failed',
+            error: error.message,
+            failedAt: change.failedAt,
+            attempts: change.attempts
+        });
+        
+        this.notifyChangeObservers(change);
+    }
+    
+    getPendingChanges(tableName = null) {
+        let changes = Array.from(this.pendingChanges.values());
+        
+        if (tableName) {
+            changes = changes.filter(change => change.table === tableName);
+        }
+        
+        return changes.sort((a, b) => a.timestamp - b.timestamp);
+    }
+    
+    getFailedChanges(tableName = null) {
+        return this.getPendingChanges(tableName)
+                   .filter(change => change.status === 'failed');
+    }
+}
+```
+
+### React Hook for Change Tracking
+
+```tsx
+import { useState, useEffect, useCallback } from 'react';
+import { useChorus } from '@/chorus/react';
+
+interface LocalChange {
+    id: string;
+    table: string;
+    operation: 'create' | 'update' | 'delete';
+    recordId: string;
+    data: any;
+    timestamp: number;
+    status: 'pending' | 'completed' | 'failed';
+    error?: string;
+    attempts: number;
+}
+
+export function useLocalChanges(tableName?: string) {
+    const { changeTracker } = useChorus();
+    const [pendingChanges, setPendingChanges] = useState<LocalChange[]>([]);
+    const [failedChanges, setFailedChanges] = useState<LocalChange[]>([]);
+    
+    const refreshChanges = useCallback(() => {
+        setPendingChanges(changeTracker.getPendingChanges(tableName));
+        setFailedChanges(changeTracker.getFailedChanges(tableName));
+    }, [changeTracker, tableName]);
+    
+    useEffect(() => {
+        refreshChanges();
+        
+        // Subscribe to change updates
+        const unsubscribe = changeTracker.onChangeUpdate(() => {
+            refreshChanges();
+        });
+        
+        return unsubscribe;
+    }, [refreshChanges]);
+    
+    const retryChange = useCallback(async (changeId: string) => {
+        try {
+            await changeTracker.retryChange(changeId);
+        } catch (error) {
+            console.error('Failed to retry change:', error);
+        }
+    }, [changeTracker]);
+    
+    const discardChange = useCallback(async (changeId: string) => {
+        await changeTracker.discardChange(changeId);
+        refreshChanges();
+    }, [changeTracker, refreshChanges]);
+    
+    return {
+        pendingChanges,
+        failedChanges,
+        retryChange,
+        discardChange,
+        refresh: refreshChanges
+    };
+}
+```
+
+## Visual Change Indicators
+
+### Pending Changes Component
+
+```tsx
+import { useLocalChanges } from '@/hooks/useLocalChanges';
+
+export default function PendingChangesIndicator() {
+    const { pendingChanges, failedChanges } = useLocalChanges();
+    
+    const totalPending = pendingChanges.length;
+    const totalFailed = failedChanges.length;
+    
+    if (totalPending === 0 && totalFailed === 0) {
+        return null;
+    }
+    
+    return (
+        <div className="pending-changes-indicator">
+            {totalPending > 0 && (
+                <div className="pending-badge">
+                    <span className="spinner" />
+                    {totalPending} syncing
+                </div>
+            )}
+            
+            {totalFailed > 0 && (
+                <div className="failed-badge">
+                    <span className="error-icon">⚠️</span>
+                    {totalFailed} failed
+                </div>
+            )}
+        </div>
+    );
+}
+```
+
+### Record-Level Change Status
+
+```tsx
+interface RecordChangeStatusProps {
+    recordId: string;
+    tableName: string;
+}
+
+export default function RecordChangeStatus({ recordId, tableName }: RecordChangeStatusProps) {
+    const { pendingChanges, failedChanges } = useLocalChanges(tableName);
+    
+    const recordPendingChanges = pendingChanges.filter(
+        change => change.recordId === recordId
+    );
+    
+    const recordFailedChanges = failedChanges.filter(
+        change => change.recordId === recordId
+    );
+    
+    if (recordPendingChanges.length === 0 && recordFailedChanges.length === 0) {
+        return null;
+    }
+    
+    return (
+        <div className="record-change-status">
+            {recordPendingChanges.map(change => (
+                <div key={change.id} className="pending-change">
+                    <span className="spinner" />
+                    {change.operation}...
+                </div>
+            ))}
+            
+            {recordFailedChanges.map(change => (
+                <div key={change.id} className="failed-change">
+                    <span className="error-icon">❌</span>
+                    {change.operation} failed: {change.error}
+                </div>
+            ))}
+        </div>
+    );
+}
+```
+
+### Global Changes Panel
+
+```tsx
+import { useLocalChanges } from '@/hooks/useLocalChanges';
+
+export default function ChangesPanel() {
+    const { 
+        pendingChanges, 
+        failedChanges, 
+        retryChange, 
+        discardChange 
+    } = useLocalChanges();
+    
+    const allChanges = [...pendingChanges, ...failedChanges];
+    
+    if (allChanges.length === 0) {
+        return (
+            <div className="changes-panel empty">
+                <p>All changes synced ✅</p>
+            </div>
+        );
+    }
+    
+    return (
+        <div className="changes-panel">
+            <h3>Local Changes</h3>
+            
+            <div className="changes-list">
+                {allChanges.map(change => (
+                    <div key={change.id} className={`change-item ${change.status}`}>
+                        <div className="change-header">
+                            <span className="change-operation">
+                                {change.operation} {change.table}
+                            </span>
+                            <span className="change-time">
+                                {new Date(change.timestamp).toLocaleTimeString()}
+                            </span>
+                        </div>
+                        
+                        <div className="change-details">
+                            <pre>{JSON.stringify(change.data, null, 2)}</pre>
+                        </div>
+                        
+                        <div className="change-status">
+                            {change.status === 'pending' && (
+                                <span className="status-pending">
+                                    <span className="spinner" /> Syncing...
+                                </span>
+                            )}
+                            
+                            {change.status === 'failed' && (
+                                <div className="status-failed">
+                                    <span className="error">❌ {change.error}</span>
+                                    <div className="failed-actions">
+                                        <button onClick={() => retryChange(change.id)}>
+                                            Retry
+                                        </button>
+                                        <button onClick={() => discardChange(change.id)}>
+                                            Discard
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+```
+
+## Advanced Change Tracking
+
+### Change Grouping
+
+Group related changes for better UX:
+
+```typescript
+interface ChangeGroup {
+    id: string;
+    type: 'single' | 'batch' | 'transaction';
+    changes: LocalChange[];
+    status: 'pending' | 'completed' | 'failed' | 'partial';
+    createdAt: number;
+    completedAt?: number;
+}
+
+class ChangeGrouper {
+    private groups = new Map<string, ChangeGroup>();
+    
+    groupChanges(changes: LocalChange[]): ChangeGroup[] {
+        const groups = new Map<string, ChangeGroup>();
+        
+        for (const change of changes) {
+            const groupKey = this.getGroupKey(change);
+            
+            if (!groups.has(groupKey)) {
+                groups.set(groupKey, {
+                    id: groupKey,
+                    type: this.getGroupType(change),
+                    changes: [],
+                    status: 'pending',
+                    createdAt: change.timestamp
+                });
+            }
+            
+            groups.get(groupKey)!.changes.push(change);
+        }
+        
+        // Update group status
+        for (const group of groups.values()) {
+            group.status = this.calculateGroupStatus(group.changes);
+        }
+        
+        return Array.from(groups.values())
+                   .sort((a, b) => b.createdAt - a.createdAt);
+    }
+    
+    private getGroupKey(change: LocalChange): string {
+        // Group changes by record and time window (5 seconds)
+        const timeWindow = Math.floor(change.timestamp / 5000) * 5000;
+        return `${change.table}_${change.recordId}_${timeWindow}`;
+    }
+    
+    private getGroupType(change: LocalChange): ChangeGroup['type'] {
+        // Could be enhanced to detect batch operations
+        return 'single';
+    }
+    
+    private calculateGroupStatus(changes: LocalChange[]): ChangeGroup['status'] {
+        const statuses = changes.map(c => c.status);
+        
+        if (statuses.every(s => s === 'completed')) return 'completed';
+        if (statuses.every(s => s === 'failed')) return 'failed';
+        if (statuses.some(s => s === 'pending')) return 'pending';
+        if (statuses.some(s => s === 'completed') && statuses.some(s => s === 'failed')) {
+            return 'partial';
+        }
+        
+        return 'pending';
+    }
+}
+```
+
+### Change Conflicts Detection
+
+Detect potential conflicts before they reach the server:
+
+```typescript
+interface ChangeConflict {
+    changeId: string;
+    conflictType: 'concurrent_edit' | 'deleted_record' | 'stale_data';
+    description: string;
+    serverData?: any;
+    localData: any;
+}
+
+class ConflictDetector {
+    detectConflicts(localChanges: LocalChange[], serverData: any[]): ChangeConflict[] {
+        const conflicts: ChangeConflict[] = [];
+        
+        for (const change of localChanges) {
+            const serverRecord = serverData.find(
+                record => record.id === change.recordId
+            );
+            
+            if (change.operation === 'update' && !serverRecord) {
+                conflicts.push({
+                    changeId: change.id,
+                    conflictType: 'deleted_record',
+                    description: 'Record was deleted on server',
+                    localData: change.data
+                });
+                continue;
+            }
+            
+            if (change.operation === 'update' && serverRecord) {
+                const hasConflict = this.detectConcurrentEdit(
+                    change.data,
+                    serverRecord
+                );
+                
+                if (hasConflict) {
+                    conflicts.push({
+                        changeId: change.id,
+                        conflictType: 'concurrent_edit',
+                        description: 'Record was modified on server',
+                        serverData: serverRecord,
+                        localData: change.data
+                    });
+                }
+            }
+        }
+        
+        return conflicts;
+    }
+    
+    private detectConcurrentEdit(localData: any, serverData: any): boolean {
+        // Simple timestamp-based conflict detection
+        if (localData.updated_at && serverData.updated_at) {
+            const localTime = new Date(localData.updated_at).getTime();
+            const serverTime = new Date(serverData.updated_at).getTime();
+            
+            return serverTime > localTime;
+        }
+        
+        // Field-level conflict detection
+        for (const [field, localValue] of Object.entries(localData)) {
+            if (field === 'updated_at' || field === 'id') continue;
+            
+            const serverValue = serverData[field];
+            if (serverValue !== undefined && serverValue !== localValue) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+}
+```
+
+### Change History and Audit Trail
+
+Maintain a complete history of changes:
+
+```typescript
+interface ChangeHistoryEntry {
+    id: string;
+    changeId: string;
+    timestamp: number;
+    event: 'created' | 'attempted' | 'completed' | 'failed' | 'rolled_back';
+    details?: any;
+    error?: string;
+}
+
+class ChangeHistory {
+    private history: ChangeHistoryEntry[] = [];
+    
+    async recordEvent(
+        changeId: string, 
+        event: ChangeHistoryEntry['event'], 
+        details?: any, 
+        error?: string
+    ) {
+        const entry: ChangeHistoryEntry = {
+            id: crypto.randomUUID(),
+            changeId,
+            timestamp: Date.now(),
+            event,
+            details,
+            error
+        };
+        
+        this.history.push(entry);
+        
+        // Persist to IndexedDB
+        await this.types._chorus_change_history.add(entry);
+        
+        // Cleanup old entries (keep last 1000)
+        if (this.history.length > 1000) {
+            const oldEntries = this.history.splice(0, this.history.length - 1000);
+            const oldIds = oldEntries.map(e => e.id);
+            await this.types._chorus_change_history.where('id').anyOf(oldIds).delete();
+        }
+    }
+    
+    getChangeHistory(changeId: string): ChangeHistoryEntry[] {
+        return this.history
+            .filter(entry => entry.changeId === changeId)
+            .sort((a, b) => a.timestamp - b.timestamp);
+    }
+    
+    getRecentHistory(limit = 50): ChangeHistoryEntry[] {
+        return this.history
+            .slice(-limit)
+            .sort((a, b) => b.timestamp - a.timestamp);
+    }
+    
+    async exportHistory(): Promise<string> {
+        const historyData = {
+            exported_at: new Date().toISOString(),
+            entries: this.history
+        };
+        
+        return JSON.stringify(historyData, null, 2);
+    }
+}
+```
+
+## Performance Optimization
+
+### Change Batching
+
+Batch multiple changes for efficiency:
+
+```typescript
+class ChangeBatcher {
+    private batchTimeout: NodeJS.Timeout | null = null;
+    private pendingBatch: LocalChange[] = [];
+    
+    queueChange(change: LocalChange) {
+        this.pendingBatch.push(change);
+        
+        // Clear existing timeout
+        if (this.batchTimeout) {
+            clearTimeout(this.batchTimeout);
+        }
+        
+        // Set new timeout to process batch
+        this.batchTimeout = setTimeout(() => {
+            this.processBatch();
+        }, 100); // 100ms batching window
+    }
+    
+    private async processBatch() {
+        if (this.pendingBatch.length === 0) return;
+        
+        const batch = [...this.pendingBatch];
+        this.pendingBatch = [];
+        this.batchTimeout = null;
+        
+        // Group by table and operation
+        const groups = this.groupChangesByTableAndOperation(batch);
+        
+        for (const [key, changes] of groups.entries()) {
+            try {
+                await this.processBatchGroup(key, changes);
+            } catch (error) {
+                console.error('Batch processing failed:', error);
+                
+                // Mark all changes in group as failed
+                for (const change of changes) {
+                    await this.changeTracker.markChangeFailed(change.id, error);
+                }
+            }
+        }
+    }
+    
+    private groupChangesByTableAndOperation(changes: LocalChange[]) {
+        const groups = new Map<string, LocalChange[]>();
+        
+        for (const change of changes) {
+            const key = `${change.table}_${change.operation}`;
+            
+            if (!groups.has(key)) {
+                groups.set(key, []);
+            }
+            
+            groups.get(key)!.push(change);
+        }
+        
+        return groups;
+    }
+    
+    private async processBatchGroup(key: string, changes: LocalChange[]) {
+        const [table, operation] = key.split('_');
+        
+        if (operation === 'create' && changes.length > 1) {
+            // Batch create
+            const data = changes.map(c => c.data);
+            await this.sendBatchRequest(table, 'batch-create', { items: data });
+        } else {
+            // Process individually
+            for (const change of changes) {
+                await this.sendSingleRequest(change);
+            }
+        }
+    }
+}
+```
+
+### Memory Management
+
+Prevent memory leaks with proper cleanup:
+
+```typescript
+class ChangeTracker {
+    private maxChanges = 1000;
+    private cleanupInterval: NodeJS.Timeout;
+    
+    constructor(database: any) {
+        this.types = database;
+        
+        // Periodic cleanup
+        this.cleanupInterval = setInterval(() => {
+            this.cleanup();
+        }, 5 * 60 * 1000); // Every 5 minutes
+    }
+    
+    private async cleanup() {
+        // Remove completed changes older than 1 hour
+        const cutoff = Date.now() - (60 * 60 * 1000);
+        
+        const oldCompleted = Array.from(this.completedChanges.values())
+            .filter(change => change.completedAt && change.completedAt < cutoff);
+        
+        for (const change of oldCompleted) {
+            this.completedChanges.delete(change.id);
+        }
+        
+        // Remove from database
+        await this.types._chorus_changes
+            .where('status').equals('completed')
+            .and(change => change.completedAt < cutoff)
+            .delete();
+        
+        // Limit total changes in memory
+        if (this.pendingChanges.size > this.maxChanges) {
+            const oldest = Array.from(this.pendingChanges.values())
+                .sort((a, b) => a.timestamp - b.timestamp)
+                .slice(0, this.pendingChanges.size - this.maxChanges);
+            
+            for (const change of oldest) {
+                this.pendingChanges.delete(change.id);
+            }
+        }
+    }
+    
+    destroy() {
+        if (this.cleanupInterval) {
+            clearInterval(this.cleanupInterval);
+        }
+    }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Performance Optimization" href="/advanced/performance-optimization" icon="gauge">
+Optimize change tracking for large-scale applications
+</Card>
+
+<Card title="Testing" href="/advanced/testing" icon="test-tube">
+Test your change tracking implementation
+</Card>
+
+<Card title="Production Deployment" href="/advanced/production-deployment" icon="server">
+Deploy change tracking in production
+</Card>
+
+<Card title="Monitoring" href="/advanced/monitoring" icon="chart-line">
+Monitor change patterns and performance
+</Card>
+</CardGroup>
+
+---
+
+Effective local change tracking provides users with transparency and confidence in their data operations, especially in offline-first applications where understanding data sync status is crucial for user experience.

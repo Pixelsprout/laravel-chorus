@@ -1,0 +1,471 @@
+---
+title: "Harmonics"
+description: "Understand harmonics - the core concept behind Laravel Chorus's real-time synchronization system."
+---
+
+# Harmonics
+
+**Harmonics** are the fundamental units of change in Laravel Chorus. Every create, update, or delete operation on a synchronized model generates a harmonic record that captures what changed and broadcasts it to connected clients.
+
+## What is a Harmonic?
+
+A harmonic is a change record stored in the `harmonics` database table that contains:
+
+- **What changed** - The table name and record ID
+- **How it changed** - The operation type (create/update/delete)  
+- **The new data** - JSON payload of the synchronized fields
+- **Who can see it** - Optional user_id for scoped synchronization
+- **When it happened** - Timestamp for ordering and deduplication
+
+```php
+// Example harmonic record
+{
+    "id": 1,
+    "table_name": "messages",
+    "record_id": "123",
+    "operation": "create",
+    "data": {
+        "id": "123",
+        "body": "Hello world!",
+        "user_id": 1,
+        "created_at": "2024-01-15T10:30:00Z"
+    },
+    "user_id": 1,
+    "created_at": "2024-01-15T10:30:00Z"
+}
+```
+
+## The Harmonic Lifecycle
+
+### 1. Change Detection
+
+When a model with the `Harmonics` trait is modified, Laravel's model events automatically detect the change:
+
+```php
+class Message extends Model
+{
+    use Harmonics;
+    
+    protected $syncFields = ['id', 'body', 'user_id'];
+}
+
+// This triggers harmonic creation
+$message = Message::create([
+    'body' => 'Hello world!',
+    'user_id' => 1
+]);
+```
+
+### 2. Harmonic Creation
+
+The trait's event listeners create a harmonic record:
+
+```php
+// Simplified harmonic creation process
+public static function bootHarmonics()
+{
+    static::created(function ($model) {
+        Harmonic::create([
+            'table_name' => $model->getTable(),
+            'record_id' => $model->getKey(),
+            'operation' => 'create',
+            'data' => $model->getSyncData(),
+            'user_id' => auth()->id(),
+        ]);
+    });
+}
+```
+
+### 3. Broadcasting
+
+The harmonic is immediately broadcast via WebSocket to connected clients:
+
+```php
+// Broadcasting happens automatically
+broadcast(new HarmonicCreated($harmonic));
+```
+
+### 4. Client Processing
+
+Connected clients receive the harmonic and update their local IndexedDB:
+
+```javascript
+echo.private('chorus.user.1')
+    .listen('.harmonic.created', (harmonic) => {
+        // Update local database
+        switch (harmonic.operation) {
+            case 'create':
+                types.messages.put(harmonic.data);
+                break;
+            case 'update':
+                types.messages.update(harmonic.record_id, harmonic.data);
+                break;
+            case 'delete':
+                types.messages.delete(harmonic.record_id);
+                break;
+        }
+    });
+```
+
+## Harmonic Operations
+
+### Create Operations
+
+Generated when new records are created:
+
+```php
+$message = Message::create([
+    'body' => 'New message',
+    'user_id' => 1
+]);
+
+// Creates harmonic:
+{
+    "operation": "create",
+    "data": {
+        "id": "456",
+        "body": "New message", 
+        "user_id": 1,
+        "created_at": "2024-01-15T10:35:00Z"
+    }
+}
+```
+
+### Update Operations  
+
+Generated when existing records are modified:
+
+```php
+$message = Message::find(1);
+$message->update(['body' => 'Updated message']);
+
+// Creates harmonic:
+{
+    "operation": "update",
+    "data": {
+        "id": "1",
+        "body": "Updated message",
+        "updated_at": "2024-01-15T10:40:00Z"
+    }
+}
+```
+
+<Note>
+Update harmonics only contain the **changed fields** plus the ID and updated timestamp, not the entire record. This minimizes bandwidth usage.
+</Note>
+
+### Delete Operations
+
+Generated when records are deleted:
+
+```php
+$message = Message::find(1);
+$message->delete();
+
+// Creates harmonic:
+{
+    "operation": "delete",
+    "data": {
+        "id": "1"
+    }
+}
+```
+
+Delete harmonics contain minimal data since clients only need to know which record to remove.
+
+## Data Filtering in Harmonics
+
+### Field Filtering
+
+Only fields defined in `$syncFields` are included in harmonic data:
+
+```php
+class User extends Model
+{
+    use Harmonics;
+    
+    // Only these fields will appear in harmonics
+    protected $syncFields = [
+        'id',
+        'name', 
+        'email',
+        'avatar_url'
+        // 'password' excluded for security
+        // 'remember_token' excluded for security
+    ];
+}
+```
+
+### User Filtering
+
+Harmonics can be scoped to specific users using sync filters:
+
+```php
+class Message extends Model
+{
+    use Harmonics;
+    
+    protected function syncFilter(): Builder
+    {
+        // Only create harmonics for messages the user can access
+        return $this->where('user_id', auth()->id());
+    }
+}
+```
+
+When a sync filter is applied:
+- Harmonics are only created for records that pass the filter
+- The `user_id` field is set to the current authenticated user
+- WebSocket broadcasts are sent to user-specific channels
+
+## Harmonic Storage and Performance
+
+### Database Schema
+
+The harmonics table is optimized for high-throughput writes and efficient reads:
+
+```sql
+CREATE TABLE harmonics (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    table_name VARCHAR(255) NOT NULL,
+    record_id VARCHAR(255) NOT NULL,
+    operation ENUM('create', 'update', 'delete') NOT NULL,
+    data JSON NOT NULL,
+    user_id BIGINT UNSIGNED NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    INDEX idx_table_user (table_name, user_id),
+    INDEX idx_table_created (table_name, created_at),
+    INDEX idx_user_created (user_id, created_at)
+);
+```
+
+### Retention and Cleanup
+
+Harmonics can accumulate quickly, so consider implementing cleanup strategies:
+
+```php
+// Clean up old harmonics (run via scheduled command)
+Harmonic::where('created_at', '<', now()->subDays(30))->delete();
+
+// Or implement automatic cleanup in your model
+class Harmonic extends Model
+{
+    public static function boot()
+    {
+        parent::boot();
+        
+        static::created(function ($harmonic) {
+            // Clean up old harmonics for this table/user
+            static::where('table_name', $harmonic->table_name)
+                  ->where('user_id', $harmonic->user_id)
+                  ->where('created_at', '<', now()->subHours(24))
+                  ->limit(100)
+                  ->delete();
+        });
+    }
+}
+```
+
+## Advanced Harmonic Patterns
+
+### Batched Harmonics
+
+For bulk operations, you can create harmonics in batches:
+
+```php
+// Instead of individual creates
+foreach ($messages as $messageData) {
+    Message::create($messageData); // Creates individual harmonics
+}
+
+// Batch create harmonics
+$harmonics = collect($messages)->map(function ($messageData) {
+    $message = new Message($messageData);
+    
+    return [
+        'table_name' => 'messages',
+        'record_id' => $message->id,
+        'operation' => 'create',
+        'data' => $message->getSyncData(),
+        'user_id' => auth()->id(),
+        'created_at' => now(),
+    ];
+});
+
+Harmonic::insert($harmonics->toArray());
+
+// Then broadcast as batch
+broadcast(new BatchHarmonicsCreated($harmonics));
+```
+
+### Conditional Harmonics
+
+Create harmonics only under certain conditions:
+
+```php
+class Post extends Model
+{
+    use Harmonics;
+    
+    protected function shouldCreateHarmonic(string $operation): bool
+    {
+        // Don't create harmonics for draft posts unless user is author
+        if ($this->status === 'draft' && $this->author_id !== auth()->id()) {
+            return false;
+        }
+        
+        // Don't create harmonics for admin-only changes
+        if ($operation === 'update' && $this->wasChanged(['admin_notes'])) {
+            return false;
+        }
+        
+        return true;
+    }
+}
+```
+
+### Harmonic Metadata
+
+Add additional metadata to harmonics:
+
+```php
+class Message extends Model
+{
+    use Harmonics;
+    
+    protected function getHarmonicMetadata(): array
+    {
+        return [
+            'platform_id' => $this->platform_id,
+            'tenant_id' => auth()->user()->tenant_id,
+            'client_version' => request()->header('X-Client-Version'),
+            'user_agent' => request()->userAgent(),
+        ];
+    }
+}
+```
+
+## Debugging Harmonics
+
+### View Recent Harmonics
+
+```php
+// Get recent harmonics for a table
+$harmonics = Harmonic::where('table_name', 'messages')
+                    ->where('user_id', auth()->id())
+                    ->latest()
+                    ->limit(10)
+                    ->get();
+
+foreach ($harmonics as $harmonic) {
+    echo "Operation: {$harmonic->operation}\n";
+    echo "Data: " . json_encode($harmonic->data, JSON_PRETTY_PRINT) . "\n";
+    echo "Created: {$harmonic->created_at}\n\n";
+}
+```
+
+### Debug Command
+
+Use the built-in debug command:
+
+```bash
+# View harmonics for a specific model
+php artisan chorus:debug Message
+
+# View harmonics for a specific user
+php artisan chorus:debug Message --user=1
+
+# View harmonics from the last hour
+php artisan chorus:debug Message --since="1 hour ago"
+```
+
+### Monitoring Harmonic Volume
+
+Track harmonic creation rates:
+
+```php
+// Add to a monitoring service
+Log::info('Harmonic created', [
+    'table' => $harmonic->table_name,
+    'operation' => $harmonic->operation,
+    'user_id' => $harmonic->user_id,
+    'data_size' => strlen(json_encode($harmonic->data))
+]);
+```
+
+## Best Practices
+
+### Performance Optimization
+
+<AccordionGroup>
+<Accordion title="Minimize Harmonic Data" icon="compress">
+- Only sync essential fields
+- Use computed fields sparingly
+- Avoid large text or binary data
+- Consider separate models for large content
+</Accordion>
+
+<Accordion title="Efficient Filtering" icon="filter">
+- Use database indexes for sync filters
+- Avoid complex relationship queries in filters
+- Cache expensive filter computations
+- Use appropriate data types for filter fields
+</Accordion>
+
+<Accordion title="Batch Operations" icon="layer-group">
+- Use bulk operations when possible
+- Implement batch harmonic creation for imports
+- Consider background processing for large datasets
+- Use database transactions for consistency
+</Accordion>
+</AccordionGroup>
+
+### Security Considerations
+
+<AccordionGroup>
+<Accordion title="Field Security" icon="shield-check">
+- Never sync sensitive data (passwords, tokens)
+- Validate sync fields at runtime
+- Use field whitelisting, not blacklisting
+- Regular security audits of synced data
+</Accordion>
+
+<Accordion title="User Isolation" icon="users">
+- Always implement sync filters for user data
+- Validate user permissions in filters
+- Use tenant-based isolation for multi-tenant apps
+- Test authorization thoroughly
+</Accordion>
+
+<Accordion title="Data Validation" icon="check-circle">
+- Validate harmonic data before broadcasting
+- Sanitize data for client consumption
+- Implement server-side validation for all operations
+- Use type checking for harmonic payloads
+</Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Write Path" href="/concepts/write-path" icon="pen-tool">
+Learn how client writes are processed and validated
+</Card>
+
+<Card title="Shadow Tables" href="/concepts/write-path#shadow-and-delta-tables" icon="database">
+Understand offline synchronization with shadow tables
+</Card>
+
+<Card title="React Integration" href="/integrations/react" icon="react">
+Use harmonics in your React components
+</Card>
+
+<Card title="Advanced Features" href="/advanced/channel-prefixes" icon="gear">
+Explore advanced harmonic routing and channels
+</Card>
+</CardGroup>
+
+---
+
+Harmonics are the foundation that makes Laravel Chorus's real-time synchronization possible. Understanding how they work will help you design efficient, secure, and scalable real-time applications.

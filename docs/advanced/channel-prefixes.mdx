@@ -1,0 +1,682 @@
+---
+title: "Channel Prefixes"
+description: "Implement multi-tenant channel routing and custom prefix resolvers for scalable Laravel Chorus applications."
+---
+
+# Channel Prefixes
+
+Channel prefixes enable **multi-tenant architecture** in Laravel Chorus by isolating WebSocket channels and data streams between different organizational units, teams, or tenants.
+
+## What are Channel Prefixes?
+
+Channel prefixes modify WebSocket channel names to create isolated data streams:
+
+```
+Without prefix: chorus.user.123
+With prefix:    chorus.tenant-456.user.123
+```
+
+This ensures users only receive data relevant to their context and provides complete data isolation between tenants.
+
+## Basic Configuration
+
+### Enable Channel Prefixes
+
+Configure a prefix resolver in `config/chorus.php`:
+
+```php
+<?php
+
+return [
+    // ... other config ...
+    
+    'channel_prefix_resolver' => App\Chorus\Resolvers\TenantPrefixResolver::class,
+];
+```
+
+### Frontend Configuration
+
+Pass the channel prefix to your frontend:
+
+```tsx
+// React setup
+<ChorusProvider
+    userId={user.id}
+    channelPrefix={user.tenant_id} // Channel prefix
+    schema={types}
+>
+    <App />
+</ChorusProvider>
+```
+
+```javascript
+// Vanilla JS setup
+const chorus = new ChorusClient({
+    userId: user.id,
+    channelPrefix: user.tenant_id,
+    database: types
+});
+```
+
+## Creating Prefix Resolvers
+
+### Simple Tenant Resolver
+
+```php
+<?php
+
+namespace App\Chorus\Resolvers;
+
+use Pixelsprout\LaravelChorus\Contracts\PrefixResolver;
+
+class TenantPrefixResolver implements PrefixResolver
+{
+    public function resolve($model = null): ?string
+    {
+        // Get tenant from authenticated user
+        $user = auth()->user();
+        
+        if (!$user || !$user->tenant_id) {
+            return null;
+        }
+        
+        return "tenant-{$user->tenant_id}";
+    }
+}
+```
+
+### Advanced Multi-Level Resolver
+
+```php
+<?php
+
+namespace App\Chorus\Resolvers;
+
+use Pixelsprout\LaravelChorus\Contracts\PrefixResolver;
+
+class HierarchicalPrefixResolver implements PrefixResolver
+{
+    public function resolve($model = null): ?string
+    {
+        $user = auth()->user();
+        
+        if (!$user) {
+            return null;
+        }
+        
+        // Build hierarchical prefix based on user context
+        $prefix = "org-{$user->organization_id}";
+        
+        if ($user->department_id) {
+            $prefix .= ".dept-{$user->department_id}";
+        }
+        
+        if ($user->team_id) {
+            $prefix .= ".team-{$user->team_id}";
+        }
+        
+        return $prefix;
+    }
+}
+```
+
+### Model-Aware Resolver
+
+```php
+<?php
+
+namespace App\Chorus\Resolvers;
+
+use Pixelsprout\LaravelChorus\Contracts\PrefixResolver;
+
+class ModelAwarePrefixResolver implements PrefixResolver
+{
+    public function resolve($model = null): ?string
+    {
+        $user = auth()->user();
+        
+        if (!$user) {
+            return null;
+        }
+        
+        // Use different prefixes based on the model type
+        if ($model) {
+            if ($model instanceof \App\Models\GlobalMessage) {
+                // Global messages don't need tenant isolation
+                return null;
+            }
+            
+            if ($model instanceof \App\Models\ProjectMessage) {
+                // Project messages use project-specific channels
+                return "project-{$model->project_id}";
+            }
+            
+            if ($model instanceof \App\Models\TeamMessage) {
+                // Team messages use team-specific channels
+                return "team-{$model->team_id}";
+            }
+        }
+        
+        // Default tenant isolation
+        return "tenant-{$user->tenant_id}";
+    }
+}
+```
+
+## Dynamic Prefix Resolution
+
+### Context-Based Prefixes
+
+```php
+<?php
+
+namespace App\Chorus\Resolvers;
+
+use Pixelsprout\LaravelChorus\Contracts\PrefixResolver;
+
+class ContextAwarePrefixResolver implements PrefixResolver
+{
+    public function resolve($model = null): ?string
+    {
+        $user = auth()->user();
+        
+        if (!$user) {
+            return null;
+        }
+        
+        // Check current request context
+        $request = request();
+        
+        // API requests might include tenant header
+        if ($tenantId = $request->header('X-Tenant-ID')) {
+            return "tenant-{$tenantId}";
+        }
+        
+        // Web requests might have tenant in subdomain
+        if ($request->hasHeader('Host')) {
+            $host = $request->header('Host');
+            if (preg_match('/^(\w+)\.myapp\.com$/', $host, $matches)) {
+                $subdomain = $matches[1];
+                if ($subdomain !== 'www') {
+                    return "tenant-{$subdomain}";
+                }
+            }
+        }
+        
+        // Route-based context
+        if ($request->route('tenant')) {
+            return "tenant-{$request->route('tenant')}";
+        }
+        
+        // Session-based context
+        if ($tenantId = session('current_tenant_id')) {
+            return "tenant-{$tenantId}";
+        }
+        
+        // Default to user's primary tenant
+        return "tenant-{$user->tenant_id}";
+    }
+}
+```
+
+### Time-Based Prefixes
+
+```php
+<?php
+
+namespace App\Chorus\Resolvers;
+
+use Pixelsprout\LaravelChorus\Contracts\PrefixResolver;
+
+class ShiftAwarePrefixResolver implements PrefixResolver
+{
+    public function resolve($model = null): ?string
+    {
+        $user = auth()->user();
+        
+        if (!$user) {
+            return null;
+        }
+        
+        // Include current shift in channel prefix
+        $currentHour = now()->hour;
+        
+        if ($currentHour >= 6 && $currentHour < 14) {
+            $shift = 'morning';
+        } elseif ($currentHour >= 14 && $currentHour < 22) {
+            $shift = 'afternoon';
+        } else {
+            $shift = 'night';
+        }
+        
+        return "shift-{$shift}.tenant-{$user->tenant_id}";
+    }
+}
+```
+
+## Channel Structure Examples
+
+### Basic Tenant Isolation
+
+```
+Without tenant isolation:
+- chorus.user.123
+- chorus.table.messages
+- chorus.record.messages.456
+
+With tenant isolation:
+- chorus.tenant-abc.user.123
+- chorus.tenant-abc.table.messages  
+- chorus.tenant-abc.record.messages.456
+```
+
+### Hierarchical Organization
+
+```
+Organization → Department → Team:
+- chorus.org-1.dept-5.team-12.user.123
+- chorus.org-1.dept-5.team-12.table.messages
+- chorus.org-1.dept-5.team-12.record.messages.456
+```
+
+### Project-Based Channels
+
+```
+Project-specific isolation:
+- chorus.project-alpha.user.123
+- chorus.project-alpha.table.tasks
+- chorus.project-alpha.record.tasks.789
+```
+
+## Advanced Prefix Patterns
+
+### Multi-Tenancy with Shared Resources
+
+```php
+<?php
+
+namespace App\Chorus\Resolvers;
+
+use Pixelsprout\LaravelChorus\Contracts\PrefixResolver;
+
+class SharedResourcePrefixResolver implements PrefixResolver
+{
+    public function resolve($model = null): ?string
+    {
+        $user = auth()->user();
+        
+        if (!$user) {
+            return null;
+        }
+        
+        // Some models are shared across tenants
+        if ($model && in_array(get_class($model), [
+            \App\Models\SystemAnnouncement::class,
+            \App\Models\GlobalSettings::class,
+        ])) {
+            return 'shared';
+        }
+        
+        // Regional isolation for multi-region tenants
+        if ($model && $model->hasAttribute('region')) {
+            return "region-{$model->region}.tenant-{$user->tenant_id}";
+        }
+        
+        return "tenant-{$user->tenant_id}";
+    }
+}
+```
+
+### Environment-Aware Prefixes
+
+```php
+<?php
+
+namespace App\Chorus\Resolvers;
+
+use Pixelsprout\LaravelChorus\Contracts\PrefixResolver;
+
+class EnvironmentAwarePrefixResolver implements PrefixResolver
+{
+    public function resolve($model = null): ?string
+    {
+        $user = auth()->user();
+        
+        if (!$user) {
+            return null;
+        }
+        
+        $environment = app()->environment();
+        $tenantId = $user->tenant_id;
+        
+        // Include environment in development/staging
+        if ($environment !== 'production') {
+            return "{$environment}.tenant-{$tenantId}";
+        }
+        
+        return "tenant-{$tenantId}";
+    }
+}
+```
+
+## Testing Prefix Resolvers
+
+### Unit Tests
+
+```php
+<?php
+
+namespace Tests\Unit\Chorus;
+
+use Tests\TestCase;
+use App\Models\User;
+use App\Models\Message;
+use App\Chorus\Resolvers\TenantPrefixResolver;
+
+class TenantPrefixResolverTest extends TestCase
+{
+    public function test_resolves_tenant_prefix_for_authenticated_user()
+    {
+        $user = User::factory()->create(['tenant_id' => 'abc123']);
+        $this->actingAs($user);
+        
+        $resolver = new TenantPrefixResolver();
+        $prefix = $resolver->resolve();
+        
+        $this->assertEquals('tenant-abc123', $prefix);
+    }
+    
+    public function test_returns_null_for_unauthenticated_user()
+    {
+        $resolver = new TenantPrefixResolver();
+        $prefix = $resolver->resolve();
+        
+        $this->assertNull($prefix);
+    }
+    
+    public function test_returns_null_for_user_without_tenant()
+    {
+        $user = User::factory()->create(['tenant_id' => null]);
+        $this->actingAs($user);
+        
+        $resolver = new TenantPrefixResolver();
+        $prefix = $resolver->resolve();
+        
+        $this->assertNull($prefix);
+    }
+    
+    public function test_works_with_different_model_types()
+    {
+        $user = User::factory()->create(['tenant_id' => 'xyz789']);
+        $this->actingAs($user);
+        
+        $resolver = new TenantPrefixResolver();
+        $message = new Message();
+        
+        $prefix = $resolver->resolve($message);
+        
+        $this->assertEquals('tenant-xyz789', $prefix);
+    }
+}
+```
+
+### Integration Tests
+
+```php
+<?php
+
+namespace Tests\Feature\Chorus;
+
+use Tests\TestCase;
+use App\Models\User;
+use App\Models\Message;
+use Pixelsprout\LaravelChorus\Models\Harmonic;
+
+class ChannelPrefixIntegrationTest extends TestCase
+{
+    public function test_harmonics_include_correct_channel_prefix()
+    {
+        $user = User::factory()->create(['tenant_id' => 'test-tenant']);
+        $this->actingAs($user);
+        
+        $message = Message::create([
+            'body' => 'Test message',
+            'user_id' => $user->id,
+        ]);
+        
+        $harmonic = Harmonic::latest()->first();
+        
+        // Check that harmonic was created with correct channel context
+        $this->assertEquals('messages', $harmonic->table_name);
+        $this->assertEquals($message->id, $harmonic->record_id);
+        
+        // Verify channel prefix is used in broadcasting
+        // (This would require mocking the broadcast system)
+    }
+    
+    public function test_users_only_receive_harmonics_for_their_tenant()
+    {
+        $tenantA = 'tenant-a';
+        $tenantB = 'tenant-b';
+        
+        $userA = User::factory()->create(['tenant_id' => $tenantA]);
+        $userB = User::factory()->create(['tenant_id' => $tenantB]);
+        
+        // Create message as user A
+        $this->actingAs($userA);
+        $messageA = Message::create([
+            'body' => 'Message from tenant A',
+            'user_id' => $userA->id,
+        ]);
+        
+        // Create message as user B
+        $this->actingAs($userB);
+        $messageB = Message::create([
+            'body' => 'Message from tenant B',
+            'user_id' => $userB->id,
+        ]);
+        
+        // User A should only see their tenant's messages
+        $this->actingAs($userA);
+        $response = $this->getJson('/chorus/sync/messages');
+        
+        $response->assertOk();
+        $messages = $response->json('data');
+        
+        $this->assertCount(1, $messages);
+        $this->assertEquals($messageA->id, $messages[0]['id']);
+    }
+}
+```
+
+## Performance Considerations
+
+### Caching Prefix Resolution
+
+```php
+<?php
+
+namespace App\Chorus\Resolvers;
+
+use Illuminate\Support\Facades\Cache;
+use Pixelsprout\LaravelChorus\Contracts\PrefixResolver;
+
+class CachedTenantPrefixResolver implements PrefixResolver
+{
+    public function resolve($model = null): ?string
+    {
+        $user = auth()->user();
+        
+        if (!$user) {
+            return null;
+        }
+        
+        // Cache prefix resolution to avoid repeated database queries
+        $cacheKey = "chorus.prefix.user.{$user->id}";
+        
+        return Cache::remember($cacheKey, now()->addMinutes(5), function () use ($user) {
+            // Expensive tenant resolution logic here
+            $tenant = $user->tenant()->with('organization')->first();
+            
+            if (!$tenant) {
+                return null;
+            }
+            
+            return "org-{$tenant->organization_id}.tenant-{$tenant->id}";
+        });
+    }
+}
+```
+
+### Database Optimization
+
+Ensure proper indexing for tenant-based queries:
+
+```php
+// Migration
+Schema::table('messages', function (Blueprint $table) {
+    // Composite index for tenant + created_at queries
+    $table->index(['tenant_id', 'created_at']);
+    
+    // Index for user + tenant filtering
+    $table->index(['user_id', 'tenant_id']);
+});
+
+Schema::table('harmonics', function (Blueprint $table) {
+    // Optimize harmonic queries by tenant
+    $table->index(['table_name', 'user_id', 'created_at']);
+});
+```
+
+## Security Considerations
+
+### Prefix Validation
+
+```php
+<?php
+
+namespace App\Chorus\Resolvers;
+
+use Pixelsprout\LaravelChorus\Contracts\PrefixResolver;
+
+class SecureTenantPrefixResolver implements PrefixResolver
+{
+    public function resolve($model = null): ?string
+    {
+        $user = auth()->user();
+        
+        if (!$user) {
+            return null;
+        }
+        
+        // Validate user has access to their claimed tenant
+        if (!$this->validateTenantAccess($user, $user->tenant_id)) {
+            // Log security violation
+            logger()->warning('Invalid tenant access attempt', [
+                'user_id' => $user->id,
+                'claimed_tenant' => $user->tenant_id,
+                'ip' => request()->ip(),
+            ]);
+            
+            return null;
+        }
+        
+        return "tenant-{$user->tenant_id}";
+    }
+    
+    private function validateTenantAccess(User $user, ?string $tenantId): bool
+    {
+        if (!$tenantId) {
+            return false;
+        }
+        
+        // Verify user actually belongs to this tenant
+        return $user->tenantMemberships()
+                   ->where('tenant_id', $tenantId)
+                   ->where('status', 'active')
+                   ->exists();
+    }
+}
+```
+
+### Input Sanitization
+
+```php
+public function resolve($model = null): ?string
+{
+    $user = auth()->user();
+    
+    if (!$user || !$user->tenant_id) {
+        return null;
+    }
+    
+    // Sanitize tenant ID to prevent injection attacks
+    $tenantId = preg_replace('/[^a-zA-Z0-9\-_]/', '', $user->tenant_id);
+    
+    if (strlen($tenantId) > 50) {
+        $tenantId = substr($tenantId, 0, 50);
+    }
+    
+    return "tenant-{$tenantId}";
+}
+```
+
+## Debugging Channel Prefixes
+
+### Debug Command
+
+```bash
+# Debug channel prefix resolution
+php artisan chorus:debug --channels
+
+# Show channels for specific user
+php artisan chorus:debug --channels --user=123
+
+# Show prefix resolver output
+php artisan chorus:debug --prefix-resolver
+```
+
+### Logging Channel Activity
+
+```php
+// Add to your prefix resolver
+public function resolve($model = null): ?string
+{
+    $prefix = $this->doResolve($model);
+    
+    // Log prefix resolution for debugging
+    if (app()->hasDebugModeEnabled()) {
+        logger()->debug('Channel prefix resolved', [
+            'prefix' => $prefix,
+            'model' => $model ? get_class($model) : null,
+            'user_id' => auth()->id(),
+        ]);
+    }
+    
+    return $prefix;
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Performance Optimization" href="/advanced/performance-optimization" icon="gauge">
+Optimize Chorus for large-scale applications
+</Card>
+
+<Card title="Testing" href="/advanced/testing" icon="test-tube">
+Test your multi-tenant Chorus setup
+</Card>
+
+<Card title="Production Deployment" href="/advanced/production-deployment" icon="server">
+Deploy Chorus in production environments
+</Card>
+
+<Card title="Monitoring" href="/advanced/monitoring" icon="chart-line">
+Monitor channel activity and performance
+</Card>
+</CardGroup>
+
+---
+
+Channel prefixes are essential for building scalable, multi-tenant applications with Laravel Chorus. Proper implementation ensures data isolation, security, and optimal performance across different organizational contexts.

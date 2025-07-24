@@ -1,0 +1,554 @@
+---
+title: "Sync Filters"
+description: "Control which records are synchronized to each user with powerful filtering mechanisms."
+---
+
+# Sync Filters
+
+Sync filters determine which records from your models are synchronized to each user. Proper filtering is essential for security, performance, and ensuring users only receive relevant data.
+
+## Basic Filtering
+
+### User-Owned Records
+
+The most common filter restricts records to those owned by the current user:
+
+```php
+class Message extends Model
+{
+    use Harmonics;
+    
+    protected $syncFields = ['id', 'body', 'user_id', 'created_at'];
+    
+    protected function syncFilter(): Builder
+    {
+        return $this->where('user_id', auth()->id());
+    }
+}
+```
+
+### Public Records Only
+
+For models with public/private visibility:
+
+```php
+class Post extends Model
+{
+    use Harmonics;
+    
+    protected $syncFields = ['id', 'title', 'content', 'status', 'created_at'];
+    
+    protected function syncFilter(): Builder
+    {
+        return $this->where('status', 'published');
+    }
+}
+```
+
+### No Filter (All Records)
+
+If all authenticated users should see all records:
+
+```php
+class Category extends Model
+{
+    use Harmonics;
+    
+    protected $syncFields = ['id', 'name', 'slug', 'sort_order'];
+    
+    // No syncFilter method = all records synced
+}
+```
+
+<Warning>
+**Security Risk:** Only omit sync filters for truly public data that all authenticated users should access. Always default to restrictive filtering.
+</Warning>
+
+## Advanced Filtering Patterns
+
+### Team-Based Access
+
+Filter records based on team membership:
+
+```php
+class Project extends Model
+{
+    use Harmonics;
+    
+    protected $syncFields = ['id', 'name', 'description', 'status', 'team_id'];
+    
+    protected function syncFilter(): Builder
+    {
+        $user = auth()->user();
+        
+        // Get user's team IDs
+        $teamIds = $user->teams()->pluck('id');
+        
+        return $this->whereIn('team_id', $teamIds);
+    }
+    
+    public function team()
+    {
+        return $this->belongsTo(Team::class);
+    }
+}
+```
+
+### Role-Based Filtering
+
+Different records based on user roles:
+
+```php
+class Document extends Model
+{
+    use Harmonics;
+    
+    protected $syncFields = [
+        'id', 'title', 'visibility', 'department_id', 'created_at'
+    ];
+    
+    protected function syncFilter(): Builder
+    {
+        $user = auth()->user();
+        
+        $query = $this->query();
+        
+        if ($user->isAdmin()) {
+            // Admins see everything
+            return $query;
+        }
+        
+        if ($user->isManager()) {
+            // Managers see their department + public documents
+            return $query->where(function($q) use ($user) {
+                $q->where('department_id', $user->department_id)
+                  ->orWhere('visibility', 'public');
+            });
+        }
+        
+        // Regular users see only public documents
+        return $query->where('visibility', 'public');
+    }
+}
+```
+
+### Complex Relationship Filtering
+
+Filter based on complex relationships:
+
+```php
+class Comment extends Model
+{
+    use Harmonics;
+    
+    protected $syncFields = [
+        'id', 'content', 'post_id', 'user_id', 'is_approved', 'created_at'
+    ];
+    
+    protected function syncFilter(): Builder
+    {
+        $user = auth()->user();
+        
+        return $this->where(function($query) use ($user) {
+            // Always include user's own comments
+            $query->where('user_id', $user->id)
+                  // Include approved comments on posts user can access
+                  ->orWhere(function($q) use ($user) {
+                      $q->where('is_approved', true)
+                        ->whereHas('post', function($postQuery) use ($user) {
+                            // User can access public posts or posts they authored
+                            $postQuery->where('status', 'published')
+                                      ->orWhere('author_id', $user->id);
+                        });
+                  });
+        });
+    }
+    
+    public function post()
+    {
+        return $this->belongsTo(Post::class);
+    }
+}
+```
+
+## Multi-Tenant Filtering
+
+### Tenant Isolation
+
+Ensure complete data isolation between tenants:
+
+```php
+class Order extends Model
+{
+    use Harmonics;
+    
+    protected $syncFields = [
+        'id', 'order_number', 'status', 'total', 'customer_id', 'created_at'
+    ];
+    
+    protected function syncFilter(): Builder
+    {
+        $user = auth()->user();
+        
+        // Strict tenant isolation
+        return $this->where('tenant_id', $user->tenant_id);
+    }
+}
+```
+
+### Hierarchical Tenants
+
+For complex tenant hierarchies:
+
+```php
+class Invoice extends Model
+{
+    use Harmonics;
+    
+    protected $syncFields = ['id', 'invoice_number', 'amount', 'status'];
+    
+    protected function syncFilter(): Builder
+    {
+        $user = auth()->user();
+        $tenant = $user->tenant;
+        
+        // Include invoices from current tenant and all child tenants
+        $tenantIds = collect([$tenant->id])
+            ->concat($tenant->descendants()->pluck('id'));
+        
+        return $this->whereIn('tenant_id', $tenantIds);
+    }
+}
+```
+
+## Dynamic Filtering
+
+### Context-Aware Filtering
+
+Adjust filters based on the current context:
+
+```php
+class Task extends Model
+{
+    use Harmonics;
+    
+    protected $syncFields = [
+        'id', 'title', 'status', 'assignee_id', 'project_id', 'due_date'
+    ];
+    
+    protected function syncFilter(): Builder
+    {
+        $user = auth()->user();
+        $query = $this->query();
+        
+        // Check if user is viewing a specific project
+        $currentProject = session('current_project_id');
+        
+        if ($currentProject) {
+            // Filter to specific project with user access check
+            return $query->where('project_id', $currentProject)
+                         ->whereHas('project.members', function($q) use ($user) {
+                             $q->where('user_id', $user->id);
+                         });
+        }
+        
+        // Default: tasks assigned to user or created by user
+        return $query->where(function($q) use ($user) {
+            $q->where('assignee_id', $user->id)
+              ->orWhere('creator_id', $user->id);
+        });
+    }
+}
+```
+
+### Time-Based Filtering
+
+Filter records based on temporal constraints:
+
+```php
+class Event extends Model
+{
+    use Harmonics;
+    
+    protected $syncFields = [
+        'id', 'name', 'start_time', 'end_time', 'is_public', 'creator_id'
+    ];
+    
+    protected function syncFilter(): Builder
+    {
+        $user = auth()->user();
+        
+        return $this->where(function($query) use ($user) {
+            // Include user's own events (regardless of time)
+            $query->where('creator_id', $user->id)
+                  // Include public events (current and future only)
+                  ->orWhere(function($q) {
+                      $q->where('is_public', true)
+                        ->where('end_time', '>=', now());
+                  });
+        });
+    }
+}
+```
+
+## Performance Optimization
+
+### Database Indexes
+
+Ensure your filters use proper database indexes:
+
+```php
+// Migration
+Schema::table('messages', function (Blueprint $table) {
+    // Index for user-based filtering
+    $table->index('user_id');
+    
+    // Composite index for team + status filtering
+    $table->index(['team_id', 'status']);
+    
+    // Index for time-based filtering
+    $table->index('created_at');
+});
+```
+
+### Efficient Query Patterns
+
+Write filters that utilize indexes effectively:
+
+```php
+class Task extends Model
+{
+    use Harmonics;
+    
+    protected function syncFilter(): Builder
+    {
+        $user = auth()->user();
+        
+        // ✅ Good: Uses indexes efficiently
+        return $this->where('assignee_id', $user->id)
+                    ->where('status', '!=', 'archived')
+                    ->where('created_at', '>=', now()->subMonths(3));
+        
+        // ❌ Avoid: Function calls in WHERE clauses prevent index usage
+        // return $this->whereRaw('LOWER(title) LIKE ?', ['%' . strtolower($search) . '%']);
+    }
+}
+```
+
+### Eager Loading Relationships
+
+Prevent N+1 queries in relationship-based filters:
+
+```php
+class Comment extends Model
+{
+    use Harmonics;
+    
+    protected function syncFilter(): Builder
+    {
+        return $this->with(['post', 'user']) // Eager load relationships
+                    ->whereHas('post', function($query) {
+                        $query->where('status', 'published');
+                    });
+    }
+}
+```
+
+## Security Considerations
+
+### Input Validation
+
+Always validate user inputs used in filters:
+
+```php
+class Project extends Model
+{
+    use Harmonics;
+    
+    protected function syncFilter(): Builder
+    {
+        $user = auth()->user();
+        
+        // ✅ Good: Validate user relationship exists
+        if (!$user || !$user->team_id) {
+            return $this->whereRaw('1 = 0'); // Return no results
+        }
+        
+        return $this->where('team_id', $user->team_id);
+    }
+}
+```
+
+### Authorization Checks
+
+Combine filters with explicit authorization:
+
+```php
+class FinancialReport extends Model
+{
+    use Harmonics;
+    
+    protected function syncFilter(): Builder
+    {
+        $user = auth()->user();
+        
+        // Explicit permission check
+        if (!$user->can('view-financial-reports')) {
+            return $this->whereRaw('1 = 0');
+        }
+        
+        // Department-based filtering for authorized users
+        return $this->where('department_id', $user->department_id);
+    }
+}
+```
+
+### SQL Injection Prevention
+
+Never use raw user input in filters:
+
+```php
+class Article extends Model
+{
+    use Harmonics;
+    
+    protected function syncFilter(): Builder
+    {
+        $user = auth()->user();
+        $departmentId = $user->department_id;
+        
+        // ✅ Good: Use parameter binding
+        return $this->where('department_id', $departmentId);
+        
+        // ❌ Never do this: Direct string interpolation
+        // return $this->whereRaw("department_id = {$departmentId}");
+    }
+}
+```
+
+## Testing Sync Filters
+
+### Unit Tests
+
+Test your filter logic thoroughly:
+
+```php
+// tests/Unit/Models/MessageTest.php
+class MessageTest extends TestCase
+{
+    public function test_sync_filter_returns_only_user_messages()
+    {
+        $user1 = User::factory()->create();
+        $user2 = User::factory()->create();
+        
+        $message1 = Message::factory()->create(['user_id' => $user1->id]);
+        $message2 = Message::factory()->create(['user_id' => $user2->id]);
+        
+        $this->actingAs($user1);
+        
+        $filtered = (new Message)->syncFilter()->get();
+        
+        $this->assertCount(1, $filtered);
+        $this->assertEquals($message1->id, $filtered->first()->id);
+    }
+    
+    public function test_sync_filter_with_team_access()
+    {
+        $team = Team::factory()->create();
+        $user = User::factory()->create();
+        $user->teams()->attach($team);
+        
+        $project1 = Project::factory()->create(['team_id' => $team->id]);
+        $project2 = Project::factory()->create(); // Different team
+        
+        $this->actingAs($user);
+        
+        $filtered = (new Project)->syncFilter()->get();
+        
+        $this->assertCount(1, $filtered);
+        $this->assertEquals($project1->id, $filtered->first()->id);
+    }
+}
+```
+
+### Integration Tests
+
+Test complete sync flow with filters:
+
+```php
+// tests/Feature/SyncTest.php
+class SyncTest extends TestCase
+{
+    public function test_sync_endpoint_respects_filters()
+    {
+        $user = User::factory()->create();
+        $message1 = Message::factory()->create(['user_id' => $user->id]);
+        $message2 = Message::factory()->create(); // Different user
+        
+        $response = $this->actingAs($user)
+                         ->getJson('/chorus/sync/messages');
+        
+        $response->assertOk()
+                 ->assertJsonCount(1, 'data')
+                 ->assertJsonPath('data.0.id', $message1->id);
+    }
+}
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+<Accordion title="No Records Syncing" icon="exclamation-triangle">
+**Problem:** Users receive no synchronized records.
+
+**Debugging:**
+1. Check if `syncFilter()` method exists and returns valid query
+2. Verify filter conditions match actual data
+3. Test filter query directly: `Model::query()->syncFilter()->toSql()`
+4. Check authentication state in filter: `auth()->check()`
+</Accordion>
+
+<Accordion title="Too Many Records Syncing" icon="warning">
+**Problem:** Users receive unauthorized data.
+
+**Solutions:**
+1. Review filter logic for security holes
+2. Add explicit null checks for auth()->user()
+3. Test with different user roles and permissions
+4. Use `whereRaw('1 = 0')` as a safe default for unauthorized access
+</Accordion>
+
+<Accordion title="Performance Issues" icon="clock">
+**Problem:** Sync operations are slow.
+
+**Solutions:**
+1. Add database indexes for filter columns
+2. Avoid complex joins in filters
+3. Use `explain` to analyze query performance
+4. Consider caching expensive relationship queries
+</Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Write Actions" href="/concepts/write-path" icon="pen-tool">
+Set up server-side write operations with validation
+</Card>
+
+<Card title="React Integration" href="/integrations/react" icon="react">
+Use filtered data in your React components
+</Card>
+
+<Card title="Channel Prefixes" href="/advanced/channel-prefixes" icon="broadcast-tower">
+Advanced multi-tenant channel routing
+</Card>
+
+<Card title="Performance Tips" href="/advanced/performance-optimization" icon="gauge">
+Optimize sync performance for large datasets
+</Card>
+</CardGroup>
+
+---
+
+You now understand how to implement secure and efficient sync filters. Continue with [React Integration](/integrations/react) to learn how to use your synchronized data in the frontend.

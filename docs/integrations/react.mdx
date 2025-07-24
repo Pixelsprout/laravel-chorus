@@ -1,0 +1,507 @@
+---
+title: "React Integration"
+description: "Complete guide to integrating Laravel Chorus with React for real-time, offline-capable applications."
+---
+
+Laravel Chorus provides powerful React hooks and components that make it effortless to build real-time, offline-capable applications. This guide covers everything from basic setup to advanced patterns.
+
+## Quick Start
+
+### 1. Add the Chorus Provider
+
+Wrap your app's layout file with the Chorus provider:
+
+```tsx
+// app.tsx
+import { ChorusProvider } from '@/chorus/react';
+
+export default function AppSidebarLayoutContent({ user }) {
+    return (
+        <ChorusProvider
+            userId={user.id}
+            channelPrefix={user.tenant_id}
+        >
+            { children }
+        </ChorusProvider>
+    );
+}
+```
+
+### 2. Use Data in Components
+
+Use Chorus hooks to access synchronized data:
+
+```tsx
+// components/MessagesList.tsx
+import { useTable } from '@/chorus/react';
+import type { Message} from "@/types";
+
+export default function MessagesList() {
+
+    // Get data and actions from table hook
+    const { 
+        data: messages, 
+        isLoading,
+        error,
+        create,
+        update,
+        remove
+    } = useTable<Message>('messages');
+
+    const handleSendMessage = async (body: string) => {
+        const tempId = crypto.randomUUID();
+        
+        await create(
+            // Optimistic data (immediate UI update)
+            {
+                id: tempId,
+                body,
+                user_id: user.id,
+                platform_id: currentPlatform.id,
+                created_at: new Date(),
+                updated_at: new Date(),
+            },
+            // Server data
+            {
+                body,
+                platform_id: currentPlatform.id,
+            }
+        );
+    };
+
+    if (isLoading) return <div>Loading messages...</div>;
+    if (error) return <div>Error: {error}</div>;
+
+    return (
+        <div className="messages">
+            {messages?.map((message) => (
+                <div key={message.id} className="message">
+                    <p>{message.body}</p>
+                    <small>{new Date(message.created_at).toLocaleTimeString()}</small>
+                    
+                    <button onClick={() => remove(message.id)}>
+                        Delete
+                    </button>
+                </div>
+            ))}
+            
+            <MessageForm onSubmit={handleSendMessage} />
+        </div>
+    );
+}
+```
+
+## Core Hooks
+
+### useTable Hook
+
+The primary hook that provides both data access and write actions for a table:
+
+```typescript
+const {
+    data,           // Current synchronized data
+    isLoading,      // Initial loading state
+    error,          // Error state
+    lastUpdate,     // Last synchronization timestamp
+    create,         // Create new records
+    update,         // Update existing records  
+    remove,         // Delete records
+} = useTable<T>('tableName');
+```
+
+**Complete Example:**
+
+```tsx
+import { useTable, useOffline } from '@/chorus/react';
+
+interface User {
+    id: number;
+    name: string;
+    email: string;
+    is_active: boolean;
+}
+
+export default function UserList() {
+    const { 
+        data: users, 
+        isLoading,
+        error,
+        lastUpdate,
+        update
+    } = useTable<User>('users');
+    
+    const { isOffline } = useOffline();
+
+    const toggleUserStatus = async (user: User) => {
+        await update(
+            user.id,
+            // Optimistic update
+            { ...user, is_active: !user.is_active },
+            // Server update
+            { is_active: !user.is_active }
+        );
+    };
+
+    return (
+        <div>
+            {isOffline && (
+                <div className="offline-banner">
+                    You're offline. Changes will sync when reconnected.
+                </div>
+            )}
+            
+            {lastUpdate && (
+                <div className="sync-status">
+                    Last updated: {lastUpdate.toLocaleTimeString()}
+                </div>
+            )}
+
+            {isLoading ? (
+                <div>Loading users...</div>
+            ) : error ? (
+                <div>Error: {error}</div>
+            ) : (
+                <div className="user-list">
+                    {users?.map((user) => (
+                        <div key={user.id} className="user-card">
+                            <h3>{user.name}</h3>
+                            <p>{user.email}</p>
+                            <button onClick={() => toggleUserStatus(user)}>
+                                {user.is_active ? 'Deactivate' : 'Activate'}
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+```
+
+### useOffline Hook
+
+Monitor and handle offline state:
+
+```tsx
+import { useOffline } from '@/chorus/react';
+
+export default function OfflineIndicator() {
+    const { 
+        isOffline, 
+        isOnline, 
+        queuedOperations,
+        clearQueue 
+    } = useOffline();
+
+    return (
+        <div className={`status-bar ${isOffline ? 'offline' : 'online'}`}>
+            {isOffline ? (
+                <div className="offline-status">
+                    <span>📡 Offline</span>
+                    {queuedOperations.length > 0 && (
+                        <span>
+                            {queuedOperations.length} operations queued
+                        </span>
+                    )}
+                </div>
+            ) : (
+                <div className="online-status">
+                    <span>🟢 Online</span>
+                </div>
+            )}
+            
+            {queuedOperations.length > 0 && (
+                <button onClick={clearQueue} className="clear-queue">
+                    Clear Queue
+                </button>
+            )}
+        </div>
+    );
+}
+```
+
+### Optimistic Updates with Rollback
+
+Handle complex optimistic updates with error recovery:
+
+```tsx
+import { useState } from 'react';
+import { useTable } from '@/chorus/react';
+
+interface Message {
+    id: string;
+    body: string;
+    updated_at: Date;
+    is_edited?: boolean;
+}
+
+export default function MessageEditor({ messageId }: { messageId: string }) {
+    const { data: messages, update } = useTable<Message>('messages');
+    const [isEditing, setIsEditing] = useState(false);
+    const [editText, setEditText] = useState('');
+    
+    const message = messages?.find(m => m.id === messageId);
+    
+    const handleSave = async () => {
+        if (!message || !editText.trim()) return;
+        
+        const originalText = message.body;
+        
+        try {
+            await update(
+                messageId,
+                // Optimistic update
+                { 
+                    ...message, 
+                    body: editText,
+                    updated_at: new Date(),
+                    is_edited: true 
+                },
+                // Server update
+                { body: editText },
+                // Error callback - rollback on failure
+                (error) => {
+                    console.error('Update failed:', error);
+                    // The hook automatically handles rollback
+                    setEditText(originalText);
+                    alert('Failed to save changes. Please try again.');
+                }
+            );
+            
+            setIsEditing(false);
+        } catch (error) {
+            console.error('Update error:', error);
+        }
+    };
+
+    if (!message) return null;
+
+    return (
+        <div className="message-editor">
+            {isEditing ? (
+                <div>
+                    <textarea
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        className="edit-textarea"
+                    />
+                    <div className="edit-actions">
+                        <button onClick={handleSave}>Save</button>
+                        <button onClick={() => {
+                            setIsEditing(false);
+                            setEditText('');
+                        }}>
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div>
+                    <p>{message.body}</p>
+                    {message.is_edited && (
+                        <small className="edited-indicator">(edited)</small>
+                    )}
+                    <button onClick={() => {
+                        setIsEditing(true);
+                        setEditText(message.body);
+                    }}>
+                        Edit
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+```
+
+### Real-time Collaboration
+
+Build collaborative features with presence indicators:
+
+```tsx
+import { useTable, usePresence } from '@/chorus/react';
+import { useState, useEffect } from 'react';
+
+interface Message {
+    id: string;
+    body: string;
+}
+
+export default function CollaborativeEditor() {
+    const { data: messages, update } = useTable<Message>('messages');
+    const [editingUsers, setEditingUsers] = useState<Set<number>>(new Set());
+    
+    // Track who's currently editing
+    const { broadcast, subscribe } = usePresence('message-editor');
+    
+    const handleStartEditing = (messageId: string) => {
+        broadcast('start-editing', { messageId, userId: user.id });
+    };
+    
+    const handleStopEditing = (messageId: string) => {
+        broadcast('stop-editing', { messageId, userId: user.id });
+    };
+    
+    useEffect(() => {
+        const unsubscribe = subscribe((event, data) => {
+            if (event === 'start-editing') {
+                setEditingUsers(prev => new Set([...prev, data.userId]));
+            } else if (event === 'stop-editing') {
+                setEditingUsers(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(data.userId);
+                    return newSet;
+                });
+            }
+        });
+        
+        return unsubscribe;
+    }, [subscribe]);
+
+    return (
+        <div className="collaborative-editor">
+            {messages?.map(message => (
+                <div key={message.id} className="message-item">
+                    <div className="message-content">
+                        {message.body}
+                    </div>
+                    
+                    {editingUsers.size > 0 && (
+                        <div className="editing-indicators">
+                            {Array.from(editingUsers).map(userId => (
+                                <div key={userId} className="editing-user">
+                                    👤 User {userId} is editing...
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            ))}
+        </div>
+    );
+}
+```
+
+## Error Handling
+
+### Global Error Boundary
+
+Create a global error boundary for Chorus operations:
+
+```tsx
+import { ErrorBoundary } from 'react-error-boundary';
+import { ChorusError } from '@/chorus/errors';
+
+function ChorusErrorFallback({ error, resetErrorBoundary }: any) {
+    if (error instanceof ChorusError) {
+        return (
+            <div className="chorus-error">
+                <h2>Sync Error</h2>
+                <p>{error.message}</p>
+                
+                {error.type === 'network' && (
+                    <p>Check your internet connection and try again.</p>
+                )}
+                
+                {error.type === 'validation' && (
+                    <p>Please check your input and try again.</p>
+                )}
+                
+                <button onClick={resetErrorBoundary}>
+                    Try Again
+                </button>
+            </div>
+        );
+    }
+    
+    return (
+        <div className="general-error">
+            <h2>Something went wrong</h2>
+            <button onClick={resetErrorBoundary}>
+                Try Again
+            </button>
+        </div>
+    );
+}
+
+export default function App() {
+    return (
+        <ErrorBoundary FallbackComponent={ChorusErrorFallback}>
+            <ChorusProvider>
+                <YourApp />
+            </ChorusProvider>
+        </ErrorBoundary>
+    );
+}
+```
+
+### Rejected Operations Handling
+
+Handle and display rejected operations:
+
+```tsx
+import { useRejectedHarmonics } from '@/chorus/react';
+
+export default function RejectedOperations() {
+    const { 
+        rejectedOperations, 
+        retry, 
+        dismiss, 
+        dismissAll 
+    } = useRejectedHarmonics();
+
+    if (rejectedOperations.length === 0) return null;
+
+    return (
+        <div className="rejected-operations">
+            <h3>Failed Operations</h3>
+            
+            {rejectedOperations.map((operation) => (
+                <div key={operation.id} className="rejected-operation">
+                    <div className="operation-details">
+                        <strong>{operation.action}</strong> on {operation.table}
+                        <p>{operation.error}</p>
+                    </div>
+                    
+                    <div className="operation-actions">
+                        <button onClick={() => retry(operation.id)}>
+                            Retry
+                        </button>
+                        <button onClick={() => dismiss(operation.id)}>
+                            Dismiss
+                        </button>
+                    </div>
+                </div>
+            ))}
+            
+            <button onClick={dismissAll} className="dismiss-all">
+                Dismiss All
+            </button>
+        </div>
+    );
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Vue Integration" href="/integrations/vue" icon="vuejs">
+Learn about Vue.js integration (Coming Soon)
+</Card>
+
+<Card title="Write Actions" href="/concepts/write-path" icon="pen-tool">
+Master server-side write operations
+</Card>
+
+<Card title="Concepts Deep Dive" href="/concepts/harmonics" icon="book">
+Understand Chorus core concepts
+</Card>
+
+<Card title="Advanced Features" href="/advanced/channel-prefixes" icon="gear">
+Explore advanced configuration options
+</Card>
+</CardGroup>
+
+---
+
+You now have everything you need to build powerful real-time React applications with Laravel Chorus. The combination of optimistic updates, offline support, and real-time synchronization will deliver an exceptional user experience.

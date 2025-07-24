@@ -1,0 +1,403 @@
+---
+title: "Harmonics Trait"
+description: "Learn how to add the Harmonics trait to your Laravel models to enable real-time synchronization."
+---
+
+# Harmonics Trait
+
+The `Harmonics` trait is the foundation of Laravel Chorus. When added to your Eloquent models, it automatically tracks changes and enables real-time synchronization to connected clients.
+
+## Basic Usage
+
+### Adding the Trait
+
+Add the `Harmonics` trait to any model you want to synchronize:
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Pixelsprout\LaravelChorus\Traits\Harmonics;
+
+class Post extends Model
+{
+    use Harmonics;
+    
+    protected $fillable = [
+        'title',
+        'content',
+        'status',
+        'author_id'
+    ];
+}
+```
+
+That's it! Your model will now automatically track changes and broadcast them to connected clients.
+
+### What the Trait Does
+
+When you add the `Harmonics` trait, it automatically:
+
+1. **Registers event listeners** for model create, update, and delete operations
+2. **Creates harmonic records** in the harmonics table for each change
+3. **Broadcasts changes** via WebSocket to connected clients
+4. **Provides synchronization methods** for frontend integration
+
+## Defining Sync Fields
+
+By default, **no fields are synchronized** for security. You must explicitly define which fields to sync using one of these methods:
+
+### Method 1: Property-Based (Recommended)
+
+Define sync fields using a protected property:
+
+```php
+class Post extends Model
+{
+    use Harmonics;
+    
+    protected $syncFields = [
+        'id',           // Always include the primary key
+        'title',
+        'content',
+        'status',
+        'author_id',
+        'created_at',
+        'updated_at'
+    ];
+}
+```
+
+### Method 2: Method-Based
+
+Define sync fields using a method for simple dynamic logic:
+
+```php
+class Post extends Model
+{
+    use Harmonics;
+    
+    public function syncFields(): array
+    {
+        return [
+            'id',
+            'title',
+            'content',
+            'status',
+            'author_id',
+            'created_at',
+            'updated_at'
+        ];
+    }
+}
+```
+
+### Method 3: Dynamic Sync Fields
+
+Override the `getSyncFields()` method for complex dynamic logic:
+
+```php
+class Post extends Model
+{
+    use Harmonics;
+    
+    public function getSyncFields(): array
+    {
+        $fields = [
+            'id',
+            'title',
+            'status',
+            'created_at',
+            'updated_at'
+        ];
+        
+        // Include content only for published posts
+        if ($this->status === 'published') {
+            $fields[] = 'content';
+        }
+        
+        // Include author info for authenticated users
+        if (auth()->check()) {
+            $fields[] = 'author_id';
+        }
+        
+        return $fields;
+    }
+}
+```
+
+<Note>
+**Security First:** Only include fields that are safe to expose to clients. Never sync sensitive information like passwords, API keys, or internal system data.
+</Note>
+
+## Field Selection Best Practices
+
+### Include These Fields
+
+✅ **Always include:**
+- Primary key (`id`)
+- User-visible data (`title`, `name`, `description`)
+- Status/state fields (`status`, `is_active`)
+- Relationships IDs (`user_id`, `category_id`)
+- Timestamps (`created_at`, `updated_at`)
+
+### Exclude These Fields
+
+❌ **Never include:**
+- Passwords or authentication tokens
+- Internal system fields (`internal_notes`)
+- Sensitive personal information (`ssn`, `credit_card`)
+- Large binary data (`file_content`)
+- Admin-only fields (`admin_notes`)
+
+### Example: User Model
+
+```php
+class User extends Model
+{
+    use Harmonics;
+    
+    // Safe fields for client synchronization
+    protected $syncFields = [
+        'id',
+        'name',
+        'email',           // OK if users can see each other's emails
+        'avatar_url',
+        'is_online',
+        'last_seen_at',
+        'created_at',
+        'updated_at'
+        // 'password' - NEVER include
+        // 'remember_token' - NEVER include
+        // 'email_verified_at' - Usually not needed
+    ];
+}
+```
+
+## Model Registration
+
+After defining your model, register it in the Chorus configuration:
+
+```php
+// config/chorus.php
+'models' => [
+    'posts' => App\Models\Post::class,
+    'users' => App\Models\User::class,
+    'comments' => App\Models\Comment::class,
+],
+```
+
+The key (`posts`) should match your database table name and will be used for:
+- Frontend table names in IndexedDB
+- WebSocket channel routing
+- API endpoint generation
+
+## Automatic Change Detection
+
+The Harmonics trait automatically detects changes using Laravel's model events:
+
+### Create Operations
+```php
+$post = Post::create([
+    'title' => 'My New Post',
+    'content' => 'Hello World!',
+    'status' => 'draft'
+]);
+// ✅ Automatically creates a harmonic with operation: 'create'
+```
+
+### Update Operations
+```php
+$post = Post::find(1);
+$post->update(['status' => 'published']);
+// ✅ Automatically creates a harmonic with operation: 'update'
+```
+
+### Delete Operations
+```php
+$post = Post::find(1);
+$post->delete();
+// ✅ Automatically creates a harmonic with operation: 'delete'
+```
+
+### Bulk Operations
+
+<Warning>
+**Important:** Bulk operations like `Post::where('status', 'draft')->update(['status' => 'published'])` do **not** trigger model events and will **not** be synchronized automatically.
+
+For bulk operations, you'll need to handle synchronization manually or iterate through individual models.
+</Warning>
+
+## Advanced Configuration
+
+### Custom Table Names
+
+If your model uses a custom table name, ensure it matches your configuration:
+
+```php
+class BlogPost extends Model
+{
+    use Harmonics;
+    
+    protected $table = 'posts'; // Custom table name
+    
+    public function getChorusTableName(): string
+    {
+        return 'posts'; // This should match your config key
+    }
+}
+```
+
+### Conditional Synchronization
+
+Disable synchronization under certain conditions:
+
+```php
+class Post extends Model
+{
+    use Harmonics;
+    
+    protected $syncFields = ['id', 'title', 'content'];
+    
+    protected function shouldSync(): bool
+    {
+        // Don't sync draft posts from non-authors
+        if ($this->status === 'draft' && $this->author_id !== auth()->id()) {
+            return false;
+        }
+        
+        return true;
+    }
+}
+```
+
+### Custom Primary Keys
+
+For models with non-standard primary keys:
+
+```php
+class Post extends Model
+{
+    use Harmonics;
+    
+    protected $primaryKey = 'post_uuid';
+    public $incrementing = false;
+    protected $keyType = 'string';
+    
+    protected $syncFields = [
+        'post_uuid',  // Include your custom primary key
+        'title',
+        'content'
+    ];
+}
+```
+
+## Testing Your Configuration
+
+### Manual Testing
+
+Create a test record and verify harmonics are created:
+
+```bash
+php artisan tinker
+```
+
+```php
+// Create a test record
+$post = App\Models\Post::create([
+    'title' => 'Test Post',
+    'content' => 'This is a test',
+    'status' => 'published',
+    'author_id' => 1
+]);
+
+// Check if a harmonic was created
+$harmonic = \Pixelsprout\LaravelChorus\Models\Harmonic::latest()->first();
+echo $harmonic->toJson(JSON_PRETTY_PRINT);
+```
+
+### Debug Command
+
+Use the built-in debug command to verify your configuration:
+
+```bash
+php artisan chorus:debug Post
+```
+
+This will show:
+- Registered sync fields
+- Recent harmonics for the model
+- Configuration status
+- Potential issues
+
+## Common Issues and Solutions
+
+<AccordionGroup>
+<Accordion title="No Harmonics Created" icon="exclamation-triangle">
+**Problem:** Model changes don't create harmonic records.
+
+**Solutions:**
+1. Verify the trait is added: `use Harmonics;`
+2. Check model is registered in `config/chorus.php`
+3. Ensure you're using Eloquent methods (not raw queries)
+4. Check for exceptions in Laravel logs
+</Accordion>
+
+<Accordion title="Fields Not Syncing" icon="eye-slash">
+**Problem:** Expected fields don't appear in synchronized data.
+
+**Solutions:**
+1. Add fields to `$syncFields` array
+2. Check `getSyncFields()` method logic
+3. Verify fields exist in database
+4. Run `php artisan chorus:debug ModelName`
+</Accordion>
+
+<Accordion title="Too Much Data Syncing" icon="warning">
+**Problem:** Sync payload is too large or contains sensitive data.
+
+**Solutions:**
+1. Remove unnecessary fields from `$syncFields`
+2. Use dynamic field selection in `getSyncFields()`
+3. Implement proper filtering (covered in next section)
+4. Consider splitting large data into separate models
+</Accordion>
+
+<Accordion title="Performance Issues" icon="clock">
+**Problem:** Model operations are slow after adding Harmonics trait.
+
+**Solutions:**
+1. Use database indexes on frequently queried sync fields
+2. Implement sync filtering to reduce harmonic volume
+3. Consider async harmonic processing with queues
+4. Monitor Redis performance and memory usage
+</Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+Now that your model has the Harmonics trait:
+
+<CardGroup cols={2}>
+<Card title="Define Sync Fields" href="/getting-started/sync-fields" icon="list">
+Learn advanced field selection and dynamic sync configuration
+</Card>
+
+<Card title="Apply Sync Filters" href="/getting-started/sync-filters" icon="filter">
+Control which records are synchronized to each user
+</Card>
+
+<Card title="Set Up Write Actions" href="/concepts/write-path" icon="pen-tool">
+Configure server-side write operations and validation
+</Card>
+
+<Card title="Frontend Integration" href="/integrations/react" icon="react">
+Connect your frontend to synchronized models
+</Card>
+</CardGroup>
+
+---
+
+Your model is now ready for real-time synchronization! Continue with [Sync Fields](/getting-started/sync-fields) to learn advanced field configuration techniques.
