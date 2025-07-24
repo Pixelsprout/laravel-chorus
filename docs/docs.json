@@ -17,12 +17,7 @@
             "group": "Overview",
             "pages": [
               "what-is-chorus",
-              "how-chorus-works"
-            ]
-          },
-          {
-            "group": "Getting Started",
-            "pages": [
+              "how-chorus-works",
               "getting-started"
             ]
           },

@@ -29,15 +29,19 @@ final class ChorusInstall extends Command
         // Step 3: Configure broadcasting
         $this->configureBroadcasting();
 
-        // Step 4: Create _generated directory with default schema
+        // Step 4: Install chorus-js node module
+        $this->installChorusJS();
+
+        // Step 5: Create _generated directory with default schema
         $this->createGeneratedDirectory();
 
         $this->info("Laravel Chorus has been installed successfully!");
-        $this->info("Run the migrations with: php artisan migrate");
-        $this->info("Start the Chorus server with: php artisan chorus:start");
-        $this->info(
-            "Generate IndexedDB schema with: php artisan chorus:generate"
-        );
+        $this->info("Next steps:");
+        $this->info("1. Run the migrations with: php artisan migrate");
+        $this->info("2. Generate IndexedDB schema with: php artisan chorus:generate");
+        $this->info("3. Start the Chorus server with: php artisan chorus:start");
+        $this->info("4. Install the @chorus/js package once it's published to npm");
+        $this->info("5. Configure your frontend to use the Chorus JavaScript client");
     }
 
     private function publishAssets(): void
@@ -196,6 +200,121 @@ TS;
             $this->info(
                 "Created default schema file: resources/js/_generated/schema.ts"
             );
+        }
+    }
+
+    private function installChorusJS(): void
+    {
+        $this->info("Installing chorus-js node module...");
+        
+        // Check if package.json exists
+        $packageJsonPath = base_path("package.json");
+        if (!File::exists($packageJsonPath)) {
+            $this->warn(
+                "package.json not found. Skipping chorus-js installation. You'll need to install it manually when it's published to npm."
+            );
+            return;
+        }
+
+        // For now, we'll just show instructions since the package isn't published yet
+        if (
+            $this->confirm(
+                "Would you like to install the chorus-js package?",
+                true
+            )
+        ) {
+            try {
+                // Check which package manager is available
+                $packageManager = $this->detectPackageManager();
+
+                if ($packageManager) {
+                    $this->info("Detected package manager: {$packageManager}");
+                    
+                     $this->runPackageManagerCommand($packageManager, ['install', '@chorus/js']);
+                     $this->info("Successfully installed @chorus/js");
+
+                } else {
+                    $this->warn(
+                        "No package manager detected (npm, yarn, pnpm). Please install chorus-js manually once it's published to npm."
+                    );
+                }
+            } catch (\Exception $e) {
+                $this->error("Failed to install chorus-js: " . $e->getMessage());
+                $this->info(
+                    "You can install it manually once it's published with: npm install @chorus/js"
+                );
+            }
+        } else {
+            $this->info(
+                "Skipped chorus-js installation. You can install it manually once published with: npm install @chorus/js"
+            );
+        }
+    }
+
+    private function detectPackageManager(): ?string
+    {
+        // Check for lock files to determine package manager
+        if (File::exists(base_path("pnpm-lock.yaml"))) {
+            return "pnpm";
+        }
+        
+        if (File::exists(base_path("yarn.lock"))) {
+            return "yarn";
+        }
+        
+        if (File::exists(base_path("package-lock.json"))) {
+            return "npm";
+        }
+
+        // Fallback: check if commands are available
+        try {
+            $result = Process::run("which pnpm");
+            if ($result->successful()) {
+                return "pnpm";
+            }
+        } catch (\Exception $e) {
+            // Continue to next check
+        }
+
+        try {
+            $result = Process::run("which yarn");
+            if ($result->successful()) {
+                return "yarn";
+            }
+        } catch (\Exception $e) {
+            // Continue to next check
+        }
+
+        try {
+            $result = Process::run("which npm");
+            if ($result->successful()) {
+                return "npm";
+            }
+        } catch (\Exception $e) {
+            // No package manager found
+        }
+
+        return null;
+    }
+
+    private function runPackageManagerCommand(string $packageManager, array $args): void
+    {
+        $command = $packageManager . " " . implode(" ", $args);
+        $this->info("Running: {$command}");
+
+        $result = Process::path(base_path())->run($command);
+
+        if ($result->successful()) {
+            $this->info("Successfully ran: {$command}");
+            if ($result->output()) {
+                $this->line($result->output());
+            }
+        } else {
+            $this->error("Failed to run: {$command}");
+            if ($result->errorOutput()) {
+                $this->error($result->errorOutput());
+            }
+            throw new \Exception("Package manager command failed");
         }
     }
 }

@@ -10,18 +10,60 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Str;
 use Pixelsprout\LaravelChorus\Models\Harmonic;
+use Pixelsprout\LaravelChorus\Traits\Harmonics;
 use ReflectionClass;
 
 class SyncController extends Controller
 {
+    /**
+     * Cache for table-to-model mapping to avoid repeated model scanning
+     */
+    private static ?array $cachedTableModelMap = null;
+
+    /**
+     * Get a mapping of table names to model classes for models that use the Harmonics trait
+     */
+    private function getHarmonicsTableModelMap(): array
+    {        
+        if (self::$cachedTableModelMap !== null) {
+            return self::$cachedTableModelMap;
+        }
+
+        $harmonicsModels = ModelsThat::useTrait(Harmonics::class);
+        Log::info('Found Harmonics models', ['models' => $harmonicsModels->toArray()]);
+        $tableModelMap = [];
+
+        foreach ($harmonicsModels as $modelClass) {
+            try {
+                $instance = new $modelClass();
+                $tableName = $instance->getTable();
+                $tableModelMap[$tableName] = $modelClass;
+            } catch (\Exception $e) {
+                Log::warning("Error mapping table for {$modelClass}: " . $e->getMessage());
+                continue;
+            }
+        }
+
+        self::$cachedTableModelMap = $tableModelMap;
+        Log::info('Built table model map', ['mapping' => $tableModelMap]);
+        return $tableModelMap;
+    }
+
+    /**
+     * Clear the cached table-to-model mapping (useful for testing)
+     */
+    public static function clearTableModelCache(): void
+    {
+        self::$cachedTableModelMap = null;
+    }
     public function getSchema(): \Illuminate\Http\JsonResponse
     {
         try {
-            // Get all available models with Harmonics trait from config
-            $modelMap = config("chorus.models", []);
+            // Get table-to-model mapping for all models that use the Harmonics trait
+            $tableModelMap = $this->getHarmonicsTableModelMap();
             $schema = [];
             
-            foreach ($modelMap as $tableName => $modelClass) {
+            foreach ($tableModelMap as $tableName => $modelClass) {
                 try {
                     $instance = new $modelClass();
                     $syncFields = $instance->getSyncFields();
@@ -85,45 +127,23 @@ class SyncController extends Controller
         string $table
     ): \Illuminate\Http\JsonResponse {
         try {
-            // Get the 'after' parameter (harmonic ID) from the request
             $afterHarmonicId = $request->query("after");
 
-            // Get all available models with Harmonics trait from config
-            $modelMap = config("chorus.models", []);
-
-            if (!isset($modelMap[$table])) {
+            $tableModelMap = $this->getHarmonicsTableModelMap();
+            
+            if (!isset($tableModelMap[$table])) {
                 return response()->json(
-                    ["error" => "Invalid table name", "table" => $table],
+                    ["error" => "Invalid table name or table does not use Harmonics trait", "table" => $table],
                     404
                 );
             }
 
-            $modelClass = $modelMap[$table];
+            $modelClass = $tableModelMap[$table];
             $instance = new $modelClass();
 
-            $modelReflection = new ReflectionClass($modelClass);
-
-            $hasHarmonicsTrait = in_array(
-                "Pixelsprout\LaravelChorus\Traits\Harmonics",
-                $modelReflection->getTraitNames()
-            );
-
-            // Check if model has a method to get syncFields (added by Harmonics trait)
-            if (!$hasHarmonicsTrait) {
-                return response()->json(
-                    [
-                        "error" => "Model does not use Harmonics trait",
-                        "model" => $modelClass,
-                    ],
-                    400
-                );
-            }
-
-            // Check if a client has no existing data (first sync)
             $initialSync = $request->query("initial") === "true";
 
             if ($initialSync) {
-                // For initial sync, return all records with the latest harmonic ID
                 $syncFields = $instance->getSyncFields();
 
                 if (empty($syncFields)) {
@@ -144,27 +164,20 @@ class SyncController extends Controller
                     ->where("id", $sessionId)
                     ->first();
 
-                // Get the sync filter if defined
                 $syncFilter = $instance->getSyncFilter();
 
-                // Start query with the model class
                 $query = $modelClass::select($syncFields);
 
-                // Apply sync filter if one is provided by the model
                 if ($syncFilter !== null) {
-                    // Apply the filter constraints to our query
                     $query = $syncFilter;
                 }
 
-                // Get records with pagination
                 $records = $query->take($limit)->get();
 
-                // Get the latest harmonic ID for this table
                 $latestHarmonic = Harmonic::where("table_name", $table)
                     ->latest("id")
                     ->first();
 
-                // Return records and the latest harmonic ID
                 return response()->json([
                     "latest_harmonic_id" => $latestHarmonic
                         ? $latestHarmonic->id
@@ -173,34 +186,26 @@ class SyncController extends Controller
                 ]);
             }
 
-            // For incremental sync, return harmonics since the given ID
             $harmonicsQuery = Harmonic::where("table_name", $table);
 
             if ($afterHarmonicId) {
                 $harmonicsQuery->where("id", ">", $afterHarmonicId);
             }
 
-            // Get the sync filter if defined
             $syncFilter = $instance->getSyncFilter();
 
-            // If there's a filter defined, we need to filter harmonics by record_id
             if ($syncFilter !== null) {
-                // Get the filtered record IDs
                 $filteredRecordIds = $syncFilter->pluck(
                     $instance->getKeyName()
                 );
 
-                // Filter harmonics to only those matching the filter
                 $harmonicsQuery->whereIn("record_id", $filteredRecordIds);
             }
 
-            // Add a reasonable limit to prevent huge responses
             $limit = (int) $request->query("limit", 500);
 
-            // Get harmonics ordered by ID (chronological order)
             $harmonics = $harmonicsQuery->orderBy("id")->take($limit)->get();
 
-            // Format the response with the latest harmonic ID
             $latestHarmonicId =
                 $harmonics->count() > 0
                     ? $harmonics->last()->id
@@ -213,14 +218,12 @@ class SyncController extends Controller
                 ])
                 ->header("Cache-Control", "private, max-age=10"); // 10-second client cache
         } catch (\Exception $e) {
-            // Log the error
             Log::error("Error in getInitialData", [
                 "table" => $table,
                 "error" => $e->getMessage(),
                 "trace" => $e->getTraceAsString(),
             ]);
 
-            // Return a JSON error response
             return response()->json(
                 [
                     "error" => "Internal server error",

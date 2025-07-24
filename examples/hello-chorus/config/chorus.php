@@ -43,24 +43,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Models with Harmonics Trait
-    |--------------------------------------------------------------------------
-    |
-    | This array maps table names to their corresponding model classes that use
-    | the Harmonics trait. The SyncController uses this to validate requests
-    | and determine which models to sync.
-    |
-    | Example: 'users' => \App\Models\User::clasea
-    |
-    */
-    'models' => [
-        'users' => \App\Models\User::class,
-        'messages' => \App\Models\Message::class,
-        'platforms' => \App\Models\Platform::class,
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
     | Route Configuration
     |--------------------------------------------------------------------------
     |
@@ -76,33 +58,13 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Frontend Configuration
+    | Database Version Tracking
     |--------------------------------------------------------------------------
     |
-    | Configuration options for the JavaScript client. These settings are used
-    | by the frontend adapters to customize the behavior of the client.
+    | Enable automatic database version tracking based on migration state.
+    | When enabled, clients will automatically rebuild their local database
+    | when migrations are run (e.g., migrate:fresh, new migrations, rollbacks).
     |
     */
-    "frontend" => [
-        "db_name" => env("CHORUS_DB_NAME", "chorus-types"),
-        "storage_prefix" => env("CHORUS_STORAGE_PREFIX", "chorus_"),
-        "broadcast_channel_format" => env(
-            "CHORUS_BROADCAST_FORMAT",
-            "chorus.table.{table}"
-        ),
-        "echo_event_name" => env("CHORUS_ECHO_EVENT", "harmonic.created"),
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Pagination Limits
-    |--------------------------------------------------------------------------
-    |
-    | Configure the maximum number of records to return in a single sync request.
-    |
-    */
-    "pagination" => [
-        "initial_sync_limit" => env("CHORUS_INITIAL_SYNC_LIMIT", 1000),
-        "incremental_sync_limit" => env("CHORUS_INCREMENTAL_SYNC_LIMIT", 500),
-    ],
+    "track_database_version" => env("CHORUS_TRACK_DATABASE_VERSION", true),
 ];

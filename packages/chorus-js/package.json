@@ -1,6 +1,6 @@
 {
-  "name": "@chorus/js",
-  "version": "0.0.1",
+  "name": "@pixelsprout/chorus-js",
+  "version": "0.1.1",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -12,10 +12,11 @@
     "dev": "tsc -w",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "author": "Pixelsprout",
+  "license": "MIT",
+  "description": "This package interfaces directly with the Chorus sync engine for Laravel, processing websocket events from Chorus and writing local data to IndexedDB.",
+  "git repository": "https://github.com/Pixelsprout/laravel-chorus",
+  "keywords": ["laravel", "Sync engine", "Offline first", "Local First", "React", "Javascript"],
   "devDependencies": {
     "@types/node": "^24.0.10",
     "@types/react": "^19.1.8",
