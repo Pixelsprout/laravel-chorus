@@ -1,6 +1,6 @@
 ---
 title: "Sync Filters"
-description: "Control which records are synchronized to each user with powerful filtering mechanisms."
+description: "Control which records are synchronized to each user with filtering mechanisms."
 ---
 
 # Sync Filters
@@ -11,7 +11,7 @@ Sync filters determine which records from your models are synchronized to each u
 
 ### User-Owned Records
 
-The most common filter restricts records to those owned by the current user:
+The most common filter restricts records to those owned by the current user. This is a good place to start when determining what is relevant to sync:
 
 ```php
 class Message extends Model
@@ -132,45 +132,6 @@ class Document extends Model
 }
 ```
 
-### Complex Relationship Filtering
-
-Filter based on complex relationships:
-
-```php
-class Comment extends Model
-{
-    use Harmonics;
-    
-    protected $syncFields = [
-        'id', 'content', 'post_id', 'user_id', 'is_approved', 'created_at'
-    ];
-    
-    protected function syncFilter(): Builder
-    {
-        $user = auth()->user();
-        
-        return $this->where(function($query) use ($user) {
-            // Always include user's own comments
-            $query->where('user_id', $user->id)
-                  // Include approved comments on posts user can access
-                  ->orWhere(function($q) use ($user) {
-                      $q->where('is_approved', true)
-                        ->whereHas('post', function($postQuery) use ($user) {
-                            // User can access public posts or posts they authored
-                            $postQuery->where('status', 'published')
-                                      ->orWhere('author_id', $user->id);
-                        });
-                  });
-        });
-    }
-    
-    public function post()
-    {
-        return $this->belongsTo(Post::class);
-    }
-}
-```
-
 ## Multi-Tenant Filtering
 
 ### Tenant Isolation
@@ -222,44 +183,6 @@ class Invoice extends Model
 ```
 
 ## Dynamic Filtering
-
-### Context-Aware Filtering
-
-Adjust filters based on the current context:
-
-```php
-class Task extends Model
-{
-    use Harmonics;
-    
-    protected $syncFields = [
-        'id', 'title', 'status', 'assignee_id', 'project_id', 'due_date'
-    ];
-    
-    protected function syncFilter(): Builder
-    {
-        $user = auth()->user();
-        $query = $this->query();
-        
-        // Check if user is viewing a specific project
-        $currentProject = session('current_project_id');
-        
-        if ($currentProject) {
-            // Filter to specific project with user access check
-            return $query->where('project_id', $currentProject)
-                         ->whereHas('project.members', function($q) use ($user) {
-                             $q->where('user_id', $user->id);
-                         });
-        }
-        
-        // Default: tasks assigned to user or created by user
-        return $query->where(function($q) use ($user) {
-            $q->where('assignee_id', $user->id)
-              ->orWhere('creator_id', $user->id);
-        });
-    }
-}
-```
 
 ### Time-Based Filtering
 
@@ -403,29 +326,6 @@ class FinancialReport extends Model
 }
 ```
 
-### SQL Injection Prevention
-
-Never use raw user input in filters:
-
-```php
-class Article extends Model
-{
-    use Harmonics;
-    
-    protected function syncFilter(): Builder
-    {
-        $user = auth()->user();
-        $departmentId = $user->department_id;
-        
-        // ✅ Good: Use parameter binding
-        return $this->where('department_id', $departmentId);
-        
-        // ❌ Never do this: Direct string interpolation
-        // return $this->whereRaw("department_id = {$departmentId}");
-    }
-}
-```
-
 ## Testing Sync Filters
 
 ### Unit Tests
@@ -476,23 +376,18 @@ class MessageTest extends TestCase
 Test complete sync flow with filters:
 
 ```php
-// tests/Feature/SyncTest.php
-class SyncTest extends TestCase
-{
-    public function test_sync_endpoint_respects_filters()
-    {
-        $user = User::factory()->create();
-        $message1 = Message::factory()->create(['user_id' => $user->id]);
-        $message2 = Message::factory()->create(); // Different user
-        
-        $response = $this->actingAs($user)
-                         ->getJson('/chorus/sync/messages');
-        
-        $response->assertOk()
-                 ->assertJsonCount(1, 'data')
-                 ->assertJsonPath('data.0.id', $message1->id);
-    }
-}
+it('sync endpoint respects filters', function () {
+    $user = User::factory()->create();
+    $message1 = Message::factory()->create(['user_id' => $user->id]);
+    $message2 = Message::factory()->create(); // Different user
+
+    $response = $this->actingAs($user)
+                     ->getJson('/chorus/sync/messages');
+
+    $response->assertOk()
+             ->assertJsonCount(1, 'data')
+             ->assertJsonPath('data.0.id', $message1->id);
+});
 ```
 
 ## Troubleshooting

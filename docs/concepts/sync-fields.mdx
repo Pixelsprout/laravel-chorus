@@ -1,6 +1,6 @@
 ---
 title: "Sync Fields"
-description: "Master field selection strategies for optimal performance and security in Laravel Chorus."
+description: "Field selection strategies for optimal performance and security in Laravel Chorus."
 ---
 
 # Sync Fields
@@ -104,48 +104,6 @@ class User extends Model
 }
 ```
 
-## Dynamic Field Selection
-
-### Context-Aware Fields
-
-Adjust synced fields based on the current context:
-
-```php
-class Post extends Model
-{
-    use Harmonics;
-    
-    public function getSyncFields(): array
-    {
-        $fields = ['id', 'title', 'status', 'created_at'];
-        
-        // Include content based on post status and user permissions
-        if ($this->status === 'published') {
-            $fields[] = 'content';
-            $fields[] = 'excerpt';
-        } elseif ($this->author_id === auth()->id()) {
-            // Authors can see draft content
-            $fields[] = 'content';
-        }
-        
-        // Include edit fields for editors
-        if (auth()->user()?->can('edit', $this)) {
-            $fields[] = 'editor_notes';
-            $fields[] = 'seo_title';
-            $fields[] = 'seo_description';
-        }
-        
-        // Include analytics for post owners
-        if ($this->author_id === auth()->id()) {
-            $fields[] = 'view_count';
-            $fields[] = 'like_count';
-        }
-        
-        return $fields;
-    }
-}
-```
-
 ### Relationship-Based Fields
 
 Include different fields based on model relationships:
@@ -179,96 +137,6 @@ class Comment extends Model
         }
         
         return $fields;
-    }
-}
-```
-
-## Field Transformation
-
-### Computed Fields
-
-Add computed fields that don't exist in the database:
-
-```php
-class User extends Model
-{
-    use Harmonics;
-    
-    protected $syncFields = [
-        'id',
-        'name',
-        'email',
-        'created_at'
-    ];
-    
-    public function getSyncData(): array
-    {
-        $data = parent::getSyncData();
-        
-        // Add computed fields
-        $data['display_name'] = $this->getDisplayName();
-        $data['initials'] = $this->getInitials();
-        $data['is_online_now'] = $this->isCurrentlyOnline();
-        $data['unread_count'] = $this->unreadNotifications()->count();
-        
-        return $data;
-    }
-    
-    private function getDisplayName(): string
-    {
-        return $this->name ?: $this->email;
-    }
-    
-    private function getInitials(): string
-    {
-        return collect(explode(' ', $this->name))
-            ->take(2)
-            ->map(fn($word) => strtoupper(substr($word, 0, 1)))
-            ->join('');
-    }
-}
-```
-
-### Field Formatting
-
-Format fields for frontend consumption:
-
-```php
-class Event extends Model
-{
-    use Harmonics;
-    
-    protected $syncFields = [
-        'id',
-        'title',
-        'description',
-        'start_time',
-        'end_time',
-        'location'
-    ];
-    
-    protected $casts = [
-        'start_time' => 'datetime',
-        'end_time' => 'datetime',
-    ];
-    
-    public function getSyncData(): array
-    {
-        $data = parent::getSyncData();
-        
-        // Format dates for consistent frontend handling
-        $data['start_time'] = $this->start_time?->toISOString();
-        $data['end_time'] = $this->end_time?->toISOString();
-        
-        // Add duration in minutes
-        if ($this->start_time && $this->end_time) {
-            $data['duration_minutes'] = $this->start_time->diffInMinutes($this->end_time);
-        }
-        
-        // Add relative time descriptions
-        $data['starts_in'] = $this->start_time?->diffForHumans();
-        
-        return $data;
     }
 }
 ```
@@ -311,46 +179,6 @@ class Article extends Model
         // Include full content only in specific contexts
         return request()->routeIs('articles.show') ||
                auth()->user()?->can('edit', $this);
-    }
-}
-```
-
-### Conditional Heavy Fields
-
-Load expensive fields only when necessary:
-
-```php
-class Product extends Model
-{
-    use Harmonics;
-    
-    protected $syncFields = [
-        'id',
-        'name',
-        'price',
-        'currency',
-        'is_available',
-        'created_at'
-    ];
-    
-    public function getSyncData(): array
-    {
-        $data = parent::getSyncData();
-        
-        // Add heavy computation only for detailed views
-        if ($this->shouldIncludeDetailedData()) {
-            $data['similar_products'] = $this->getSimilarProducts();
-            $data['review_summary'] = $this->getReviewSummary();
-            $data['inventory_details'] = $this->getInventoryDetails();
-        }
-        
-        return $data;
-    }
-    
-    private function shouldIncludeDetailedData(): bool
-    {
-        return request()->routeIs('products.show') ||
-               in_array('detailed', request()->get('include', []));
     }
 }
 ```
@@ -413,39 +241,6 @@ class PaymentMethod extends Model
 
 ## Field Validation
 
-### Runtime Field Validation
-
-Validate sync fields at runtime to catch configuration errors:
-
-```php
-class BaseModel extends Model
-{
-    use Harmonics;
-    
-    public function getSyncFields(): array
-    {
-        $fields = $this->syncFields ?? [];
-        
-        // Validate required fields
-        if (!in_array($this->getKeyName(), $fields)) {
-            throw new InvalidArgumentException(
-                "Primary key '{$this->getKeyName()}' must be included in sync fields for " . static::class
-            );
-        }
-        
-        // Validate field existence
-        $invalidFields = array_diff($fields, array_keys($this->getAttributes()));
-        if (!empty($invalidFields)) {
-            throw new InvalidArgumentException(
-                "Invalid sync fields for " . static::class . ": " . implode(', ', $invalidFields)
-            );
-        }
-        
-        return $fields;
-    }
-}
-```
-
 ## Testing Sync Fields
 
 ### Unit Tests
@@ -492,44 +287,6 @@ class UserTest extends TestCase
 }
 ```
 
-## Debug and Monitoring
-
-### Field Usage Analytics
-
-Track which fields are actually used by clients:
-
-```php
-class FieldUsageMiddleware
-{
-    public function handle($request, Closure $next)
-    {
-        $response = $next($request);
-        
-        // Log sync field usage for analytics
-        if ($request->is('chorus/sync/*')) {
-            $this->logSyncFieldUsage($request, $response);
-        }
-        
-        return $response;
-    }
-    
-    private function logSyncFieldUsage($request, $response)
-    {
-        $data = $response->getData(true);
-        
-        if (isset($data['data'])) {
-            $fields = array_keys($data['data'][0] ?? []);
-            Log::info('Sync fields used', [
-                'table' => $request->route('table'),
-                'fields' => $fields,
-                'field_count' => count($fields),
-                'record_count' => count($data['data'])
-            ]);
-        }
-    }
-}
-```
-
 ## Next Steps
 
 <CardGroup cols={2}>
@@ -537,7 +294,7 @@ class FieldUsageMiddleware
 Control which records are synchronized to each user
 </Card>
 
-<Card title="Write Actions" href="/concepts/write-path" icon="pen-tool">
+<Card title="Write Actions" href="/concepts/write-path" icon="pen">
 Set up server-side write operations and validation
 </Card>
 
@@ -545,8 +302,8 @@ Set up server-side write operations and validation
 Use synchronized fields in your React components
 </Card>
 
-<Card title="Performance Tips" href="/advanced/performance-optimization" icon="gauge">
-Optimize sync performance for large datasets
+<Card title="Getting Started" href="/getting-started" icon="bolt">
+    Get up and running with Chorus in your Laravel project.
 </Card>
 </CardGroup>
 

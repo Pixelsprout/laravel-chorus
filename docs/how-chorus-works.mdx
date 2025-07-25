@@ -68,6 +68,8 @@ Central change log that records all create, update, and delete operations for tr
 | `operation` | Type of change (create/update/delete) |
 | `data` | JSON snapshot of the changed fields |
 | `user_id` | For user-scoped synchronization |
+| `rejected` | Boolean flag that is true if the user write is rejected
+| `rejected_reason` | Reason for rejection (string)
 </Accordion>
 
 <Accordion title="Write Actions" icon="pen-tool">
@@ -104,7 +106,7 @@ WebSocket server that broadcasts change events to connected clients in real-time
 
 <AccordionGroup>
 <Accordion title="IndexedDB Storage" icon="hard-drive">
-Browser-based database that stores synchronized data locally for offline access and instant queries.
+Browser-based database that stores synchronized data locally for offline access and instant queries. We use [DexieJS](https://dexie.org) to provide to sensibly interface with IndexedDB.
 </Accordion>
 
 <Accordion title="Chorus Hooks" icon="hook">
@@ -128,11 +130,11 @@ Immediate UI updates before server confirmation, providing instant user feedback
 </AccordionGroup>
 
 
-## Change Detection Methods
+## Change Detection Adapets
 
 Chorus supports multiple methods for detecting model changes:
 
-### 1. Laravel Model Events (Default)
+### 1. Eloquent (Default)
 ```php
 // Automatically triggers when models are saved/deleted
 public static function bootHarmonics()
@@ -143,15 +145,11 @@ public static function bootHarmonics()
 }
 ```
 
-### 2. Database Triggers (Future Enhancement)
-```sql
--- More reliable for bulk operations and external changes
-CREATE TRIGGER messages_insert_trigger
-AFTER INSERT ON messages
-FOR EACH ROW
-INSERT INTO harmonics (table_name, record_id, operation, data)
-VALUES ('messages', NEW.id, 'create', JSON_OBJECT('id', NEW.id, ...));
-```
+### 2. Postgres: WAL Logical Replication Stream (Future Enhancement)
+
+It is planned to add support for Postgres Logical Replication stream. For Postgres databases with logical replication enabled, it is possible
+to listen to the database's logical changes (create, update, delete) directly. This means that we can mutate the database directly without
+going through the Eloquent ORM. This approach is ideal for applications that have databases that can change outside Laravel in some way.
 
 ## Synchronization Strategies
 

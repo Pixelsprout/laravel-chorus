@@ -44,12 +44,12 @@ function DashboardContent() {
         data: platforms,
         isLoading: platformsLoading,
         error: platformsError,
-    } = useHarmonics<Platform>('platforms');
+    } = useTable<Platform>('platforms');
 
     // Sync users with the server
     const {
         data: users,
-    } = useHarmonics<User>('users');
+    } = useTable<User>('users');
 
     return (
         <>

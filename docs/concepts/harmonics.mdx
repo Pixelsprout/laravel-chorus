@@ -365,35 +365,6 @@ foreach ($harmonics as $harmonic) {
 }
 ```
 
-### Debug Command
-
-Use the built-in debug command:
-
-```bash
-# View harmonics for a specific model
-php artisan chorus:debug Message
-
-# View harmonics for a specific user
-php artisan chorus:debug Message --user=1
-
-# View harmonics from the last hour
-php artisan chorus:debug Message --since="1 hour ago"
-```
-
-### Monitoring Harmonic Volume
-
-Track harmonic creation rates:
-
-```php
-// Add to a monitoring service
-Log::info('Harmonic created', [
-    'table' => $harmonic->table_name,
-    'operation' => $harmonic->operation,
-    'user_id' => $harmonic->user_id,
-    'data_size' => strlen(json_encode($harmonic->data))
-]);
-```
-
 ## Best Practices
 
 ### Performance Optimization

@@ -47,23 +47,6 @@
             ]
           }
         ]
-      },
-      {
-        "tab": "Examples",
-        "groups": [
-          {
-            "group": "Quick Start",
-            "pages": [
-              "quickstart"
-            ]
-          },
-          {
-            "group": "Development",
-            "pages": [
-              "development"
-            ]
-          }
-        ]
       }
     ],
     "global": {

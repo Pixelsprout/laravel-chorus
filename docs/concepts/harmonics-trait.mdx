@@ -176,24 +176,6 @@ class User extends Model
 }
 ```
 
-## Model Registration
-
-After defining your model, register it in the Chorus configuration:
-
-```php
-// config/chorus.php
-'models' => [
-    'posts' => App\Models\Post::class,
-    'users' => App\Models\User::class,
-    'comments' => App\Models\Comment::class,
-],
-```
-
-The key (`posts`) should match your database table name and will be used for:
-- Frontend table names in IndexedDB
-- WebSocket channel routing
-- API endpoint generation
-
 ## Automatic Change Detection
 
 The Harmonics trait automatically detects changes using Laravel's model events:
@@ -231,47 +213,6 @@ For bulk operations, you'll need to handle synchronization manually or iterate t
 </Warning>
 
 ## Advanced Configuration
-
-### Custom Table Names
-
-If your model uses a custom table name, ensure it matches your configuration:
-
-```php
-class BlogPost extends Model
-{
-    use Harmonics;
-    
-    protected $table = 'posts'; // Custom table name
-    
-    public function getChorusTableName(): string
-    {
-        return 'posts'; // This should match your config key
-    }
-}
-```
-
-### Conditional Synchronization
-
-Disable synchronization under certain conditions:
-
-```php
-class Post extends Model
-{
-    use Harmonics;
-    
-    protected $syncFields = ['id', 'title', 'content'];
-    
-    protected function shouldSync(): bool
-    {
-        // Don't sync draft posts from non-authors
-        if ($this->status === 'draft' && $this->author_id !== auth()->id()) {
-            return false;
-        }
-        
-        return true;
-    }
-}
-```
 
 ### Custom Primary Keys
 
@@ -323,14 +264,12 @@ echo $harmonic->toJson(JSON_PRETTY_PRINT);
 Use the built-in debug command to verify your configuration:
 
 ```bash
-php artisan chorus:debug Post
+php artisan chorus:debug
 ```
 
 This will show:
-- Registered sync fields
-- Recent harmonics for the model
-- Configuration status
-- Potential issues
+    - Currently connected channels
+    - Active user IDs
 
 ## Common Issues and Solutions
 
@@ -340,9 +279,8 @@ This will show:
 
 **Solutions:**
 1. Verify the trait is added: `use Harmonics;`
-2. Check model is registered in `config/chorus.php`
-3. Ensure you're using Eloquent methods (not raw queries)
-4. Check for exceptions in Laravel logs
+2. Ensure you're using Eloquent methods (not raw queries)
+3. Check for exceptions in Laravel logs
 </Accordion>
 
 <Accordion title="Fields Not Syncing" icon="eye-slash">
@@ -350,9 +288,8 @@ This will show:
 
 **Solutions:**
 1. Add fields to `$syncFields` array
-2. Check `getSyncFields()` method logic
-3. Verify fields exist in database
-4. Run `php artisan chorus:debug ModelName`
+2. Verify fields exist in database
+3. Check `harmonics` database table for change event
 </Accordion>
 
 <Accordion title="Too Much Data Syncing" icon="warning">
@@ -360,7 +297,7 @@ This will show:
 
 **Solutions:**
 1. Remove unnecessary fields from `$syncFields`
-2. Use dynamic field selection in `getSyncFields()`
+2. Narrow down `syncFilter` query.
 3. Implement proper filtering (covered in next section)
 4. Consider splitting large data into separate models
 </Accordion>
@@ -371,8 +308,6 @@ This will show:
 **Solutions:**
 1. Use database indexes on frequently queried sync fields
 2. Implement sync filtering to reduce harmonic volume
-3. Consider async harmonic processing with queues
-4. Monitor Redis performance and memory usage
 </Accordion>
 </AccordionGroup>
 
@@ -381,15 +316,15 @@ This will show:
 Now that your model has the Harmonics trait:
 
 <CardGroup cols={2}>
-<Card title="Define Sync Fields" href="/getting-started/sync-fields" icon="list">
+<Card title="Define Sync Fields" href="/concepts/sync-fields" icon="list">
 Learn advanced field selection and dynamic sync configuration
 </Card>
 
-<Card title="Apply Sync Filters" href="/getting-started/sync-filters" icon="filter">
+<Card title="Apply Sync Filters" href="/concepts/sync-filters" icon="filter">
 Control which records are synchronized to each user
 </Card>
 
-<Card title="Set Up Write Actions" href="/concepts/write-path" icon="pen-tool">
+<Card title="Set Up Write Actions" href="/concepts/write-path" icon="pen">
 Configure server-side write operations and validation
 </Card>
 

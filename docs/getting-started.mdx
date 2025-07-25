@@ -235,7 +235,7 @@ export default function MessagesList() {
         data: messages, 
         create, 
         update, 
-        delete: remove,
+        remove,
         isLoading,
         error 
     } = useTable<Message>('messages', types);
