@@ -65,8 +65,8 @@
     }
   },
   "logo": {
-    "light": "/logo/chorus_light.svg",
-    "dark": "/logo/chorus_dark.svg"
+    "light": "/logo/chorus_light_alpha.svg",
+    "dark": "/logo/chorus_dark_alpha.svg"
   },
   "navbar": {
     "links": [
