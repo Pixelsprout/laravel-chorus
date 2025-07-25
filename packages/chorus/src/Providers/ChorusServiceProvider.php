@@ -14,6 +14,7 @@ use Pixelsprout\LaravelChorus\Console\Commands\ChorusInstall;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusGenerate;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusDebug;
 use Pixelsprout\LaravelChorus\Console\Commands\MakeWriteActionCommand;
+use Pixelsprout\LaravelChorus\Console\Commands\MakePrefixResolverCommand;
 use Pixelsprout\LaravelChorus\Listeners\TrackChannelConnections;
 use Pixelsprout\LaravelChorus\Adapters\HarmonicSourceAdapterManager;
 use Pixelsprout\LaravelChorus\Support\WriteActionRegistry;
@@ -59,6 +60,7 @@ final class ChorusServiceProvider extends ServiceProvider
                 ChorusGenerate::class,
                 ChorusDebug::class,
                 MakeWriteActionCommand::class,
+                MakePrefixResolverCommand::class,
             ]);
 
             // Publish migrations

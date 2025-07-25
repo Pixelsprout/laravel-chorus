@@ -1,0 +1,28 @@
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Database\Eloquent\Model;
+use Pixelsprout\LaravelChorus\Contracts\PrefixResolver;
+
+class {{ class }} implements PrefixResolver
+{
+    public function resolve(Model $model): string
+    {
+        // TODO: Implement your prefix resolution logic here
+        
+        // Example: Return a prefix based on the model's tenant_id
+        // if ($model->tenant_id) {
+        //     return "tenant_{$model->tenant_id}";
+        // }
+        
+        // Example: Return a prefix based on the authenticated user
+        // $user = auth()->user();
+        // if ($user && $user->tenant_id) {
+        //     return "tenant_{$user->tenant_id}";
+        // }
+        
+        // Default fallback
+        return 'default';
+    }
+}
