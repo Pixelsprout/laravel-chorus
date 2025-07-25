@@ -1,0 +1,67 @@
+---
+title: Commands
+description: Laravel Chorus provides several Artisan commands to help you manage real-time synchronization. All commands use the `chorus:` prefix.
+---
+
+## Installation & Setup
+
+### `chorus:install`
+Install and set up Laravel Chorus with Reverb for WebSocket broadcasting.
+
+```bash
+php artisan chorus:install
+```
+
+This command:
+- Publishes migrations, config files, and JavaScript resources
+- Sets up Laravel Reverb for WebSocket broadcasting
+- Configures broadcasting settings
+- Installs chorus-js npm package
+- Creates the `resources/js/_generated` directory with default schema
+
+### `chorus:generate`
+Generate IndexedDB schema from models using the Harmonics trait.
+
+```bash
+php artisan chorus:generate
+```
+
+This command:
+- Scans all models in the `app/Models` directory
+- Identifies models using the `Harmonics` trait
+- Generates IndexedDB schema based on sync fields
+- Creates a TypeScript schema file at `resources/js/_generated/schema.ts`
+
+## Server Management
+
+### `chorus:debug`
+Debug Chorus active channels and connections.
+
+```bash
+php artisan chorus:debug
+```
+
+This command shows:
+- Active WebSocket channels and their connection timestamps
+- Active user IDs
+- Debugging instructions for testing real-time updates
+
+## Code Generation
+
+### `chorus:make-write-action`
+Create a new WriteAction class for handling write operations.
+
+```bash
+php artisan chorus:make-write-action CreatePostAction
+```
+
+Creates a WriteAction class in `App\Actions\WriteActions` namespace that extends the `WriteAction` base class.
+
+### `chorus:make-prefix-resolver`
+Create a new PrefixResolver class for channel prefixing.
+
+```bash
+php artisan chorus:make-prefix-resolver UserPrefixResolver
+```
+
+Creates a PrefixResolver class in `App\Chorus\Resolvers` namespace that implements the `PrefixResolver` contract.
