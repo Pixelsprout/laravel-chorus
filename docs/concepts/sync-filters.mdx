@@ -326,70 +326,6 @@ class FinancialReport extends Model
 }
 ```
 
-## Testing Sync Filters
-
-### Unit Tests
-
-Test your filter logic thoroughly:
-
-```php
-// tests/Unit/Models/MessageTest.php
-class MessageTest extends TestCase
-{
-    public function test_sync_filter_returns_only_user_messages()
-    {
-        $user1 = User::factory()->create();
-        $user2 = User::factory()->create();
-        
-        $message1 = Message::factory()->create(['user_id' => $user1->id]);
-        $message2 = Message::factory()->create(['user_id' => $user2->id]);
-        
-        $this->actingAs($user1);
-        
-        $filtered = (new Message)->syncFilter()->get();
-        
-        $this->assertCount(1, $filtered);
-        $this->assertEquals($message1->id, $filtered->first()->id);
-    }
-    
-    public function test_sync_filter_with_team_access()
-    {
-        $team = Team::factory()->create();
-        $user = User::factory()->create();
-        $user->teams()->attach($team);
-        
-        $project1 = Project::factory()->create(['team_id' => $team->id]);
-        $project2 = Project::factory()->create(); // Different team
-        
-        $this->actingAs($user);
-        
-        $filtered = (new Project)->syncFilter()->get();
-        
-        $this->assertCount(1, $filtered);
-        $this->assertEquals($project1->id, $filtered->first()->id);
-    }
-}
-```
-
-### Integration Tests
-
-Test complete sync flow with filters:
-
-```php
-it('sync endpoint respects filters', function () {
-    $user = User::factory()->create();
-    $message1 = Message::factory()->create(['user_id' => $user->id]);
-    $message2 = Message::factory()->create(); // Different user
-
-    $response = $this->actingAs($user)
-                     ->getJson('/chorus/sync/messages');
-
-    $response->assertOk()
-             ->assertJsonCount(1, 'data')
-             ->assertJsonPath('data.0.id', $message1->id);
-});
-```
-
 ## Troubleshooting
 
 <AccordionGroup>
@@ -411,6 +347,7 @@ it('sync endpoint respects filters', function () {
 2. Add explicit null checks for auth()->user()
 3. Test with different user roles and permissions
 4. Use `whereRaw('1 = 0')` as a safe default for unauthorized access
+5. Add a policy to your model that checks whether the user can view this resource.
 </Accordion>
 
 <Accordion title="Performance Issues" icon="clock">
@@ -433,14 +370,6 @@ Set up server-side write operations with validation
 
 <Card title="React Integration" href="/integrations/react" icon="react">
 Use filtered data in your React components
-</Card>
-
-<Card title="Channel Prefixes" href="/advanced/channel-prefixes" icon="broadcast-tower">
-Advanced multi-tenant channel routing
-</Card>
-
-<Card title="Performance Tips" href="/advanced/performance-optimization" icon="gauge">
-Optimize sync performance for large datasets
 </Card>
 </CardGroup>
 

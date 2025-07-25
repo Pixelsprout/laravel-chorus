@@ -42,8 +42,7 @@
           {
             "group": "Advanced",
             "pages": [
-              "advanced/channel-prefixes",
-              "advanced/tracking-local-changes"
+              "advanced/channel-prefixes"
             ]
           }
         ]
