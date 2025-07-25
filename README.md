@@ -31,6 +31,7 @@ Laravel Chorus solves these problems by:
 laravel-chorus/
 ├── .github/                # GitHub Actions workflows
 ├── art/                    # Project logos and artwork
+├── docs/                   # MDX Documentation for Chorus
 ├── examples/               # Example Laravel + React application
 │   └── hello-chorus/
 ├── packages/
