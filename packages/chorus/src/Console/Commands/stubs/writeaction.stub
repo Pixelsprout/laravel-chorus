@@ -1,0 +1,39 @@
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Http\Request;
+use Pixelsprout\LaravelChorus\Support\WriteAction;
+
+class {{ class }} extends WriteAction
+{
+    protected array $config = [
+        'allowOfflineWrites' => true,
+        'supportsBatch' => true,
+    ];
+
+    public function handle(Request $request, array $data): mixed
+    {
+        $user = auth()->user();
+
+        if (!$user) {
+            throw new \Exception('User must be authenticated');
+        }
+
+        // TODO: Implement your write action logic here
+
+        // Example:
+        // return Model::create([
+        //     'field' => $data['field'],
+        //     'user_id' => $user->id,
+        // ]);
+    }
+
+    public function rules(): array
+    {
+        return [
+            // TODO: Define your validation rules here
+            // 'field' => 'required|string|max:255',
+        ];
+    }
+}
