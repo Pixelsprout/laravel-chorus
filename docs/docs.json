@@ -37,6 +37,7 @@
               "concepts/sync-fields",
               "concepts/sync-filters",
               "concepts/harmonics",
+              "concepts/authorization",
               "concepts/write-path"
             ]
           },
