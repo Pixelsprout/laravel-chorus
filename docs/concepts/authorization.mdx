@@ -1,0 +1,94 @@
+---
+title: "Authorization"
+description: "Learn how to use Laravel policies to control which users receive harmonics and ensure secure real-time synchronization."
+---
+
+Laravel Chorus automatically respects your existing Laravel policies to ensure users only receive harmonics they're authorized to see. When a harmonic is broadcast, Chorus checks the model's policy `view()` method to determine if the authenticated user should receive the update.
+
+## How It Works
+
+For each harmonic broadcast, Chorus:
+1. Loads the affected model instance
+2. Calls the policy's `view()` method with the authenticated user
+3. Only sends the harmonic to users who pass the authorization check
+4. Automatically rejects unauthorized harmonics
+
+This seamless integration means you can leverage your existing authorization logic without any additional configuration.
+
+## Example Policy Implementation
+
+```php
+class MessagePolicy
+{
+    public function view(User $user, Message $message): bool
+    {
+        // Only allow users from the same tenant
+        return $user->tenant_id === $message->tenant_id && 
+               $user->platforms()
+                   ->where('platform_id', $message->platform_id)
+                   ->exists();
+    }
+}
+```
+
+In this example, users will only receive message harmonics if they:
+- Belong to the same tenant as the message
+- Have access to the platform where the message was posted
+
+## Authorization Flow
+
+When a harmonic is created for a model update:
+
+1. **Harmonic Creation** - A harmonic is generated for the model change
+2. **Policy Check** - For each connected user, Chorus calls the model's policy
+3. **User Filtering** - Only authorized users receive the harmonic
+4. **Broadcast** - The harmonic is sent to authorized clients only
+
+## Best Practices
+
+### Efficient Authorization
+- Keep authorization checks efficient (use database indexes for filter fields)
+- Consider caching expensive authorization computations
+- Use simple, fast database queries in policy methods
+
+### Security
+- Always implement the `view()` method in your policies for models using the Harmonics trait
+- Test authorization thoroughly with different user scenarios and edge cases
+- Use existing authorization patterns from your application
+
+### Reusability
+- Leverage existing authorization logic from your policies
+- Keep policy methods consistent across your application
+- Document authorization requirements for each model
+
+## Common Patterns
+
+### Tenant-Based Authorization
+```php
+public function view(User $user, Model $model): bool
+{
+    return $user->tenant_id === $model->tenant_id;
+}
+```
+
+### Role-Based Authorization
+```php
+public function view(User $user, Model $model): bool
+{
+    return $user->hasRole('admin') || $user->id === $model->user_id;
+}
+```
+
+### Relationship-Based Authorization
+```php
+public function view(User $user, Model $model): bool
+{
+    return $user->organizations()
+        ->where('organization_id', $model->organization_id)
+        ->exists();
+}
+```
+
+---
+
+By implementing proper authorization policies, you ensure that your real-time synchronization remains secure while leveraging Laravel's built-in authorization system.
