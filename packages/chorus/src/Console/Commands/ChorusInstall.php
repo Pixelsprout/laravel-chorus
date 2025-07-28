@@ -20,8 +20,7 @@ final class ChorusInstall extends Command
         $this->info("Installing Laravel Chorus...");
 
         // Step 1: Publish migrations, config, and channels
-        $this->publishAssets();
-        $this->publishChannels();
+        $this->call("chorus:publish");
 
         // Step 2: Check and setup Reverb
         $this->setupReverb();
@@ -44,55 +43,6 @@ final class ChorusInstall extends Command
         $this->info("5. Configure your frontend to use the Chorus JavaScript client");
     }
 
-    private function publishAssets(): void
-    {
-        $this->call("vendor:publish", [
-            "--tag" => "chorus-migrations",
-        ]);
-
-        $this->call("vendor:publish", [
-            "--tag" => "chorus-config",
-        ]);
-
-        $this->call("vendor:publish", [
-            "--tag" => "chorus-js",
-        ]);
-
-        $this->info("JavaScript resources published to resources/js/chorus");
-    }
-
-    private function publishChannels(): void
-    {
-        $stubPath = __DIR__ . "/../../../stubs/channels.chorus.stub";
-        $destinationPath = base_path("routes/channels-chorus.php");
-
-        if (!File::exists($destinationPath)) {
-            File::copy($stubPath, $destinationPath);
-            $this->info(
-                "Copied channels.chorus.stub to routes/channels-chorus.php"
-            );
-        }
-
-        $channelsFilePath = base_path("routes/channels.php");
-        $requireStatement = "
-require __DIR__.'/channels-chorus.php';
-";
-
-        if (File::exists($channelsFilePath)) {
-            $content = File::get($channelsFilePath);
-            if (!str_contains($content, $requireStatement)) {
-                File::append($channelsFilePath, $requireStatement);
-                $this->info(
-                    "Added require statement for channels-chorus.php to routes/channels.php"
-                );
-            }
-        } else {
-            File::put($channelsFilePath, "<?php" . $requireStatement);
-            $this->info(
-                "Created routes/channels.php and added require statement for channels-chorus.php"
-            );
-        }
-    }
 
     private function setupReverb(): void
     {

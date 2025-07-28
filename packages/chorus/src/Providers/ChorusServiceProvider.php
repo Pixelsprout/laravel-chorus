@@ -11,6 +11,7 @@ use Laravel\Reverb\Events\ChannelCreated;
 use Laravel\Reverb\Events\ChannelRemoved;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusStart;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusInstall;
+use Pixelsprout\LaravelChorus\Console\Commands\ChorusPublish;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusGenerate;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusDebug;
 use Pixelsprout\LaravelChorus\Console\Commands\MakeWriteActionCommand;
@@ -57,6 +58,7 @@ final class ChorusServiceProvider extends ServiceProvider
             $this->commands([
                 ChorusStart::class,
                 ChorusInstall::class,
+                ChorusPublish::class,
                 ChorusGenerate::class,
                 ChorusDebug::class,
                 MakeWriteActionCommand::class,
