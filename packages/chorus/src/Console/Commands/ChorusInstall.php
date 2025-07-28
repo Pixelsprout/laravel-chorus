@@ -200,7 +200,7 @@ TS;
                 if ($packageManager) {
                     $this->info("Detected package manager: {$packageManager}");
                     
-                     $this->runPackageManagerCommand($packageManager, ['install', '@chorus/js']);
+                     $this->runPackageManagerCommand($packageManager, ['install', '@pixelsprout/chorus-js']);
                      $this->info("Successfully installed @chorus/js");
 
                 } else {
