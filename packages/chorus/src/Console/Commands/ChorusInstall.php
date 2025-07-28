@@ -48,6 +48,26 @@ final class ChorusInstall extends Command
     {
         $this->info("Setting up broadcasting for Laravel Chorus...");
 
+        // Check if Reverb is already installed
+        if (File::exists(config_path("reverb.php"))) {
+            $this->info("Reverb is already installed.");
+            
+            // Check if the reverb driver is configured
+            $envFile = base_path(".env");
+            if (File::exists($envFile)) {
+                $env = File::get($envFile);
+                if (!preg_match("/BROADCAST_DRIVER=reverb/", $env)) {
+                    $this->info(
+                        'Note: For the best experience with Chorus, we recommend using the "reverb" driver.'
+                    );
+                    $this->info(
+                        "You can change this in your .env file: BROADCAST_DRIVER=reverb"
+                    );
+                }
+            }
+            return;
+        }
+
         // Use Laravel's built-in broadcasting installation command
         if (
             $this->confirm(
