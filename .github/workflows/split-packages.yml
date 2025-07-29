@@ -1,0 +1,16 @@
+name: Split Packages
+on:
+  push:
+    branches: [main]
+
+jobs:
+  split:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Split chorus package
+        run: |
+          git subtree push --prefix=packages/chorus origin chorus
