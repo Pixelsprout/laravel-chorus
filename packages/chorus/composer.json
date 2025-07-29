@@ -3,6 +3,7 @@
   "description": "A laravel-first sync-engine designed to seamlessly sync subsets of your database to your users' devices, to enable a low-latency web application.",
   "type": "library",
   "version": "0.1.0",
+  "license": ["MIT"],
   "require": {
     "php": ">=8.2",
     "illuminate/contracts": "^10.47|^11.0|^12.0",
