@@ -15,6 +15,7 @@ use Pixelsprout\LaravelChorus\Listeners\TrackChannelConnections;
 use Pixelsprout\LaravelChorus\Models\Harmonic;
 use Pixelsprout\LaravelChorus\Adapters\HarmonicSourceAdapterManager;
 use Pixelsprout\LaravelChorus\Support\Prefix;
+use Pixelsprout\LaravelChorus\Support\JSType;
 use App\Models\User;
 
 trait Harmonics
@@ -40,12 +41,55 @@ trait Harmonics
             $syncFields = $this->syncFields();
         }
 
-        $primaryKey = $this->getKeyName();
-        if (!in_array($primaryKey, $syncFields)) {
-            array_unshift($syncFields, $primaryKey);
+        // Handle both array and associative array formats
+        if (array_is_list($syncFields)) {
+            // Simple array format: ['id', 'name', 'email']
+            $fields = $syncFields;
+        } else {
+            // Associative array format: ['id' => JSType::String, 'name' => JSType::String]
+            $fields = array_keys($syncFields);
         }
 
-        return $syncFields;
+        $primaryKey = $this->getKeyName();
+        if (!in_array($primaryKey, $fields)) {
+            array_unshift($fields, $primaryKey);
+        }
+
+        return $fields;
+    }
+
+    public function getSyncFieldTypes(): array
+    {
+        $syncFields = [];
+
+        if (
+            property_exists($this, "syncFields") &&
+            is_array($this->syncFields)
+        ) {
+            $syncFields = $this->syncFields;
+        } elseif (method_exists($this, "syncFields")) {
+            $syncFields = $this->syncFields();
+        }
+
+        $fieldTypes = [];
+
+        if (array_is_list($syncFields)) {
+            // Simple array format - default all to 'any'
+            foreach ($syncFields as $field) {
+                $fieldTypes[$field] = JSType::Any;
+            }
+        } else {
+            // Associative array format with types
+            $fieldTypes = $syncFields;
+        }
+
+        // Ensure primary key is included
+        $primaryKey = $this->getKeyName();
+        if (!isset($fieldTypes[$primaryKey])) {
+            $fieldTypes[$primaryKey] = JSType::Any;
+        }
+
+        return $fieldTypes;
     }
 
     public function getSyncFilter()

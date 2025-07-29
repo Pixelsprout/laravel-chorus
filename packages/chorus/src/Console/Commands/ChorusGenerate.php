@@ -49,8 +49,14 @@ class ChorusGenerate extends Command
         // Generate schema
         $schema = $this->generateSchema($harmonicsModels);
         
+        // Generate TypeScript interfaces
+        $interfaces = $this->generateInterfaces($harmonicsModels);
+        
         // Save schema file
         $this->saveSchema($schema);
+        
+        // Save types file
+        $this->saveTypes($interfaces);
 
         $this->info('Schema generation complete!');
         
@@ -164,6 +170,30 @@ class ChorusGenerate extends Command
         
         return $schema;
     }
+
+    /**
+     * Generate TypeScript interfaces from Harmonics models
+     */
+    protected function generateInterfaces(array $harmonicsModels): array
+    {
+        $interfaces = [];
+        
+        foreach ($harmonicsModels as $modelClass) {
+            try {
+                $model = new $modelClass();
+                $modelName = class_basename($modelClass);
+                $fieldTypes = $model->getSyncFieldTypes();
+                
+                $interfaces[$modelName] = $fieldTypes;
+                
+                $this->info("Added interface for {$modelName}");
+            } catch (\Exception $e) {
+                $this->warn("Error generating interface for {$modelClass}: " . $e->getMessage());
+            }
+        }
+        
+        return $interfaces;
+    }
     
     /**
      * Save schema to file
@@ -193,5 +223,39 @@ class ChorusGenerate extends Command
         File::put("{$directory}/schema.ts", $content);
         
         $this->info("Schema saved to {$directory}/schema.ts");
+    }
+
+    /**
+     * Save TypeScript interfaces to file
+     */
+    protected function saveTypes(array $interfaces): void
+    {
+        // Directory path
+        $directory = resource_path('js/_generated');
+        
+        // Create directory if it doesn't exist
+        if (! File::exists($directory)) {
+            File::makeDirectory($directory, 0755, true);
+        }
+        
+        // Create types.ts file
+        $content = "// Auto-generated TypeScript interfaces for Chorus models\n";
+        $content .= "// Generated on " . now()->toDateTimeString() . "\n\n";
+        
+        foreach ($interfaces as $modelName => $fieldTypes) {
+            $content .= "export interface {$modelName} {\n";
+            
+            foreach ($fieldTypes as $field => $type) {
+                $jsType = $type instanceof \Pixelsprout\LaravelChorus\Support\JSType ? $type->value : 'any';
+                $content .= "  {$field}: {$jsType};\n";
+            }
+            
+            $content .= "}\n\n";
+        }
+        
+        // Save file
+        File::put("{$directory}/types.ts", $content);
+        
+        $this->info("Types saved to {$directory}/types.ts");
     }
 }

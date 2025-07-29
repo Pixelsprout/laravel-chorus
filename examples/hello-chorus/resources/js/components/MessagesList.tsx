@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { Message, Platform, User } from '@/types';
+import type { Message, Platform, User } from '@/_generated/types';
 import { usePage } from '@inertiajs/react';
 import { type SharedData } from '@/types';
 import UpdateMessageForm from './forms/UpdateMessageForm';

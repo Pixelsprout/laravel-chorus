@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Pixelsprout\LaravelChorus\Support\JSType;
 use Pixelsprout\LaravelChorus\Traits\Harmonics;
 
 class User extends Authenticatable
@@ -29,8 +30,9 @@ class User extends Authenticatable
     ];
 
     protected $syncFields = [
-        'name',
-        'email',
+        'id' => JSType::String,
+        'name' => JSType::String,
+        'email' => JSType::String,
     ];
 
     /**
