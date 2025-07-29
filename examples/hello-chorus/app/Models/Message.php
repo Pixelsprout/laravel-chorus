@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Pixelsprout\LaravelChorus\Support\JSType;
 use Pixelsprout\LaravelChorus\Traits\Harmonics;
 
 class Message extends Model
@@ -31,13 +32,13 @@ class Message extends Model
      * Fields to sync to the client
      */
     protected $syncFields = [
-        'id',
-        'body',
-        'user_id',
-        'tenant_id',
-        'platform_id',
-        'created_at',
-        'updated_at',
+        'id' => JSType::String,
+        'body'  => JSType::String,
+        'user_id' => JSType::String,
+        'tenant_id' => JSType::String,
+        'platform_id' => JSType::String ,
+        'created_at' => JSType::String,
+        'updated_at' => JSType::String,
     ];
 
     /**

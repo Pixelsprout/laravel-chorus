@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Pixelsprout\LaravelChorus\Support\JSType;
 use Pixelsprout\LaravelChorus\Traits\Harmonics;
 
 class Platform extends Model
@@ -18,8 +19,8 @@ class Platform extends Model
      * Fields to sync to the client
      */
     protected $syncFields = [
-        'id',
-        'name',
+        'id' => JSType::String,
+        'name' => JSType::String,
     ];
 
     // Has many messages
