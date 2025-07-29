@@ -8,7 +8,10 @@
 
 # Laravel Chorus
 
-Laravel Chorus enables seamless real-time synchronization of specific database tables and columns to clients, using database event logging, Redis, Laravel Reverb, and IndexedDB on the frontend.
+Laravel Chorus enables seamless, real-time synchronisation of specific database tables and columns to clients, utilising database event sourcing, Laravel Reverb, and IndexedDB on the frontend.
+
+## Documentation
+Visit the [docs](https://chorus.pixelsprout.dev/) to get started.
 
 ## Why Laravel Chorus?
 
@@ -59,23 +62,10 @@ laravel-chorus/
    - Update .env with your database credentials
    - Run migrations:
      ```bash
-     php artisan migrate
+     php artisan migrate:fresh --seed
      ```
 
-4. **Install Chorus**:
-
-   Installing chorus will prompt you to setup Laravel Reverb if you haven't already.
-   ```bash
-   php artisan chorus:install
-   ```
-
-5. **Generate Schema**:
-   Generates the schema object for your client to setup IndexedDB correctly
-   ```bash
-   php artisan chorus:generate
-   ```
-
-6. **Start Services**:
+4. **Start Services**:
    ```bash
    # Terminal 1: Start Laravel Reverb
    php artisan reverb:start
@@ -84,27 +74,16 @@ laravel-chorus/
    composer dev
    ```
 
-7. **Test Real-time Sync**:
+5. **Test Real-time Sync**:
    - Open the app in multiple browser windows
-   - Edit data in one window or via `php artisan tinker`
-   - Watch real-time updates across all clients
-
-
-## Documentation
-Documentation will come soon...
-
-## Commands
-
-```bash
-# Check active connections and channel status
-php artisan chorus:debug
-
-# Generate/regenerate IndexedDB schema
-php artisan chorus:generate
-
-# Install Chorus in existing project
-php artisan chorus:install
-```
+   - Log in as user1:
+     - email: "user1@example.com" | password: "password"
+   - In another incognito window, log in as user 2:
+     - email: "user2@example.com" | password: "password"
+   - Create, update or delete messages
+   - Watch real-time updates across both clients.
+   - Try going offline in one window, and watch items change locally and sync when coming back online.
+     
 
 ## Contributing
 
