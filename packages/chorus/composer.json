@@ -2,10 +2,9 @@
   "name": "pixelsprout/laravel-chorus",
   "description": "A laravel-first sync-engine designed to seamlessly sync subsets of your database to your users' devices, to enable a low-latency web application.",
   "type": "library",
+  "version": "0.1.0",
   "require": {
-    "php": "^8.2",
-    "react/socket": "1.x-dev",
-    "react/http": "3.x-dev",
+    "php": ">=8.2",
     "illuminate/contracts": "^10.47|^11.0|^12.0",
     "illuminate/http": "^10.47|^11.0|^12.0",
     "illuminate/support": "^10.47|^11.0|^12.0",
