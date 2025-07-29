@@ -1,0 +1,48 @@
+{
+    "name": "braeden.foster/laravel-chorus",
+    "description": "Monorepo for Laravel Chorus",
+    "license": "MIT",
+    "type": "project",
+    "authors": [
+        {
+            "name": "Pixelsprout",
+            "email": "support@pixelsprout.dev"
+        }
+    ],
+    "require": {
+        "illuminate/contracts": "^10.47|^11.0|^12.0",
+        "illuminate/database": "^10.47|^11.0|^12.0",
+        "illuminate/http": "^10.47|^11.0|^12.0",
+        "illuminate/redis": "^10.47|^11.0|^12.0",
+        "illuminate/support": "^10.47|^11.0|^12.0",
+        "laravel/prompts": "^0.1.15|^0.2.0|^0.3.0",
+        "php": ">=8.2"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0|^9.0",
+        "pestphp/pest": "^3.0",
+        "predis/predis": "^2.0",
+        "symplify/monorepo-builder": "^11.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Pixelsprout\\LaravelChorus\\": "packages/chorus/src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Pixelsprout\\LaravelChorus\\Tests\\": "packages/chorus/tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Pixelsprout\\LaravelChorus\\Providers\\ChorusServiceProvider"
+            ]
+        }
+    },
+    "replace": {
+        "pixelsprout/laravel-chorus": "self.version"
+    },
+    "minimum-stability": "dev"
+}
