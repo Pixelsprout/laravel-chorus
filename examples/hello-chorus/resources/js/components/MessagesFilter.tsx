@@ -1,6 +1,6 @@
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { Platform } from '@/types';
+import type { Platform } from '@/_generated/types';
 
 interface MessagesFilterProps {
     platforms: Platform[] | undefined;

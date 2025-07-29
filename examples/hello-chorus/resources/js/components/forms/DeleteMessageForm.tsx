@@ -1,9 +1,9 @@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import type { Message } from '@/types';
+import type { Message } from '@/_generated/types';
 import { TrashIcon } from 'lucide-react';
 import { useState } from 'react';
-import { useTable } from '@chorus/js';
+import { useTable } from '@pixelsprout/chorus-js';
 
 interface DeleteMessageFormProps {
     message: Message;

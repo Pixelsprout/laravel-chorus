@@ -3,12 +3,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import type { Message, Platform } from '@/types';
+import type { Message, Platform } from '@/_generated/types';
 
 import { usePage } from '@inertiajs/react';
 import { type SharedData } from '@/types';
 import { SendIcon, WifiOffIcon } from 'lucide-react';
-import { useOffline, useTable } from '@chorus/js';
+import { useOffline, useTable } from '@pixelsprout/chorus-js';
 import { useForm } from '@tanstack/react-form';
 import { uuidv7 } from 'uuidv7';
 import type { AnyFieldApi } from '@tanstack/react-form';
@@ -37,7 +37,7 @@ export default function CreateMessageForm({
 }: CreateMessageFormProps) {
     const { auth } = usePage<SharedData>().props;
     const { isOnline } = useOffline();
-    
+
     // Get both data and actions from the combined hook
     const { create: createMessage } = useTable<Message>('messages');
 
@@ -60,8 +60,8 @@ export default function CreateMessageForm({
                         platform_id: value.platformId,
                         tenant_id: String(auth.user.tenant_id),
                         user_id: String(auth.user.id),
-                        created_at: now,
-                        updated_at: now,
+                        created_at: now.toString(),
+                        updated_at: now.toString(),
                     },
                     {                  // Server data
                         id: messageId,

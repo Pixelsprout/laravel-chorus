@@ -1,21 +1,21 @@
 // Simple component to test offline functionality
 import React from 'react';
-import { useOffline, OfflineIndicator, OfflineBanner } from '@chorus/js';
+import { useOffline, OfflineIndicator, OfflineBanner } from '@pixelsprout/chorus-js';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function OfflineTest() {
-  const { 
-    isOnline, 
-    pendingRequestsCount, 
-    processPendingRequests, 
-    clearPendingRequests 
+  const {
+    isOnline,
+    pendingRequestsCount,
+    processPendingRequests,
+    clearPendingRequests
   } = useOffline();
 
   return (
     <div className="space-y-4">
       <OfflineBanner className="bg-yellow-100 border border-yellow-300 text-yellow-800 p-3 rounded-md" />
-      
+
       <Card>
         <CardHeader>
           <CardTitle>Offline Status Test</CardTitle>
@@ -46,20 +46,20 @@ export default function OfflineTest() {
           {pendingRequestsCount > 0 && (
             <div className="space-y-2">
               <p className="text-sm font-medium">
-                You have {pendingRequestsCount} pending request{pendingRequestsCount !== 1 ? 's' : ''} 
+                You have {pendingRequestsCount} pending request{pendingRequestsCount !== 1 ? 's' : ''}
                 that will be processed when you come back online.
               </p>
-              
+
               <div className="flex gap-2">
                 {isOnline && (
-                  <Button 
+                  <Button
                     onClick={processPendingRequests}
                     size="sm"
                   >
                     Sync Now
                   </Button>
                 )}
-                <Button 
+                <Button
                   onClick={clearPendingRequests}
                   variant="outline"
                   size="sm"
@@ -70,7 +70,7 @@ export default function OfflineTest() {
             </div>
           )}
 
-          <OfflineIndicator 
+          <OfflineIndicator
             className="flex items-center gap-2 text-sm border rounded p-2"
             showPendingCount={true}
             showRetryButton={true}

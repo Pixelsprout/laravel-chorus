@@ -3,12 +3,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import type { Message, Platform } from '@/types';
+import type { Message, Platform } from '@/_generated/types';
 import { EditIcon } from 'lucide-react';
 import { useForm } from '@tanstack/react-form';
 import type { AnyFieldApi } from '@tanstack/react-form';
 import { useEffect, useState } from 'react';
-import { useTable } from '@chorus/js';
+import { useTable } from '@pixelsprout/chorus-js';
 
 function FieldInfo({ field }: { field: AnyFieldApi }) {
     return (
