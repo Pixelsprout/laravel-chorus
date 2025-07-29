@@ -36,7 +36,7 @@ class Message extends Model
         'body'  => JSType::String,
         'user_id' => JSType::String,
         'tenant_id' => JSType::String,
-        'platform_id' => JSType::String ,
+        'platform_id' => JSType::String,
         'created_at' => JSType::String,
         'updated_at' => JSType::String,
     ];

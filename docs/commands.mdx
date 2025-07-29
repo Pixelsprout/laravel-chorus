@@ -31,6 +31,21 @@ This command:
 - Identifies models using the `Harmonics` trait
 - Generates IndexedDB schema based on sync fields
 - Creates a TypeScript schema file at `resources/js/_generated/schema.ts`
+- Create generated types for sync fields at `resources/js/_generated/types.ts`
+
+
+When declaring sync fields, you can optionally provide JavaScript types for your sync fields on
+a given model. If no type is given for a field, then the default will be the `any` type.
+
+```php
+use Pixelsprout\LaravelChorus\Support\JSType;
+
+protected $syncFields = [
+    'id' => JSType::String,
+    'body'  => JSType::String,
+    ...
+];
+```
 
 ## Server Management
 
