@@ -24,6 +24,10 @@
         "predis/predis": "^2.0",
         "symplify/monorepo-builder": "^11.2"
     },
+    "replace": {
+        "pixelsprout/laravel-chorus": "self.version"
+    },
+    "minimum-stability": "dev",
     "autoload": {
         "psr-4": {
             "Pixelsprout\\LaravelChorus\\": "packages/chorus/src/"
@@ -40,9 +44,5 @@
                 "Pixelsprout\\LaravelChorus\\Providers\\ChorusServiceProvider"
             ]
         }
-    },
-    "replace": {
-        "pixelsprout/laravel-chorus": "self.version"
-    },
-    "minimum-stability": "dev"
+    }
 }
