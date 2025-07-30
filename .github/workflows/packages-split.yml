@@ -24,8 +24,8 @@ jobs:
         # define package to repository map
         package:
           -
-            local_path: 'easy-coding-standard'
-            split_repository: 'easy-coding-standard'
+            local_path: 'chorus'
+            split_repository: 'chorus'
 
     steps:
       -   uses: actions/checkout@v2
@@ -39,7 +39,7 @@ jobs:
           package_directory: 'packages/${{ matrix.package.local_path }}'
 
           # ↓ into https://github.com/symplify/easy-coding-standard repository
-          repository_organization: 'symplify'
+          repository_organization: 'Pixelsprout'
           repository_name: '${{ matrix.package.split_repository }}'
 
           # [optional, with "github.com" as default]
