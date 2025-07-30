@@ -1,7 +1,7 @@
 <?php
 
-it('returns a successful response', function () {
-    $response = $this->get('/');
+it('returns schema endpoint response', function () {
+    $response = $this->get('/api/schema');
 
     $response->assertStatus(200);
 });
