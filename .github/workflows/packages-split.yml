@@ -43,7 +43,7 @@ jobs:
           repository_name: '${{ matrix.package.split_repository }}'
 
           # [optional, with "github.com" as default]
-          repository_host: git.private.com:1234
+          repository_host: github.com
 
           # ↓ the user signed under the split commit
           user_name: "braedencrankd"

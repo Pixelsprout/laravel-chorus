@@ -1,6 +1,6 @@
 {
   "name": "pixelsprout/laravel-chorus",
-  "description": "Laravel Chorus is an event-based sync-engine designed to sync subsets of your database to your users' on device browser storage, to enable a low-latency web application.",
+  "description": "Laravel Chorus is an event-sourcing based sync-engine designed to sync subsets of your database to your users' on device browser storage, to enable a low-latency web application.",
   "type": "library",
   "license": ["MIT"],
   "require": {
