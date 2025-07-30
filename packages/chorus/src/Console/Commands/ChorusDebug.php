@@ -10,26 +10,27 @@ use Pixelsprout\LaravelChorus\Listeners\TrackChannelConnections;
 final class ChorusDebug extends Command
 {
     protected $signature = 'chorus:debug';
+
     protected $description = 'Debug Chorus active channels and connections';
 
     public function handle(): void
     {
         $this->info('Chorus Debug Information');
         $this->info('========================');
-        
+
         // Get active channels
         $tracker = new TrackChannelConnections();
         $activeChannels = $tracker->getActiveChannels();
-        
-        $this->info('Active Channels: ' . count($activeChannels));
+
+        $this->info('Active Channels: '.count($activeChannels));
         foreach ($activeChannels as $channel => $timestamp) {
-            $this->line("  {$channel} (connected at: " . date('Y-m-d H:i:s', $timestamp) . ")");
+            $this->line("  {$channel} (connected at: ".date('Y-m-d H:i:s', $timestamp).')');
         }
-        
+
         // Get active user IDs
         $activeUserIds = TrackChannelConnections::getActiveUserIds();
-        $this->info('Active User IDs: ' . implode(', ', $activeUserIds));
-        
+        $this->info('Active User IDs: '.implode(', ', $activeUserIds));
+
         $this->info('');
         $this->info('To test real-time updates:');
         $this->info('1. Connect to the app in your browser');

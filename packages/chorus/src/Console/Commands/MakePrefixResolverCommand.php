@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace Pixelsprout\LaravelChorus\Console\Commands;
 
 use Illuminate\Console\GeneratorCommand;
-use Illuminate\Support\Str;
 
-class MakePrefixResolverCommand extends GeneratorCommand
+final class MakePrefixResolverCommand extends GeneratorCommand
 {
     /**
      * The name and signature of the console command.
@@ -37,7 +36,7 @@ class MakePrefixResolverCommand extends GeneratorCommand
      */
     protected function getStub()
     {
-        return __DIR__ . '/stubs/prefixresolver.stub';
+        return __DIR__.'/stubs/prefixresolver.stub';
     }
 
     /**
@@ -48,7 +47,7 @@ class MakePrefixResolverCommand extends GeneratorCommand
      */
     protected function getDefaultNamespace($rootNamespace)
     {
-        return $rootNamespace . '\Chorus\Resolvers';
+        return $rootNamespace.'\Chorus\Resolvers';
     }
 
     /**

@@ -1,17 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Pixelsprout\LaravelChorus\Adapters;
 
 use App\Models\User;
+use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Pixelsprout\LaravelChorus\Models\Harmonic;
 use Pixelsprout\LaravelChorus\Events\HarmonicCreated;
 use Pixelsprout\LaravelChorus\Listeners\TrackChannelConnections;
-use Illuminate\Broadcasting\PrivateChannel;
+use Pixelsprout\LaravelChorus\Models\Harmonic;
 
-class EloquentHarmonicSourceAdapter implements HarmonicSourceAdapterInterface
+final class EloquentHarmonicSourceAdapter implements HarmonicSourceAdapterInterface
 {
     /**
      * Store registered event listeners for cleanup
@@ -20,42 +21,35 @@ class EloquentHarmonicSourceAdapter implements HarmonicSourceAdapterInterface
 
     /**
      * Initialize the adapter for the given model.
-     *
-     * @param string $modelClass
-     * @return void
      */
     public function initialize(string $modelClass): void
     {
         // No specific initialization needed for Eloquent adapter
-        return;
+
     }
 
     /**
      * Start tracking changes for the model.
-     *
-     * @param string $modelClass
-     * @return void
      */
     public function startTracking(string $modelClass): void
     {
         $modelClass::created(function (Model $model) {
-            $this->recordHarmonic($model, "create");
+            $this->recordHarmonic($model, 'create');
         });
 
         $modelClass::updated(function (Model $model) {
-            $this->recordHarmonic($model, "update");
+            $this->recordHarmonic($model, 'update');
         });
 
         $modelClass::deleted(function (Model $model) {
-            $this->recordHarmonic($model, "delete");
+            $this->recordHarmonic($model, 'delete');
         });
     }
 
     /**
      * Stop tracking changes for the model.
      *
-     * @param Model $model
-     * @return void
+     * @param  Model  $model
      */
     public function stopTracking(string $modelClass): void
     {
@@ -69,8 +63,7 @@ class EloquentHarmonicSourceAdapter implements HarmonicSourceAdapterInterface
     /**
      * Check if the adapter is actively tracking the model.
      *
-     * @param Model $model
-     * @return bool
+     * @param  Model  $model
      */
     public function isTracking(string $modelClass): bool
     {
@@ -79,20 +72,14 @@ class EloquentHarmonicSourceAdapter implements HarmonicSourceAdapterInterface
 
     /**
      * Get the name of this adapter.
-     *
-     * @return string
      */
     public function getName(): string
     {
-        return "eloquent";
+        return 'eloquent';
     }
 
     /**
      * Record a harmonic event for the given model.
-     *
-     * @param Model $model
-     * @param string $operation
-     * @return void
      */
     public function recordHarmonic(Model $model, string $operation, ?User $user = null): void
     {
@@ -112,13 +99,13 @@ class EloquentHarmonicSourceAdapter implements HarmonicSourceAdapterInterface
 
         // Create harmonic payload
         $harmonicData = [
-            "id" => Str::uuid7(), // explicitly setting uuid so it shared with websocket payload
-            "table_name" => $tableName,
-            "record_id" => $recordId,
-            "operation" => $operation,
-            "data" => json_encode($data),
-            "user_id" => $user ?? $user->id ?? null,
-            "created_at" => now()->toDateTimeString(),
+            'id' => Str::uuid7(), // explicitly setting uuid so it shared with websocket payload
+            'table_name' => $tableName,
+            'record_id' => $recordId,
+            'operation' => $operation,
+            'data' => json_encode($data),
+            'user_id' => $user ?? $user->id ?? null,
+            'created_at' => now()->toDateTimeString(),
         ];
 
         // Dispatch to all active channels
@@ -129,9 +116,6 @@ class EloquentHarmonicSourceAdapter implements HarmonicSourceAdapterInterface
 
     /**
      * Get the fields that should be synced for the given model.
-     *
-     * @param Model $model
-     * @return array
      */
     public function getSyncFields(Model $model): array
     {
@@ -140,23 +124,23 @@ class EloquentHarmonicSourceAdapter implements HarmonicSourceAdapterInterface
 
         // Check if the model has a syncFields property
         if (
-            property_exists($model, "syncFields") &&
+            property_exists($model, 'syncFields') &&
             is_array($model->syncFields)
         ) {
             $syncFields = $model->syncFields;
         }
         // If model has a syncFields() method, use that
-        elseif (method_exists($model, "syncFields")) {
+        elseif (method_exists($model, 'syncFields')) {
             $syncFields = $model->syncFields();
         }
         // If model has a getSyncFields() method, use that
-        elseif (method_exists($model, "getSyncFields")) {
+        elseif (method_exists($model, 'getSyncFields')) {
             $syncFields = $model->getSyncFields();
         }
 
         // Always include the primary key
         $primaryKey = $model->getKeyName();
-        if (!in_array($primaryKey, $syncFields)) {
+        if (! in_array($primaryKey, $syncFields)) {
             array_unshift($syncFields, $primaryKey);
         }
 
@@ -165,10 +149,6 @@ class EloquentHarmonicSourceAdapter implements HarmonicSourceAdapterInterface
 
     /**
      * Dispatch harmonic event to all active channels.
-     *
-     * @param Model $model
-     * @param array $harmonicData
-     * @return void
      */
     public function dispatchToActiveChannels(
         Model $model,
@@ -187,7 +167,7 @@ class EloquentHarmonicSourceAdapter implements HarmonicSourceAdapterInterface
         }
 
         // Only dispatch if there are active channels
-        if (!empty($channels)) {
+        if (! empty($channels)) {
             HarmonicCreated::dispatch($harmonicData, $model, $channels);
         }
     }
