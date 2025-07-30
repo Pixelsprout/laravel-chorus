@@ -5,7 +5,7 @@ import { configureEcho } from '@laravel/echo-react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 import { initializeTheme } from './hooks/use-appearance';
-import { csrfManager } from '@chorus/js';
+import { csrfManager } from '@pixelsprout/chorus-js';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 

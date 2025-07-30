@@ -1,8 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 use Illuminate\Support\Facades\Route;
-use Pixelsprout\LaravelChorus\Http\Controllers\SyncController;
 use Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController;
+use Pixelsprout\LaravelChorus\Http\Controllers\SyncController;
 
 /*
 |--------------------------------------------------------------------------
@@ -14,11 +16,11 @@ use Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController;
 |
 */
 
-Route::get("schema", [SyncController::class, "getSchema"]);
-Route::get("sync/{table}", [SyncController::class, "getInitialData"]);
+Route::get('schema', [SyncController::class, 'getSchema']);
+Route::get('sync/{table}', [SyncController::class, 'getInitialData']);
 
 // Write Actions API
 Route::middleware(['auth'])->group(function () {
-    Route::get("actions/{table}", [ChorusWriteController::class, "getActions"]);
-    Route::post("write/{table}/{action}", [ChorusWriteController::class, "handleAction"]);
+    Route::get('actions/{table}', [ChorusWriteController::class, 'getActions']);
+    Route::post('write/{table}/{action}', [ChorusWriteController::class, 'handleAction']);
 });

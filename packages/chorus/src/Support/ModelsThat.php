@@ -1,4 +1,6 @@
 <?php
+
+declare(strict_types=1);
 /**
  * @author Aaron Francis <aarondfrancis@gmail.com|https://twitter.com/aarondfrancis>
  */
@@ -10,11 +12,11 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use ReflectionClass;
 
-class ModelsThat
+final class ModelsThat
 {
     public static function useTrait(string $trait): Collection
     {
-        return static::allReflectedModels()
+        return self::allReflectedModels()
             ->filter(function (ReflectionClass $model) use ($trait) {
                 return $model->isInstantiable() &&
                     in_array($trait, $model->getTraitNames());
@@ -23,18 +25,18 @@ class ModelsThat
             ->values();
     }
 
-    protected static function allModels(): Collection
+    private static function allModels(): Collection
     {
-        return collect(File::allFiles(app_path("Models")));
+        return collect(File::allFiles(app_path('Models')));
     }
 
-    protected static function allReflectedModels(): Collection
+    private static function allReflectedModels(): Collection
     {
-        return static::allModels()
+        return self::allModels()
             ->map(function ($file) {
                 $class = static::getClassFromFile($file);
 
-                if (!class_exists($class)) {
+                if (! class_exists($class)) {
                     return false;
                 }
 
@@ -44,14 +46,14 @@ class ModelsThat
             ->values();
     }
 
-    protected static function getClassFromFile($file): string
+    private static function getClassFromFile($file): string
     {
         return Str::of($file)
-            ->after(app_path("Models"))
+            ->after(app_path('Models'))
             ->ltrim(DIRECTORY_SEPARATOR)
-            ->before(".")
-            ->replace("/", "\\")
-            ->prepend("App\\Models\\")
+            ->before('.')
+            ->replace('/', '\\')
+            ->prepend('App\\Models\\')
             ->value();
     }
 }

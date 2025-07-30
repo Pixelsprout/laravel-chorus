@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class HarmonicCreated implements ShouldBroadcastNow
+final class HarmonicCreated implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -18,10 +18,6 @@ class HarmonicCreated implements ShouldBroadcastNow
 
     /**
      * Create a new event instance.
-     *
-     * @param array $harmonic
-     * @param Model $model
-     * @param array $channels
      */
     public function __construct(
         public array $harmonic,
@@ -36,7 +32,7 @@ class HarmonicCreated implements ShouldBroadcastNow
      */
     public function broadcastAs(): string
     {
-        return "harmonic.created";
+        return 'harmonic.created';
     }
 
     /**

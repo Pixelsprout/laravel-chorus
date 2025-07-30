@@ -1,7 +1,7 @@
 import { queryParams, type QueryParams } from './../../../wayfinder'
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::create
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:21
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:25
 * @route '/api/chorus/messages/create'
 */
 export const create = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -19,7 +19,7 @@ create.definition = {
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::create
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:21
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:25
 * @route '/api/chorus/messages/create'
 */
 create.url = (options?: { query?: QueryParams, mergeQuery?: QueryParams }) => {
@@ -28,7 +28,7 @@ create.url = (options?: { query?: QueryParams, mergeQuery?: QueryParams }) => {
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::create
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:21
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:25
 * @route '/api/chorus/messages/create'
 */
 create.post = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -41,7 +41,7 @@ create.post = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::update
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:21
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:25
 * @route '/api/chorus/messages/update'
 */
 export const update = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -59,7 +59,7 @@ update.definition = {
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::update
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:21
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:25
 * @route '/api/chorus/messages/update'
 */
 update.url = (options?: { query?: QueryParams, mergeQuery?: QueryParams }) => {
@@ -68,7 +68,7 @@ update.url = (options?: { query?: QueryParams, mergeQuery?: QueryParams }) => {
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::update
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:21
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:25
 * @route '/api/chorus/messages/update'
 */
 update.post = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -81,7 +81,7 @@ update.post = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::deleteMethod
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:21
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:25
 * @route '/api/chorus/messages/delete'
 */
 export const deleteMethod = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -99,7 +99,7 @@ deleteMethod.definition = {
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::deleteMethod
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:21
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:25
 * @route '/api/chorus/messages/delete'
 */
 deleteMethod.url = (options?: { query?: QueryParams, mergeQuery?: QueryParams }) => {
@@ -108,7 +108,7 @@ deleteMethod.url = (options?: { query?: QueryParams, mergeQuery?: QueryParams })
 
 /**
 * @see \Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController::deleteMethod
-* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:21
+* @see Users/braeden.foster/workshop/laravel-chorus/packages/chorus/src/Http/Controllers/ChorusWriteController.php:25
 * @route '/api/chorus/messages/delete'
 */
 deleteMethod.post = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 return [
     /*
     |--------------------------------------------------------------------------
@@ -10,7 +12,7 @@ return [
     | harmonics data for persistence. You may change this to any name you wish.
     |
     */
-    "harmonics_table" => env("CHORUS_HARMONICS_TABLE", "harmonics"),
+    'harmonics_table' => env('CHORUS_HARMONICS_TABLE', 'harmonics'),
 
     /*
     |--------------------------------------------------------------------------
@@ -22,7 +24,7 @@ return [
     | If a class is provided, it will be resolved to dynamically generate the prefix.
     |
     */
-    "harmonic_channel_prefix" => "",
+    'harmonic_channel_prefix' => '',
 
     /*
     |--------------------------------------------------------------------------
@@ -36,9 +38,9 @@ return [
     | changes to your models and record them in the harmonics table.
     |
     */
-    "harmonic_source_adapter" => env(
-        "CHORUS_HARMONIC_SOURCE_ADAPTER",
-        "eloquent"
+    'harmonic_source_adapter' => env(
+        'CHORUS_HARMONIC_SOURCE_ADAPTER',
+        'eloquent'
     ),
 
     /*
@@ -51,5 +53,5 @@ return [
     | when migrations are run (e.g., migrate:fresh, new migrations, rollbacks).
     |
     */
-    "track_database_version" => env("CHORUS_TRACK_DATABASE_VERSION", true),
+    'track_database_version' => env('CHORUS_TRACK_DATABASE_VERSION', true),
 ];
