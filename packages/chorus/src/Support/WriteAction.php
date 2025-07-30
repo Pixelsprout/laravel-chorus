@@ -28,10 +28,7 @@ abstract class WriteAction implements WriteActionInterface
     /**
      * Get validation rules for this action
      */
-    public function rules(): array
-    {
-        return [];
-    }
+    abstract public function rules(): array;
 
     /**
      * Handle batch write operations
@@ -116,7 +113,7 @@ abstract class WriteAction implements WriteActionInterface
      */
     protected function validateItem(array $data): void
     {
-        $validator = Validator::make($data, $this->rules());
+        $validator = Validator::make($data, $this->rules() ?? []);
 
         if ($validator->fails()) {
             throw new ValidationException($validator);
