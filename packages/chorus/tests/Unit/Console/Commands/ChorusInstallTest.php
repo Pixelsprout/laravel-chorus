@@ -81,11 +81,15 @@ test('detectPackageManager returns npm when package-lock.json exists', function 
 test('detectPackageManager returns null when no package manager found', function () {
     // Arrange
     File::shouldReceive('exists')->andReturn(false);
-    
-    $processResult = new class {
-        public function successful(): bool { return false; }
+
+    $processResult = new class
+    {
+        public function successful(): bool
+        {
+            return false;
+        }
     };
-    
+
     Process::shouldReceive('run')->andReturn($processResult);
 
     $command = new ChorusInstall();
@@ -101,11 +105,15 @@ test('detectPackageManager returns null when no package manager found', function
 test('detectPackageManager falls back to command detection when no lock files exist', function () {
     // Arrange
     File::shouldReceive('exists')->andReturn(false);
-    
-    $processResult = new class {
-        public function successful(): bool { return true; }
+
+    $processResult = new class
+    {
+        public function successful(): bool
+        {
+            return true;
+        }
     };
-    
+
     Process::shouldReceive('run')
         ->with('which pnpm')
         ->once()
@@ -123,10 +131,22 @@ test('detectPackageManager falls back to command detection when no lock files ex
 
 test('runPackageManagerCommand constructs command correctly', function () {
     // Arrange
-    $processResult = new class {
-        public function successful(): bool { return true; }
-        public function output(): string { return 'Success'; }
-        public function errorOutput(): string { return ''; }
+    $processResult = new class
+    {
+        public function successful(): bool
+        {
+            return true;
+        }
+
+        public function output(): string
+        {
+            return 'Success';
+        }
+
+        public function errorOutput(): string
+        {
+            return '';
+        }
     };
 
     Process::shouldReceive('path')
@@ -139,18 +159,22 @@ test('runPackageManagerCommand constructs command correctly', function () {
         ->andReturn($processResult);
 
     // Create a simple test command that captures output
-    $command = new class extends \Illuminate\Console\Command {
+    $command = new class extends Illuminate\Console\Command
+    {
         public $capturedOutput = [];
-        
-        public function info($string, $verbosity = null) {
+
+        public function info($string, $verbosity = null)
+        {
             $this->capturedOutput[] = ['info', $string];
         }
-        
-        public function line($string, $style = null, $verbosity = null) {
+
+        public function line($string, $style = null, $verbosity = null)
+        {
             $this->capturedOutput[] = ['line', $string];
         }
-        
-        public function runPackageManagerCommand(string $packageManager, array $args): void {
+
+        public function runPackageManagerCommand(string $packageManager, array $args): void
+        {
             $command = $packageManager.' '.implode(' ', $args);
             $this->info("Running: {$command}");
 
@@ -166,7 +190,7 @@ test('runPackageManagerCommand constructs command correctly', function () {
             }
         }
     };
-    
+
     $command->setLaravel($this->app);
 
     // Act
@@ -180,10 +204,22 @@ test('runPackageManagerCommand constructs command correctly', function () {
 
 test('runPackageManagerCommand throws exception on command failure', function () {
     // Arrange
-    $processResult = new class {
-        public function successful(): bool { return false; }
-        public function output(): string { return ''; }
-        public function errorOutput(): string { return 'Command failed'; }
+    $processResult = new class
+    {
+        public function successful(): bool
+        {
+            return false;
+        }
+
+        public function output(): string
+        {
+            return '';
+        }
+
+        public function errorOutput(): string
+        {
+            return 'Command failed';
+        }
     };
 
     Process::shouldReceive('path')
@@ -196,18 +232,22 @@ test('runPackageManagerCommand throws exception on command failure', function ()
         ->andReturn($processResult);
 
     // Create a simple test command that captures output
-    $command = new class extends \Illuminate\Console\Command {
+    $command = new class extends Illuminate\Console\Command
+    {
         public $capturedOutput = [];
-        
-        public function info($string, $verbosity = null) {
+
+        public function info($string, $verbosity = null)
+        {
             $this->capturedOutput[] = ['info', $string];
         }
-        
-        public function error($string, $verbosity = null) {
+
+        public function error($string, $verbosity = null)
+        {
             $this->capturedOutput[] = ['error', $string];
         }
-        
-        public function runPackageManagerCommand(string $packageManager, array $args): void {
+
+        public function runPackageManagerCommand(string $packageManager, array $args): void
+        {
             $command = $packageManager.' '.implode(' ', $args);
             $this->info("Running: {$command}");
 
@@ -227,11 +267,11 @@ test('runPackageManagerCommand throws exception on command failure', function ()
             }
         }
     };
-    
+
     $command->setLaravel($this->app);
 
     // Act & Assert
-    expect(fn() => $command->runPackageManagerCommand('npm', ['install', '@pixelsprout/chorus-js']))
+    expect(fn () => $command->runPackageManagerCommand('npm', ['install', '@pixelsprout/chorus-js']))
         ->toThrow(Exception::class, 'Package manager command failed')
         ->and($command->capturedOutput)->toContain(['info', 'Running: npm install @pixelsprout/chorus-js'])
         ->and($command->capturedOutput)->toContain(['error', 'Failed to run: npm install @pixelsprout/chorus-js'])
@@ -270,7 +310,7 @@ test('command class is declared final and extends Laravel Command', function () 
 
     // Act & Assert
     expect($reflection->isFinal())->toBeTrue()
-        ->and($command)->toBeInstanceOf(\Illuminate\Console\Command::class);
+        ->and($command)->toBeInstanceOf(Illuminate\Console\Command::class);
 });
 
 function callMethod($object, string $method, array $args = [])
