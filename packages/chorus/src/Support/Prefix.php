@@ -1,12 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Pixelsprout\LaravelChorus\Support;
 
 use Illuminate\Database\Eloquent\Model;
 use Pixelsprout\LaravelChorus\Contracts\PrefixResolver;
 use Pixelsprout\LaravelChorus\Support\Resolvers\StaticPrefixResolver;
 
-class Prefix
+final class Prefix
 {
     public static function resolve(Model $model): string
     {

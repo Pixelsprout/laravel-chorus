@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Pixelsprout\LaravelChorus\Adapters;
 
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 
-class HarmonicSourceAdapterManager
+final class HarmonicSourceAdapterManager
 {
     /**
      * Available adapters registry
@@ -28,33 +30,18 @@ class HarmonicSourceAdapterManager
     }
 
     /**
-     * Register default adapters
-     */
-    private function registerDefaultAdapters(): void
-    {
-        $this->registerAdapter(
-            "eloquent",
-            EloquentHarmonicSourceAdapter::class
-        );
-    }
-
-    /**
      * Register a new adapter
-     *
-     * @param string $name
-     * @param string $adapterClass
-     * @return void
      */
     public function registerAdapter(string $name, string $adapterClass): void
     {
-        if (!class_exists($adapterClass)) {
+        if (! class_exists($adapterClass)) {
             throw new InvalidArgumentException(
                 "Adapter class {$adapterClass} does not exist"
             );
         }
 
         if (
-            !is_subclass_of(
+            ! is_subclass_of(
                 $adapterClass,
                 HarmonicSourceAdapterInterface::class
             )
@@ -69,8 +56,6 @@ class HarmonicSourceAdapterManager
 
     /**
      * Get the active adapter instance
-     *
-     * @return HarmonicSourceAdapterInterface
      */
     public function getActiveAdapter(): HarmonicSourceAdapterInterface
     {
@@ -82,29 +67,9 @@ class HarmonicSourceAdapterManager
     }
 
     /**
-     * Create adapter instance based on configuration
-     *
-     * @return HarmonicSourceAdapterInterface
-     */
-    private function createAdapter(): HarmonicSourceAdapterInterface
-    {
-        $adapterName = config("chorus.harmonic_source_adapter", "eloquent");
-
-        if (!isset($this->adapters[$adapterName])) {
-            throw new InvalidArgumentException(
-                "Unknown harmonic source adapter: {$adapterName}"
-            );
-        }
-
-        $adapterClass = $this->adapters[$adapterName];
-        return new $adapterClass();
-    }
-
-    /**
      * Start tracking a model
      *
-     * @param Model $model
-     * @return void
+     * @param  Model  $model
      */
     public function startTracking(string $modelClass): void
     {
@@ -117,34 +82,27 @@ class HarmonicSourceAdapterManager
 
     /**
      * Stop tracking a model
-     *
-     * @param Model $model
-     * @return void
      */
-    public function stopTracking(Model $model): void
+    public function stopTracking(string $modelName): void
     {
         $adapter = $this->getActiveAdapter();
-        $adapter->stopTracking($model);
+        $adapter->stopTracking($modelName);
 
-        unset($this->trackedModels[get_class($model)]);
+        unset($this->trackedModels[$modelName]);
     }
 
     /**
      * Check if a model is being tracked
-     *
-     * @param Model $model
-     * @return bool
      */
-    public function isTracking(Model $model): bool
+    public function isTracking(string $modelName): bool
     {
         $adapter = $this->getActiveAdapter();
-        return $adapter->isTracking($model);
+
+        return $adapter->isTracking($modelName);
     }
 
     /**
      * Get the name of the active adapter
-     *
-     * @return string
      */
     public function getActiveAdapterName(): string
     {
@@ -153,8 +111,6 @@ class HarmonicSourceAdapterManager
 
     /**
      * Get all available adapter names
-     *
-     * @return array
      */
     public function getAvailableAdapters(): array
     {
@@ -163,11 +119,38 @@ class HarmonicSourceAdapterManager
 
     /**
      * Get all models currently being tracked
-     *
-     * @return array
      */
     public function getTrackedModels(): array
     {
         return $this->trackedModels;
+    }
+
+    /**
+     * Register default adapters
+     */
+    private function registerDefaultAdapters(): void
+    {
+        $this->registerAdapter(
+            'eloquent',
+            EloquentHarmonicSourceAdapter::class
+        );
+    }
+
+    /**
+     * Create adapter instance based on configuration
+     */
+    private function createAdapter(): HarmonicSourceAdapterInterface
+    {
+        $adapterName = config('chorus.harmonic_source_adapter', 'eloquent');
+
+        if (! isset($this->adapters[$adapterName])) {
+            throw new InvalidArgumentException(
+                "Unknown harmonic source adapter: {$adapterName}"
+            );
+        }
+
+        $adapterClass = $this->adapters[$adapterName];
+
+        return new $adapterClass();
     }
 }

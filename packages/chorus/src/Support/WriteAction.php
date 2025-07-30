@@ -1,8 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Pixelsprout\LaravelChorus\Support;
 
-use Illuminate\Container\Attributes\Log;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -26,7 +28,7 @@ abstract class WriteAction implements WriteActionInterface
     /**
      * Get validation rules for this action
      */
-    public function rules(): array
+    final public function rules(): array
     {
         return [];
     }
@@ -34,10 +36,10 @@ abstract class WriteAction implements WriteActionInterface
     /**
      * Handle batch write operations
      */
-    public function handleBatch(Request $request, array $items): array
+    final public function handleBatch(Request $request, array $items): array
     {
-        if (!$this->supportsBatch()) {
-            throw new \Exception('This action does not support batch operations');
+        if (! $this->supportsBatch()) {
+            throw new Exception('This action does not support batch operations');
         }
 
         $results = [];
@@ -58,7 +60,7 @@ abstract class WriteAction implements WriteActionInterface
                     'error' => 'Validation failed',
                     'validation_errors' => $e->errors(),
                 ];
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $errors[] = [
                     'success' => false,
                     'index' => $index,
@@ -78,6 +80,38 @@ abstract class WriteAction implements WriteActionInterface
     }
 
     /**
+     * Get the action configuration
+     */
+    final public function getConfig(): array
+    {
+        return $this->config;
+    }
+
+    /**
+     * Check if this action supports offline writes
+     */
+    final public function allowsOfflineWrites(): bool
+    {
+        return $this->config['allowOfflineWrites'] ?? false;
+    }
+
+    /**
+     * Check if this action supports batch operations
+     */
+    final public function supportsBatch(): bool
+    {
+        return $this->config['supportsBatch'] ?? true;
+    }
+
+    /**
+     * Set configuration options
+     */
+    final public function setConfig(array $config): void
+    {
+        $this->config = array_merge($this->config, $config);
+    }
+
+    /**
      * Validate a single item
      */
     protected function validateItem(array $data): void
@@ -87,37 +121,5 @@ abstract class WriteAction implements WriteActionInterface
         if ($validator->fails()) {
             throw new ValidationException($validator);
         }
-    }
-
-    /**
-     * Get the action configuration
-     */
-    public function getConfig(): array
-    {
-        return $this->config;
-    }
-
-    /**
-     * Check if this action supports offline writes
-     */
-    public function allowsOfflineWrites(): bool
-    {
-        return $this->config['allowOfflineWrites'] ?? false;
-    }
-
-    /**
-     * Check if this action supports batch operations
-     */
-    public function supportsBatch(): bool
-    {
-        return $this->config['supportsBatch'] ?? true;
-    }
-
-    /**
-     * Set configuration options
-     */
-    public function setConfig(array $config): void
-    {
-        $this->config = array_merge($this->config, $config);
     }
 }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Pixelsprout\LaravelChorus\Contracts;
 
 use Illuminate\Http\Request;

@@ -4,19 +4,12 @@ declare(strict_types=1);
 
 namespace Pixelsprout\LaravelChorus\Traits;
 
-use Illuminate\Broadcasting\PrivateChannel;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
-use Pixelsprout\LaravelChorus\Adapters\EloquentHarmonicSourceAdapter;
-use Pixelsprout\LaravelChorus\Events\HarmonicCreated;
-use Pixelsprout\LaravelChorus\Listeners\TrackChannelConnections;
-use Pixelsprout\LaravelChorus\Models\Harmonic;
 use Pixelsprout\LaravelChorus\Adapters\HarmonicSourceAdapterManager;
-use Pixelsprout\LaravelChorus\Support\Prefix;
 use Pixelsprout\LaravelChorus\Support\JSType;
-use App\Models\User;
+use Pixelsprout\LaravelChorus\Support\Prefix;
 
 trait Harmonics
 {
@@ -33,11 +26,11 @@ trait Harmonics
         $syncFields = [];
 
         if (
-            property_exists($this, "syncFields") &&
+            property_exists($this, 'syncFields') &&
             is_array($this->syncFields)
         ) {
             $syncFields = $this->syncFields;
-        } elseif (method_exists($this, "syncFields")) {
+        } elseif (method_exists($this, 'syncFields')) {
             $syncFields = $this->syncFields();
         }
 
@@ -51,7 +44,7 @@ trait Harmonics
         }
 
         $primaryKey = $this->getKeyName();
-        if (!in_array($primaryKey, $fields)) {
+        if (! in_array($primaryKey, $fields)) {
             array_unshift($fields, $primaryKey);
         }
 
@@ -63,11 +56,11 @@ trait Harmonics
         $syncFields = [];
 
         if (
-            property_exists($this, "syncFields") &&
+            property_exists($this, 'syncFields') &&
             is_array($this->syncFields)
         ) {
             $syncFields = $this->syncFields;
-        } elseif (method_exists($this, "syncFields")) {
+        } elseif (method_exists($this, 'syncFields')) {
             $syncFields = $this->syncFields();
         }
 
@@ -85,7 +78,7 @@ trait Harmonics
 
         // Ensure primary key is included
         $primaryKey = $this->getKeyName();
-        if (!isset($fieldTypes[$primaryKey])) {
+        if (! isset($fieldTypes[$primaryKey])) {
             $fieldTypes[$primaryKey] = JSType::Any;
         }
 
@@ -94,7 +87,7 @@ trait Harmonics
 
     public function getSyncFilter()
     {
-        if (method_exists($this, "syncFilter")) {
+        if (method_exists($this, 'syncFilter')) {
             return $this->syncFilter();
         }
 
@@ -107,8 +100,8 @@ trait Harmonics
 
         $user = User::find($userId);
 
-        if (!$user) {
-            return "";
+        if (! $user) {
+            return '';
         }
 
         if (empty($prefix)) {
@@ -140,22 +133,23 @@ trait Harmonics
     public function getWriteAction(string $actionName): ?object
     {
         $actions = $this->getWriteActions();
-        
+
         foreach ($actions as $name => $actionConfig) {
             if ($name === $actionName) {
                 if (is_string($actionConfig)) {
                     // Simple class name
                     return app($actionConfig);
-                } elseif (is_array($actionConfig) && isset($actionConfig[0])) {
+                }
+                if (is_array($actionConfig) && isset($actionConfig[0])) {
                     // [ClassName, options] format
                     $actionClass = $actionConfig[0];
                     $options = $actionConfig[1] ?? [];
-                    
+
                     $action = app($actionClass);
                     if (method_exists($action, 'setConfig')) {
                         $action->setConfig($options);
                     }
-                    
+
                     return $action;
                 }
             }

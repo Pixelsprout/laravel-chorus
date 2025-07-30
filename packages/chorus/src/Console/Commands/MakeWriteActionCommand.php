@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace Pixelsprout\LaravelChorus\Console\Commands;
 
 use Illuminate\Console\GeneratorCommand;
-use Illuminate\Support\Str;
 
-class MakeWriteActionCommand extends GeneratorCommand
+final class MakeWriteActionCommand extends GeneratorCommand
 {
     /**
      * The name and signature of the console command.
@@ -37,7 +36,7 @@ class MakeWriteActionCommand extends GeneratorCommand
      */
     protected function getStub()
     {
-        return __DIR__ . '/stubs/writeaction.stub';
+        return __DIR__.'/stubs/writeaction.stub';
     }
 
     /**
@@ -48,7 +47,7 @@ class MakeWriteActionCommand extends GeneratorCommand
      */
     protected function getDefaultNamespace($rootNamespace)
     {
-        return $rootNamespace . '\Actions\WriteActions';
+        return $rootNamespace.'\Actions\WriteActions';
     }
 
     /**
