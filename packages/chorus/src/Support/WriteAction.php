@@ -28,7 +28,7 @@ abstract class WriteAction implements WriteActionInterface
     /**
      * Get validation rules for this action
      */
-    final public function rules(): array
+    public function rules(): array
     {
         return [];
     }
