@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Pest Chorus" type="PestRunConfigurationType">
+    <CommandLine workingDirectory="$PROJECT_DIR$/packages/chorus" />
+    <option name="pestRunnerSettings">
+      <PestRunner configuration_file="$PROJECT_DIR$/packages/chorus/phpunit.xml" method="" scope="ConfigurationFile" use_alternative_configuration_file="true" is_parallel_testing_enabled="true">
+        <option name="parallelTestingEnabled" value="true" />
+      </PestRunner>
+    </option>
+    <method v="2" />
+  </configuration>
+</component>
