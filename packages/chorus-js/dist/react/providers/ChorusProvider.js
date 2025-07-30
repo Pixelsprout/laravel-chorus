@@ -32,9 +32,8 @@ export function ChorusProvider({ children, userId, channelPrefix, onRejectedHarm
     const [schema, setSchema] = useState({});
     const [initializationError, setInitializationError] = useState(null);
     const handleHarmonicEvent = (event) => __awaiter(this, void 0, void 0, function* () {
+        // if (!chorusCore.getIsInitialized()) return;
         var _a;
-        if (!chorusCore.getIsInitialized())
-            return;
         // Skip processing harmonics during database rebuild
         if (chorusCore.getIsRebuilding()) {
             console.log('[Chorus] Skipping harmonic event during database rebuild:', event);
@@ -185,17 +184,26 @@ export function useChorus() {
 export function useHarmonics(tableName, query) {
     const shadowTableName = `${tableName}_shadow`;
     const deltaTableName = `${tableName}_deltas`;
-    const { tables } = useChorus();
+    const { tables, isInitialized } = useChorus();
     const tableState = tables[tableName] || {
         lastUpdate: null,
         isLoading: false,
         error: null,
     };
+    // Force a re-render when data is available
+    const [refreshCounter, setRefreshCounter] = useState(0);
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (chorusCore.getIsInitialized() && refreshCounter === 0) {
+                setRefreshCounter(1);
+            }
+        }, 100);
+        return () => clearInterval(interval);
+    }, [refreshCounter]);
     const data = useLiveQuery(() => __awaiter(this, void 0, void 0, function* () {
         var _a;
-        // Check if Chorus is initialized before trying to access tables
+        // Simple check - if core isn't ready, return empty
         if (!chorusCore.getIsInitialized()) {
-            console.log(`[Chorus] Database not yet initialized, skipping query for ${tableName}`);
             return [];
         }
         // Check if the specific table exists
@@ -254,7 +262,7 @@ export function useHarmonics(tableName, query) {
             console.error(`[Chorus] Error querying ${tableName}:`, error);
             return [];
         }
-    }), [tableName, query, tableState.lastUpdate]);
+    }), [tableName, query, refreshCounter]);
     const actions = useMemo(() => ({
         create: (data, sideEffect) => __awaiter(this, void 0, void 0, function* () {
             const db = chorusCore.getDb();

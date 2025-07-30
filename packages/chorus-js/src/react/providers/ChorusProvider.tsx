@@ -57,7 +57,7 @@ export function ChorusProvider({
   const [initializationError, setInitializationError] = useState<string | null>(null);
 
   const handleHarmonicEvent = async (event: HarmonicEvent) => {
-    if (!chorusCore.getIsInitialized()) return;
+    // if (!chorusCore.getIsInitialized()) return;
 
     // Skip processing harmonics during database rebuild
     if (chorusCore.getIsRebuilding()) {
@@ -248,17 +248,29 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
   const shadowTableName = `${tableName}_shadow`;
   const deltaTableName = `${tableName}_deltas`;
 
-  const { tables } = useChorus();
+  const { tables, isInitialized } = useChorus();
   const tableState = tables[tableName] || {
     lastUpdate: null,
     isLoading: false,
     error: null,
   };
 
+  // Force a re-render when data is available
+  const [refreshCounter, setRefreshCounter] = useState(0);
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (chorusCore.getIsInitialized() && refreshCounter === 0) {
+        setRefreshCounter(1);
+      }
+    }, 100);
+    
+    return () => clearInterval(interval);
+  }, [refreshCounter]);
+
   const data = useLiveQuery<T[]>(async () => {
-    // Check if Chorus is initialized before trying to access tables
+    // Simple check - if core isn't ready, return empty
     if (!chorusCore.getIsInitialized()) {
-      console.log(`[Chorus] Database not yet initialized, skipping query for ${tableName}`);
       return [];
     }
 
@@ -329,7 +341,7 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
       console.error(`[Chorus] Error querying ${tableName}:`, error);
       return [];
     }
-  }, [tableName, query, tableState.lastUpdate]);
+  }, [tableName, query, refreshCounter]);
 
   const actions: HarmonicActions<T, TInput> = useMemo(() => ({
     create: async (data, sideEffect) => {

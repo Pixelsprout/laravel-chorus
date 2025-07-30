@@ -18,7 +18,7 @@ export default function Dashboard() {
 
     const { data: users, isLoading: usersLoading } = useTable<User>('users');
 
-    console.log("USERS: ", users);
+    console.log("USERSS: ", users);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
