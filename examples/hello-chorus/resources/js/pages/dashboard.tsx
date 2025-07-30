@@ -39,6 +39,8 @@ function DashboardContent() {
         lastUpdate: messagesLastUpdate,
     } = useTable<Message>('messages', { query: messagesQuery });
 
+    console.log("MESSAGES: ", messages);
+
     // Sync platforms with the server
     const {
         data: platforms,
