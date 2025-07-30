@@ -28,12 +28,12 @@ export default function Dashboard() {
                 <Card title={'Chorus Users'}>
 
                     <ul className="divide-border divide-y">
-                        { !users || users.length === 0
+                        { usersLoading
                             ? (
                                 <li>Loading....</li>
                             )
                             : users?.map(user => (
-                            <li key={user.id}>
+                            <li key={user.id} className={'ml-2'}>
                                 { user.name }
                             </li>
                         )) }

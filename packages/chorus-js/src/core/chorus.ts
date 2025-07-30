@@ -529,7 +529,7 @@ export class ChorusCore {
       switch (event.operation) {
         case "create":
           this.log(`Adding new ${tableName} record`, data);
-          await this.db!.table(tableName).add(data);
+          await this.db!.table(tableName).put(data);
           break;
         case "update":
           this.log(`Updating ${tableName} record`, data);
@@ -544,7 +544,7 @@ export class ChorusCore {
       }
 
       // Save the latest harmonic ID
-      this.saveLatestHarmonicId(event.id);
+      // this.saveLatestHarmonicId(event.id);
 
       // Update the table state
       this.updateTableState(tableName, {
@@ -555,6 +555,7 @@ export class ChorusCore {
 
       return true;
     } catch (err) {
+      console.warn(`Error during batch processing for ${tableName}:`, err);
       const enhancedError = new SyncError(
         `Error processing ${tableName} harmonic ID ${event.id}`,
         err instanceof Error ? err : new Error(String(err)),

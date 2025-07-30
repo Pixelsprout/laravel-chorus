@@ -5,9 +5,24 @@ import Dexie from "dexie";
 export class ChorusDatabase extends Dexie {
   private schemaInitialized: boolean = false;
   private currentSchemaHash: string = '';
+  private userId: string = '';
 
   constructor(databaseName: string = "ChorusDatabase") {
     super(databaseName);
+    // Extract userId from database name if it follows the pattern chorus_db_{userId}
+    const match = databaseName.match(/chorus_db_(.+)/);
+    if (match) {
+      this.userId = match[1];
+    }
+    
+    // Load the current schema hash from localStorage if available
+    if (this.userId) {
+      const storedHash = localStorage.getItem(`chorus_schema_hash_${this.userId}`);
+      if (storedHash) {
+        this.currentSchemaHash = storedHash;
+        this.schemaInitialized = true;
+      }
+    }
   }
 
   // Generate a hash of the schema to detect changes
@@ -28,10 +43,45 @@ export class ChorusDatabase extends Dexie {
   // We are also keeping track of an optimistic changes (delta) per table.
   async initializeSchema(tables: Record<string, string>, forceVersion?: number): Promise<void> {
     const newSchemaHash = this.generateSchemaHash(tables);
+
+    // Get stored db version from localStorage (separate from chorus.ts schema version)
+    const storedDbVersion = localStorage.getItem(`chorus_db_version_${this.userId}`);
     
-    // Check if schema has changed or if we're forcing a version
-    if (this.schemaInitialized && this.currentSchemaHash === newSchemaHash && !forceVersion) {
-      console.log('[Chorus] Schema unchanged, skipping initialization...');
+    // Calculate version based on schema hash or use forced version
+    const calculatedVersion = forceVersion || parseInt(newSchemaHash.slice(-8), 16) % 1000000 + 1;
+    
+    // Check if schema has changed by comparing hash (primary check)
+    // Only force reinitialize if the calculated version is different from stored db version
+    const hashMatches = this.currentSchemaHash === newSchemaHash;
+    const versionChanged = storedDbVersion && calculatedVersion.toString() !== storedDbVersion;
+    const schemaUnchanged = this.schemaInitialized && hashMatches && !versionChanged;
+
+    if (schemaUnchanged) {
+      console.log('[Chorus] Schema unchanged, but ensuring database is properly configured...');
+      // Even if schema is unchanged, we need to ensure Dexie knows about the tables
+      // and the database is open
+      const schemaWithDeltas: Record<string, string> = {};
+      for (const key in tables) {
+        if (Object.prototype.hasOwnProperty.call(tables, key)) {
+          schemaWithDeltas[key] = tables[key];
+          schemaWithDeltas[`${key}_shadow`] = tables[key];
+          schemaWithDeltas[`${key}_deltas`] =
+            "++id, operation, data, sync_status, [operation+sync_status]";
+        }
+      }
+      
+      // Configure the database schema even if unchanged
+      this.version(calculatedVersion).stores(schemaWithDeltas);
+      
+      if (!this.isOpen()) {
+        try {
+          await this.open();
+          console.log('[Chorus] Database reopened successfully');
+        } catch (error) {
+          console.error('[Chorus] Failed to reopen database:', error);
+          throw error;
+        }
+      }
       return;
     }
 
@@ -52,20 +102,24 @@ export class ChorusDatabase extends Dexie {
       this.close();
     }
 
-    // Calculate version based on schema hash or use forced version
-    const version = forceVersion || parseInt(newSchemaHash.slice(-8), 16) % 1000000 + 1;
-    
-    console.log(`[Chorus] Using database version: ${version} (schema hash: ${newSchemaHash})`);
+    console.log(`[Chorus] Using database version: ${calculatedVersion} (schema hash: ${newSchemaHash})`);
     
     // Use the calculated version to trigger proper IndexedDB upgrades
-    this.version(version).stores(schemaWithDeltas);
+    this.version(calculatedVersion).stores(schemaWithDeltas);
     
     // Open the database to ensure schema is applied
     try {
       await this.open();
-      console.log(`[Chorus] Database opened successfully with schema version ${version}`);
+      console.log(`[Chorus] Database opened successfully with schema version ${calculatedVersion}`);
       this.schemaInitialized = true;
       this.currentSchemaHash = newSchemaHash;
+      
+      // Store the calculated version and schema hash in localStorage for future comparison
+      // Use a separate key to avoid conflicts with chorus.ts
+      if (this.userId) {
+        localStorage.setItem(`chorus_db_version_${this.userId}`, calculatedVersion.toString());
+        localStorage.setItem(`chorus_schema_hash_${this.userId}`, newSchemaHash);
+      }
     } catch (error) {
       console.error('[Chorus] Failed to open database:', error);
       throw error;
