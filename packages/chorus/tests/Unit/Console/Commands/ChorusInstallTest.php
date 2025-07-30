@@ -232,11 +232,11 @@ test('runPackageManagerCommand throws exception on command failure', function ()
 
     // Act & Assert
     expect(fn() => $command->runPackageManagerCommand('npm', ['install', '@pixelsprout/chorus-js']))
-        ->toThrow(Exception::class, 'Package manager command failed');
-        
-    expect($command->capturedOutput)->toContain(['info', 'Running: npm install @pixelsprout/chorus-js'])
+        ->toThrow(Exception::class, 'Package manager command failed')
+        ->and($command->capturedOutput)->toContain(['info', 'Running: npm install @pixelsprout/chorus-js'])
         ->and($command->capturedOutput)->toContain(['error', 'Failed to run: npm install @pixelsprout/chorus-js'])
         ->and($command->capturedOutput)->toContain(['error', 'Command failed']);
+
 });
 
 test('command can be instantiated and has handle method', function () {
