@@ -1,6 +1,9 @@
 name: Fix Code Style
 
-on: [push]
+on:
+  push:
+    branches:
+      - main
 
 env:
   GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
