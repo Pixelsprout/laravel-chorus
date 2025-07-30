@@ -1,12 +1,9 @@
 name: Fix Code Style
 
-on:
-  push:
-    branches:
-      - main
+permissions:
+  contents: write
 
-env:
-  GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+on: [push]
 
 jobs:
   lint:
