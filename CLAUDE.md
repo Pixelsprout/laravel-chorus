@@ -2,10 +2,15 @@
 
 **Laravel Chorus** enables seamless synchronization of specific database tables and columns to clients in real-time, using database triggers, Redis, Laravel Reverb, and IndexedDB on the frontend.
 
+## AI Guidelines
+- When writing tests, use Pest and apply the (Arrange, Act, Assert) pattern to each test.
+- Try to always use php `final` classes.
+- When I ask you to create a pull request:
+  1. Please check the git history on the current branch
+  2. If all changes are commited create a PR using the GitHub cli `gh` into the `main` branch my default.
+
 ## Teck Stack Overview
 - Laravel 12: Server-side framework
-- ReactPHP: Asynchronous event handling
-- Redis: Pub/Sub for real-time notifications
 - Supports MySQL, PostgreSQL and SQLite databases
 - PestPHP: Testing framework
 - Laravel Reverb: For real-time client updates
@@ -24,19 +29,11 @@
 
 ### 1. Writing to `harmonics` Table
 - Database triggers OR Laravel model events (`creating`, `updating`, `deleting`) create entries in the `harmonics` table.
-- Tracked fields include:
-  - `table_name`
-  - `record_id`
-  - `operation` (create/update/delete)
-  - `data` (JSON payload)
-  - `user_id` (optional, for scoped sync)
-  - `processed_at` (for deduplication)
 
-### 2. Redis Pub/Sub Notification
-- On insert into `harmonics`, a Redis event is published:
-  ```php
-  Redis::publish('chorus.harmonics', $harmonic->id);
+### 2. Broadcasting harmonics over websockets
+- When harmonics are written, chorus will then broadcast the harmonic data over websockets. Each client receives the harmonics they are authorized to see.
 
 ## Repository Structure
 - `./examples`: Laravel project example using Chorus
 - `./packages`: Contains laravel-chorus package and other supporting packages
+
