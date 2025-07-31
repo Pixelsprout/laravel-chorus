@@ -60,7 +60,7 @@ final class ChorusInstall extends Command
             $envFile = base_path('.env');
             if (File::exists($envFile)) {
                 $env = File::get($envFile);
-                if (! preg_match('/BROADCAST_DRIVER=reverb/', $env)) {
+                if (!str_contains($env, 'BROADCAST_DRIVER=reverb')) {
                     info(
                         'Note: For the best experience with Chorus, we recommend using the "reverb" driver.'
                     );
@@ -73,8 +73,6 @@ final class ChorusInstall extends Command
             return;
         }
 
-        // Use Laravel's built-in broadcasting installation command
-
         $setupReverb = confirm(
             label: 'Would you like to set up broadcasting with Reverb?',
             default: true,
@@ -83,21 +81,11 @@ final class ChorusInstall extends Command
 
         if ($setupReverb) {
             // Run the Laravel broadcasting installer
-            $this->call('install:broadcasting');
+            $this->call('reverb:install');
 
-            // Check if the reverb driver was selected
-            $envFile = base_path('.env');
-            if (File::exists($envFile)) {
-                $env = File::get($envFile);
-                if (! preg_match('/BROADCAST_DRIVER=reverb/', $env)) {
-                    info(
-                        'Note: For the best experience with Chorus, we recommend using the "reverb" driver.'
-                    );
-                    info(
-                        'You can change this in your .env file: BROADCAST_DRIVER=reverb'
-                    );
-                }
-            }
+            // Ensure BROADCAST_DRIVER is set to reverb
+            $this->updateEnvFile('BROADCAST_DRIVER', 'reverb');
+
         } else {
             warning(
                 'Skipping broadcasting setup. You will need to set up broadcasting manually to use Chorus\'s real-time features.'
@@ -308,5 +296,27 @@ TS;
 
         // Check if REVERB_APP_ID is present and has a value
         return preg_match('/REVERB_APP_ID=.+/', $env) === 1;
+    }
+
+    private function updateEnvFile(string $key, string $value): void
+    {
+        $envFile = base_path('.env');
+
+        if (!File::exists($envFile)) {
+            return;
+        }
+
+        $env = File::get($envFile);
+
+        // Check if the key already exists
+        if (preg_match("/^{$key}=/m", $env)) {
+            // Update existing key
+            $env = preg_replace("/^{$key}=.*/m", "{$key}={$value}", $env);
+        } else {
+            // Add new key
+            $env .= "\n{$key}={$value}";
+        }
+
+        File::put($envFile, $env);
     }
 }
