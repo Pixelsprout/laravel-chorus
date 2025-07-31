@@ -50,6 +50,9 @@ laravel-chorus/
    cd examples/hello-chorus
    composer install
    npm install
+
+   cd packages/chorus-js
+   npm install
    ```
 
 2. **Set up Environment**:
