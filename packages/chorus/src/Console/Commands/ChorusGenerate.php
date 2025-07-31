@@ -10,6 +10,10 @@ use Illuminate\Support\Facades\File;
 use ReflectionClass;
 use Symfony\Component\Finder\Finder;
 
+use function Laravel\Prompts\error;
+use function Laravel\Prompts\info;
+use function Laravel\Prompts\warning;
+
 final class ChorusGenerate extends Command
 {
     /**
@@ -31,18 +35,18 @@ final class ChorusGenerate extends Command
      */
     public function handle()
     {
-        $this->info('Generating IndexedDB schema from Harmonics models...');
+        info('Generating IndexedDB schema from Harmonics models...');
 
         // Get all models
         $models = $this->getModels();
-        $this->info('Found '.count($models).' models to scan');
+        info('Found '.count($models).' models to scan');
 
         // Filter models with Harmonics trait
         $harmonicsModels = $this->filterHarmonicsModels($models);
-        $this->info('Found '.count($harmonicsModels).' models with Harmonics trait');
+        info('Found '.count($harmonicsModels).' models with Harmonics trait');
 
         if (count($harmonicsModels) === 0) {
-            $this->warn('No models with Harmonics trait found. Schema generation aborted.');
+            warning('No models with Harmonics trait found. Schema generation aborted.');
 
             return 1;
         }
@@ -59,7 +63,7 @@ final class ChorusGenerate extends Command
         // Save types file
         $this->saveTypes($interfaces);
 
-        $this->info('Schema generation complete!');
+        info('Schema generation complete!');
 
         return 0;
     }
@@ -78,7 +82,7 @@ final class ChorusGenerate extends Command
         $modelDirectory = app_path('Models');
 
         if (! File::exists($modelDirectory)) {
-            $this->warn("Models directory not found at {$modelDirectory}");
+            warning("Models directory not found at {$modelDirectory}");
 
             return $models;
         }
@@ -117,7 +121,7 @@ final class ChorusGenerate extends Command
                     $harmonicsModels[] = $model;
                 }
             } catch (Exception $e) {
-                $this->warn("Error analyzing model {$model}: ".$e->getMessage());
+                warning("Error analyzing model {$model}: ".$e->getMessage());
             }
         }
 
@@ -164,9 +168,9 @@ final class ChorusGenerate extends Command
                 $fields = implode(', ', array_filter($syncFields, fn ($field) => $field !== $primaryKey));
                 $schema[$tableName] = $primaryKey.($fields ? ', '.$fields : '');
 
-                $this->info("Added schema for table {$tableName}");
+                info("Added schema for table {$tableName}");
             } catch (Exception $e) {
-                $this->warn("Error generating schema for {$modelClass}: ".$e->getMessage());
+                warning("Error generating schema for {$modelClass}: ".$e->getMessage());
             }
         }
 
@@ -188,9 +192,9 @@ final class ChorusGenerate extends Command
 
                 $interfaces[$modelName] = $fieldTypes;
 
-                $this->info("Added interface for {$modelName}");
+                info("Added interface for {$modelName}");
             } catch (Exception $e) {
-                $this->warn("Error generating interface for {$modelClass}: ".$e->getMessage());
+                error("Error generating interface for {$modelClass}: ".$e->getMessage());
             }
         }
 
@@ -224,7 +228,7 @@ final class ChorusGenerate extends Command
         // Save file
         File::put("{$directory}/schema.ts", $content);
 
-        $this->info("Schema saved to {$directory}/schema.ts");
+        info("Schema saved to {$directory}/schema.ts");
     }
 
     /**
@@ -258,6 +262,6 @@ final class ChorusGenerate extends Command
         // Save file
         File::put("{$directory}/types.ts", $content);
 
-        $this->info("Types saved to {$directory}/types.ts");
+        info("Types saved to {$directory}/types.ts");
     }
 }
