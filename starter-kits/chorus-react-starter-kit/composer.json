@@ -2,10 +2,11 @@
     "$schema": "https://getcomposer.org/schema.json",
     "name": "laravel/react-starter-kit",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
+    "description": "The Chorus skeleton application for the Laravel framework.",
     "keywords": [
         "laravel",
-        "framework"
+        "framework",
+        "Chorus"
     ],
     "license": "MIT",
     "require": {
