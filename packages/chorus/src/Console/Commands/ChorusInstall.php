@@ -292,13 +292,13 @@ TS;
     private function isReverbConfigured(): bool
     {
         $envFile = base_path('.env');
-        
+
         if (! File::exists($envFile)) {
             return false;
         }
 
         $env = File::get($envFile);
-        
+
         // Check if REVERB_APP_ID is present and has a value
         return preg_match('/REVERB_APP_ID=.+/', $env) === 1;
     }
