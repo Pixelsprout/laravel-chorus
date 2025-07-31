@@ -36,9 +36,21 @@ export class ChorusCore {
         this.isOnline = true;
         this.isRebuilding = false;
         this.debugMode = false;
+        this.readyPromise = null;
         this.debugMode = (_a = options.debugMode) !== null && _a !== void 0 ? _a : false;
+        this.readyPromise = new Promise((resolve) => {
+            this.resolveReady = resolve;
+        });
         this.tableNames = [];
         this.setupOfflineHandlers();
+    }
+    markReady() {
+        this.resolveReady();
+    }
+    waitUntilReady() {
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.readyPromise;
+        });
     }
     /**
      * Set up offline event handlers
@@ -554,6 +566,7 @@ export class ChorusCore {
             // Mark as initialized
             this.isInitialized = true;
             this.log("Chorus initialization complete");
+            this.markReady();
         });
     }
     /**

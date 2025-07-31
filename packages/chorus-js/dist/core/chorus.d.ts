@@ -37,9 +37,13 @@ export declare class ChorusCore {
     private isOnline;
     private isRebuilding;
     private debugMode;
+    private readyPromise;
+    private resolveReady;
     constructor(options?: {
         debugMode: boolean;
     });
+    private markReady;
+    waitUntilReady(): Promise<void | null>;
     /**
      * Set up offline event handlers
      */

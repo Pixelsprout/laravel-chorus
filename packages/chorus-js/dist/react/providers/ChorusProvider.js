@@ -183,7 +183,7 @@ export function useChorus() {
 export function useHarmonics(tableName, query) {
     const shadowTableName = `${tableName}_shadow`;
     const deltaTableName = `${tableName}_deltas`;
-    const { tables } = useChorus();
+    const { tables, isInitialized } = useChorus();
     const tableState = tables[tableName] || {
         lastUpdate: null,
         isLoading: false,
@@ -191,6 +191,7 @@ export function useHarmonics(tableName, query) {
     };
     const data = useLiveQuery(() => __awaiter(this, void 0, void 0, function* () {
         var _a;
+        yield chorusCore.waitUntilReady(); // blocks until DB is initialized
         // Check if the specific table exists
         if (!chorusCore.hasTable(tableName)) {
             console.warn(`[Chorus] Table ${tableName} does not exist in schema`);
@@ -247,7 +248,7 @@ export function useHarmonics(tableName, query) {
             console.error(`[Chorus] Error querying ${tableName}:`, error);
             return [];
         }
-    }), [chorusCore.getIsInitialized(), tableName, query]);
+    }), [isInitialized, tableName, query]);
     const actions = useMemo(() => ({
         create: (data, sideEffect) => __awaiter(this, void 0, void 0, function* () {
             const db = chorusCore.getDb();

@@ -166,7 +166,7 @@ export function ChorusProvider({
         const fetchedSchema = await chorusCore.fetchAndInitializeSchema();
         
         await chorusCore.initializeTables();
-        
+
         if (!isCancelled) {
           setSchema(fetchedSchema);
         }
@@ -249,7 +249,7 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
   const shadowTableName = `${tableName}_shadow`;
   const deltaTableName = `${tableName}_deltas`;
 
-  const { tables } = useChorus();
+  const { tables, isInitialized } = useChorus();
   const tableState = tables[tableName] || {
     lastUpdate: null,
     isLoading: false,
@@ -257,6 +257,7 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
   };
 
   const data = useLiveQuery<T[]>(async () => {
+    await chorusCore.waitUntilReady(); // blocks until DB is initialized
 
     // Check if the specific table exists
     if (!chorusCore.hasTable(tableName)) {
@@ -325,7 +326,7 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
       console.error(`[Chorus] Error querying ${tableName}:`, error);
       return [];
     }
-  }, [chorusCore.getIsInitialized(), tableName, query]);
+  }, [isInitialized, tableName, query]);
 
   const actions: HarmonicActions<T, TInput> = useMemo(() => ({
     create: async (data, sideEffect) => {

@@ -57,11 +57,26 @@ export class ChorusCore {
   private isOnline: boolean = true;
   private isRebuilding: boolean = false;
   private debugMode: boolean = false;
+  private readyPromise: Promise<void> | null = null;
+  private resolveReady!: () => void;
 
   constructor(options: { debugMode: boolean } = { debugMode: false }) {
     this.debugMode = options.debugMode ?? false;
+
+    this.readyPromise = new Promise<void>((resolve) => {
+      this.resolveReady = resolve;
+    });
+
     this.tableNames = [];
     this.setupOfflineHandlers();
+  }
+
+  private markReady() {
+    this.resolveReady();
+  }
+
+  async waitUntilReady() {
+    return this.readyPromise;
   }
 
   /**
@@ -695,6 +710,7 @@ export class ChorusCore {
     // Mark as initialized
     this.isInitialized = true;
     this.log("Chorus initialization complete");
+    this.markReady();
   }
 
   /**
