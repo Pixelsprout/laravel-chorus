@@ -256,24 +256,7 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
     error: null,
   };
 
-  // Force a re-render when data is available
-  const [refreshCounter, setRefreshCounter] = useState(0);
-  
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (chorusCore.getIsInitialized() && refreshCounter === 0) {
-        setRefreshCounter(1);
-      }
-    }, 100);
-    
-    return () => clearInterval(interval);
-  }, [refreshCounter]);
-
   const data = useLiveQuery<T[]>(async () => {
-    // Simple check - if core isn't ready, return empty
-    if (!chorusCore.getIsInitialized()) {
-      return [];
-    }
 
     // Check if the specific table exists
     if (!chorusCore.hasTable(tableName)) {
@@ -342,7 +325,7 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
       console.error(`[Chorus] Error querying ${tableName}:`, error);
       return [];
     }
-  }, [tableName, query, refreshCounter]);
+  }, [chorusCore.getIsInitialized(), tableName, query]);
 
   const actions: HarmonicActions<T, TInput> = useMemo(() => ({
     create: async (data, sideEffect) => {
