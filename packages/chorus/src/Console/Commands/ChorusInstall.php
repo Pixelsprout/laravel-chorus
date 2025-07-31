@@ -9,6 +9,11 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 
+use function Laravel\Prompts\confirm;
+use function Laravel\Prompts\error;
+use function Laravel\Prompts\info;
+use function Laravel\Prompts\warning;
+
 final class ChorusInstall extends Command
 {
     protected $signature = 'chorus:install';
@@ -17,7 +22,7 @@ final class ChorusInstall extends Command
 
     public function handle(): void
     {
-        $this->info('Installing Laravel Chorus...');
+        info('Installing Laravel Chorus...');
 
         // Step 1: Publish migrations, config, and channels
         $this->call('chorus:publish');
@@ -34,32 +39,32 @@ final class ChorusInstall extends Command
         // Step 5: Create _generated directory with default schema
         $this->createGeneratedDirectory();
 
-        $this->info('Laravel Chorus has been installed successfully!');
-        $this->info('Next steps:');
-        $this->info('1. Run the migrations with: php artisan migrate');
-        $this->info('2. Generate IndexedDB schema with: php artisan chorus:generate');
-        $this->info('3. Start the Chorus server with: php artisan chorus:start');
-        $this->info("4. Install the @chorus/js package once it's published to npm");
-        $this->info('5. Configure your frontend to use the Chorus JavaScript client');
+        info('Laravel Chorus has been installed successfully!');
+        info('Next steps:');
+        info('1. Run the migrations with: php artisan migrate');
+        info('2. Generate IndexedDB schema with: php artisan chorus:generate');
+        info('3. Start the Chorus server with: php artisan chorus:start');
+        info("4. Install the @chorus/js package once it's published to npm");
+        info('5. Configure your frontend to use the Chorus JavaScript client');
     }
 
     private function setupReverb(): void
     {
-        $this->info('Setting up broadcasting for Laravel Chorus...');
+        info('Setting up broadcasting for Laravel Chorus...');
 
         // Check if Reverb is already installed and configured
         if (File::exists(config_path('reverb.php')) && $this->isReverbConfigured()) {
-            $this->info('Reverb is already installed and configured.');
+            info('Reverb is already installed and configured.');
 
             // Check if the reverb driver is configured
             $envFile = base_path('.env');
             if (File::exists($envFile)) {
                 $env = File::get($envFile);
                 if (! preg_match('/BROADCAST_DRIVER=reverb/', $env)) {
-                    $this->info(
+                    info(
                         'Note: For the best experience with Chorus, we recommend using the "reverb" driver.'
                     );
-                    $this->info(
+                    info(
                         'You can change this in your .env file: BROADCAST_DRIVER=reverb'
                     );
                 }
@@ -69,12 +74,14 @@ final class ChorusInstall extends Command
         }
 
         // Use Laravel's built-in broadcasting installation command
-        if (
-            $this->confirm(
-                'Would you like to set up broadcasting with Reverb?',
-                true
-            )
-        ) {
+
+        $setupReverb = confirm(
+            label: 'Would you like to set up broadcasting with Reverb?',
+            default: true,
+            hint: 'Chorus uses reverb to communicate change events with connected clients.'
+        );
+
+        if ($setupReverb) {
             // Run the Laravel broadcasting installer
             $this->call('install:broadcasting');
 
@@ -83,16 +90,16 @@ final class ChorusInstall extends Command
             if (File::exists($envFile)) {
                 $env = File::get($envFile);
                 if (! preg_match('/BROADCAST_DRIVER=reverb/', $env)) {
-                    $this->info(
+                    info(
                         'Note: For the best experience with Chorus, we recommend using the "reverb" driver.'
                     );
-                    $this->info(
+                    info(
                         'You can change this in your .env file: BROADCAST_DRIVER=reverb'
                     );
                 }
             }
         } else {
-            $this->warn(
+            warning(
                 'Skipping broadcasting setup. You will need to set up broadcasting manually to use Chorus\'s real-time features.'
             );
         }
@@ -110,14 +117,14 @@ final class ChorusInstall extends Command
                     $appConfig
                 )
             ) {
-                $this->info(
+                info(
                     'BroadcastServiceProvider is commented out in your config/app.php file.'
                 );
 
                 if (
-                    $this->confirm(
-                        'Would you like to enable BroadcastServiceProvider now?',
-                        true
+                    confirm(
+                        label: 'Would you like to enable BroadcastServiceProvider now?',
+                        default: true
                     )
                 ) {
                     $appConfig = preg_replace(
@@ -127,7 +134,7 @@ final class ChorusInstall extends Command
                     );
 
                     File::put(config_path('app.php'), $appConfig);
-                    $this->info(
+                    info(
                         'BroadcastServiceProvider has been enabled in your config/app.php file.'
                     );
                 }
@@ -137,7 +144,7 @@ final class ChorusInstall extends Command
                     $appConfig
                 )
             ) {
-                $this->info('BroadcastServiceProvider is already enabled.');
+                info('BroadcastServiceProvider is already enabled.');
             }
         }
     }
@@ -149,7 +156,7 @@ final class ChorusInstall extends Command
 
         if (! File::exists($directory)) {
             File::makeDirectory($directory, 0755, true);
-            $this->info('Created directory: resources/js/_generated');
+            info('Created directory: resources/js/_generated');
         }
 
         // Create default schema file
@@ -167,7 +174,7 @@ export const chorusSchema: Record<string, string> = {
 TS;
 
             File::put($schemaPath, $content);
-            $this->info(
+            info(
                 'Created default schema file: resources/js/_generated/schema.ts'
             );
         }
@@ -175,12 +182,12 @@ TS;
 
     private function installChorusJS(): void
     {
-        $this->info('Installing chorus-js node module...');
+        info('Installing chorus-js node module...');
 
         // Check if package.json exists
         $packageJsonPath = base_path('package.json');
         if (! File::exists($packageJsonPath)) {
-            $this->warn(
+            warning(
                 "package.json not found. Skipping chorus-js installation. You'll need to install it manually when it's published to npm."
             );
 
@@ -189,9 +196,9 @@ TS;
 
         // For now, we'll just show instructions since the package isn't published yet
         if (
-            $this->confirm(
-                'Would you like to install the chorus-js package?',
-                true
+            confirm(
+                label: 'Would you like to install the chorus-js package?',
+                default: true
             )
         ) {
             try {
@@ -199,24 +206,24 @@ TS;
                 $packageManager = $this->detectPackageManager();
 
                 if ($packageManager) {
-                    $this->info("Detected package manager: {$packageManager}");
+                    info("Detected package manager: {$packageManager}");
 
                     $this->runPackageManagerCommand($packageManager, ['install', '@pixelsprout/chorus-js']);
-                    $this->info('Successfully installed @chorus/js');
+                    info('Successfully installed @chorus/js');
 
                 } else {
-                    $this->warn(
+                    warning(
                         "No package manager detected (npm, yarn, pnpm). Please install chorus-js manually once it's published to npm."
                     );
                 }
             } catch (Exception $e) {
-                $this->error('Failed to install chorus-js: '.$e->getMessage());
-                $this->info(
+                error('Failed to install chorus-js: '.$e->getMessage());
+                info(
                     "You can install it manually once it's published with: npm install @chorus/js"
                 );
             }
         } else {
-            $this->info(
+            info(
                 'Skipped chorus-js installation. You can install it manually once published with: npm install @chorus/js'
             );
         }
@@ -271,19 +278,19 @@ TS;
     private function runPackageManagerCommand(string $packageManager, array $args): void
     {
         $command = $packageManager.' '.implode(' ', $args);
-        $this->info("Running: {$command}");
+        info("Running: {$command}");
 
         $result = Process::path(base_path())->run($command);
 
         if ($result->successful()) {
-            $this->info("Successfully ran: {$command}");
+            info("Successfully ran: {$command}");
             if ($result->output()) {
                 $this->line($result->output());
             }
         } else {
-            $this->error("Failed to run: {$command}");
+            error("Failed to run: {$command}");
             if ($result->errorOutput()) {
-                $this->error($result->errorOutput());
+                error($result->errorOutput());
             }
             throw new Exception('Package manager command failed');
         }
