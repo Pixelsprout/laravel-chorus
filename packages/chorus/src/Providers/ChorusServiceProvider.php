@@ -13,6 +13,7 @@ use Pixelsprout\LaravelChorus\Adapters\HarmonicSourceAdapterManager;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusDebug;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusGenerate;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusInstall;
+use Pixelsprout\LaravelChorus\Console\Commands\ChorusIntro;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusPublish;
 use Pixelsprout\LaravelChorus\Console\Commands\MakePrefixResolverCommand;
 use Pixelsprout\LaravelChorus\Console\Commands\MakeWriteActionCommand;
@@ -56,6 +57,7 @@ final class ChorusServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 ChorusInstall::class,
+                ChorusIntro::class,
                 ChorusPublish::class,
                 ChorusGenerate::class,
                 ChorusDebug::class,
