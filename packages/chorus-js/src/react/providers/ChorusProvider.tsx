@@ -31,6 +31,7 @@ interface ChorusProviderProps {
   onRejectedHarmonic?: (harmonic: HarmonicEvent) => void;
   onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void;
   onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void;
+  debugMode?: boolean;
 }
 
 const HarmonicListener: React.FC<{
@@ -50,14 +51,17 @@ export function ChorusProvider({
   onRejectedHarmonic,
   onSchemaVersionChange,
   onDatabaseVersionChange,
+  debugMode,
 }: ChorusProviderProps) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [tables, setTables] = useState<Record<string, TableState>>({});
   const [schema, setSchema] = useState<Record<string, any>>({});
   const [initializationError, setInitializationError] = useState<string | null>(null);
 
+  if (debugMode) chorusCore.setDebugMode(debugMode);
+
   const handleHarmonicEvent = async (event: HarmonicEvent) => {
-    if (!chorusCore.getIsInitialized()) return;
+    // if (!chorusCore.getIsInitialized()) return;
 
     // Skip processing harmonics during database rebuild
     if (chorusCore.getIsRebuilding()) {
@@ -157,20 +161,27 @@ export function ChorusProvider({
     const initialize = async () => {
       try {
         setInitializationError(null);
-        chorusCore.setup(userId ?? "guest", onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange);
+        chorusCore.setup(
+          userId ?? "guest", 
+          onRejectedHarmonic, 
+          onSchemaVersionChange, 
+          onDatabaseVersionChange,
+          (newTableStates) => {
+            if (!isCancelled) {
+              setTables(newTableStates);
+            }
+          }
+        );
         
-        console.log("[Chorus] Starting schema fetch and initialization...");
         const fetchedSchema = await chorusCore.fetchAndInitializeSchema();
         
-        console.log("[Chorus] Starting table initialization...");
         await chorusCore.initializeTables();
-        
+
         if (!isCancelled) {
           setSchema(fetchedSchema);
         }
         
         if (!isCancelled) {
-          console.log("[Chorus] Initialization complete, updating state...");
           setIsInitialized(chorusCore.getIsInitialized());
           setTables(chorusCore.getAllTableStates());
         }
@@ -248,7 +259,7 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
   const shadowTableName = `${tableName}_shadow`;
   const deltaTableName = `${tableName}_deltas`;
 
-  const { tables } = useChorus();
+  const { tables, isInitialized } = useChorus();
   const tableState = tables[tableName] || {
     lastUpdate: null,
     isLoading: false,
@@ -256,11 +267,7 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
   };
 
   const data = useLiveQuery<T[]>(async () => {
-    // Check if Chorus is initialized before trying to access tables
-    if (!chorusCore.getIsInitialized()) {
-      console.log(`[Chorus] Database not yet initialized, skipping query for ${tableName}`);
-      return [];
-    }
+    await chorusCore.waitUntilReady(); // blocks until DB is initialized
 
     // Check if the specific table exists
     if (!chorusCore.hasTable(tableName)) {
@@ -329,7 +336,7 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
       console.error(`[Chorus] Error querying ${tableName}:`, error);
       return [];
     }
-  }, [tableName, query, tableState.lastUpdate]);
+  }, [isInitialized, tableName, query]);
 
   const actions: HarmonicActions<T, TInput> = useMemo(() => ({
     create: async (data, sideEffect) => {

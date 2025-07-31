@@ -53,13 +53,31 @@ export class ChorusCore {
   private onRejectedHarmonic?: (harmonic: HarmonicEvent) => void;
   private onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void;
   private onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void;
+  private onTableStatesChange?: (tableStates: Record<string, TableState>) => void;
   private processedRejectedHarmonics = new Set<string>();
   private isOnline: boolean = true;
   private isRebuilding: boolean = false;
+  private debugMode: boolean = false;
+  private readyPromise: Promise<void> | null = null;
+  private resolveReady!: () => void;
 
-  constructor() {
+  constructor(options: { debugMode: boolean } = { debugMode: false }) {
+    this.debugMode = options.debugMode ?? false;
+
+    this.readyPromise = new Promise<void>((resolve) => {
+      this.resolveReady = resolve;
+    });
+
     this.tableNames = [];
     this.setupOfflineHandlers();
+  }
+
+  private markReady() {
+    this.resolveReady();
+  }
+
+  async waitUntilReady() {
+    return this.readyPromise;
   }
 
   /**
@@ -114,6 +132,10 @@ export class ChorusCore {
     this.log("ChorusCore has been reset.");
   }
 
+  public setDebugMode(debugMode: boolean): void {
+    this.debugMode = debugMode;
+  }
+
   /**
    * Set up the ChorusCore with a userId and optional fallback schema
    */
@@ -121,12 +143,14 @@ export class ChorusCore {
     userId: string | number, 
     onRejectedHarmonic?: (harmonic: HarmonicEvent) => void,
     onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void,
-    onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void
+    onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void,
+    onTableStatesChange?: (tableStates: Record<string, TableState>) => void
   ): void {
     this.userId = userId;
     this.onRejectedHarmonic = onRejectedHarmonic;
     this.onSchemaVersionChange = onSchemaVersionChange;
     this.onDatabaseVersionChange = onDatabaseVersionChange;
+    this.onTableStatesChange = onTableStatesChange;
     const dbName = `chorus_db_${userId || "guest"}`;
     this.db = createChorusDb(dbName);
     
@@ -374,7 +398,7 @@ export class ChorusCore {
    * Simple logging utility
    */
   private log(message: string, data?: any): void {
-    if (process.env.NODE_ENV !== "production") {
+    if (process.env.NODE_ENV !== "production" && this.debugMode) {
       if (data === undefined) {
         console.log(`[Chorus] ${message}`);
       } else {
@@ -529,7 +553,7 @@ export class ChorusCore {
       switch (event.operation) {
         case "create":
           this.log(`Adding new ${tableName} record`, data);
-          await this.db!.table(tableName).add(data);
+          await this.db!.table(tableName).put(data);
           break;
         case "update":
           this.log(`Updating ${tableName} record`, data);
@@ -544,7 +568,7 @@ export class ChorusCore {
       }
 
       // Save the latest harmonic ID
-      this.saveLatestHarmonicId(event.id);
+      // this.saveLatestHarmonicId(event.id);
 
       // Update the table state
       this.updateTableState(tableName, {
@@ -555,6 +579,7 @@ export class ChorusCore {
 
       return true;
     } catch (err) {
+      console.warn(`Error during batch processing for ${tableName}:`, err);
       const enhancedError = new SyncError(
         `Error processing ${tableName} harmonic ID ${event.id}`,
         err instanceof Error ? err : new Error(String(err)),
@@ -688,6 +713,7 @@ export class ChorusCore {
     // Mark as initialized
     this.isInitialized = true;
     this.log("Chorus initialization complete");
+    this.markReady();
   }
 
   /**
@@ -701,6 +727,11 @@ export class ChorusCore {
       ...this.tableStates[tableName],
       ...newState,
     };
+    
+    // Notify React component of state change
+    if (this.onTableStatesChange) {
+      this.onTableStatesChange(this.tableStates);
+    }
   }
 
   /**

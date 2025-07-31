@@ -13,8 +13,9 @@ interface ChorusProviderProps {
     onRejectedHarmonic?: (harmonic: HarmonicEvent) => void;
     onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void;
     onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void;
+    debugMode?: boolean;
 }
-export declare function ChorusProvider({ children, userId, channelPrefix, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange, }: ChorusProviderProps): React.JSX.Element;
+export declare function ChorusProvider({ children, userId, channelPrefix, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange, debugMode, }: ChorusProviderProps): React.JSX.Element;
 export declare function useChorus(): ChorusContextState;
 type Action<TInput, T> = (data: TInput, sideEffect?: (data: TInput) => Promise<void>) => void;
 interface HarmonicActions<T, TInput> {

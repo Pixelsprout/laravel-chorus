@@ -26,15 +26,16 @@ const HarmonicListener = ({ channel, onEvent }) => {
     });
     return null;
 };
-export function ChorusProvider({ children, userId, channelPrefix, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange, }) {
+export function ChorusProvider({ children, userId, channelPrefix, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange, debugMode, }) {
     const [isInitialized, setIsInitialized] = useState(false);
     const [tables, setTables] = useState({});
     const [schema, setSchema] = useState({});
     const [initializationError, setInitializationError] = useState(null);
+    if (debugMode)
+        chorusCore.setDebugMode(debugMode);
     const handleHarmonicEvent = (event) => __awaiter(this, void 0, void 0, function* () {
+        // if (!chorusCore.getIsInitialized()) return;
         var _a;
-        if (!chorusCore.getIsInitialized())
-            return;
         // Skip processing harmonics during database rebuild
         if (chorusCore.getIsRebuilding()) {
             console.log('[Chorus] Skipping harmonic event during database rebuild:', event);
@@ -127,16 +128,17 @@ export function ChorusProvider({ children, userId, channelPrefix, onRejectedHarm
         const initialize = () => __awaiter(this, void 0, void 0, function* () {
             try {
                 setInitializationError(null);
-                chorusCore.setup(userId !== null && userId !== void 0 ? userId : "guest", onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange);
-                console.log("[Chorus] Starting schema fetch and initialization...");
+                chorusCore.setup(userId !== null && userId !== void 0 ? userId : "guest", onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange, (newTableStates) => {
+                    if (!isCancelled) {
+                        setTables(newTableStates);
+                    }
+                });
                 const fetchedSchema = yield chorusCore.fetchAndInitializeSchema();
-                console.log("[Chorus] Starting table initialization...");
                 yield chorusCore.initializeTables();
                 if (!isCancelled) {
                     setSchema(fetchedSchema);
                 }
                 if (!isCancelled) {
-                    console.log("[Chorus] Initialization complete, updating state...");
                     setIsInitialized(chorusCore.getIsInitialized());
                     setTables(chorusCore.getAllTableStates());
                 }
@@ -185,7 +187,7 @@ export function useChorus() {
 export function useHarmonics(tableName, query) {
     const shadowTableName = `${tableName}_shadow`;
     const deltaTableName = `${tableName}_deltas`;
-    const { tables } = useChorus();
+    const { tables, isInitialized } = useChorus();
     const tableState = tables[tableName] || {
         lastUpdate: null,
         isLoading: false,
@@ -193,11 +195,7 @@ export function useHarmonics(tableName, query) {
     };
     const data = useLiveQuery(() => __awaiter(this, void 0, void 0, function* () {
         var _a;
-        // Check if Chorus is initialized before trying to access tables
-        if (!chorusCore.getIsInitialized()) {
-            console.log(`[Chorus] Database not yet initialized, skipping query for ${tableName}`);
-            return [];
-        }
+        yield chorusCore.waitUntilReady(); // blocks until DB is initialized
         // Check if the specific table exists
         if (!chorusCore.hasTable(tableName)) {
             console.warn(`[Chorus] Table ${tableName} does not exist in schema`);
@@ -254,7 +252,7 @@ export function useHarmonics(tableName, query) {
             console.error(`[Chorus] Error querying ${tableName}:`, error);
             return [];
         }
-    }), [tableName, query, tableState.lastUpdate]);
+    }), [isInitialized, tableName, query]);
     const actions = useMemo(() => ({
         create: (data, sideEffect) => __awaiter(this, void 0, void 0, function* () {
             const db = chorusCore.getDb();

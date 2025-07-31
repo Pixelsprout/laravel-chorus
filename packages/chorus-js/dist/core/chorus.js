@@ -25,7 +25,8 @@ export class SyncError extends Error {
  * ChorusCore class - handles the core data sync functionality
  */
 export class ChorusCore {
-    constructor() {
+    constructor(options = { debugMode: false }) {
+        var _a;
         this.db = null;
         this.schema = {};
         this.isInitialized = false;
@@ -34,8 +35,22 @@ export class ChorusCore {
         this.processedRejectedHarmonics = new Set();
         this.isOnline = true;
         this.isRebuilding = false;
+        this.debugMode = false;
+        this.readyPromise = null;
+        this.debugMode = (_a = options.debugMode) !== null && _a !== void 0 ? _a : false;
+        this.readyPromise = new Promise((resolve) => {
+            this.resolveReady = resolve;
+        });
         this.tableNames = [];
         this.setupOfflineHandlers();
+    }
+    markReady() {
+        this.resolveReady();
+    }
+    waitUntilReady() {
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.readyPromise;
+        });
     }
     /**
      * Set up offline event handlers
@@ -82,14 +97,18 @@ export class ChorusCore {
         this.userId = null;
         this.log("ChorusCore has been reset.");
     }
+    setDebugMode(debugMode) {
+        this.debugMode = debugMode;
+    }
     /**
      * Set up the ChorusCore with a userId and optional fallback schema
      */
-    setup(userId, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange) {
+    setup(userId, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange, onTableStatesChange) {
         this.userId = userId;
         this.onRejectedHarmonic = onRejectedHarmonic;
         this.onSchemaVersionChange = onSchemaVersionChange;
         this.onDatabaseVersionChange = onDatabaseVersionChange;
+        this.onTableStatesChange = onTableStatesChange;
         const dbName = `chorus_db_${userId || "guest"}`;
         this.db = createChorusDb(dbName);
         // Don't initialize schema here - it will be fetched from server
@@ -294,7 +313,7 @@ export class ChorusCore {
      * Simple logging utility
      */
     log(message, data) {
-        if (process.env.NODE_ENV !== "production") {
+        if (process.env.NODE_ENV !== "production" && this.debugMode) {
             if (data === undefined) {
                 console.log(`[Chorus] ${message}`);
             }
@@ -426,7 +445,7 @@ export class ChorusCore {
                 switch (event.operation) {
                     case "create":
                         this.log(`Adding new ${tableName} record`, data);
-                        yield this.db.table(tableName).add(data);
+                        yield this.db.table(tableName).put(data);
                         break;
                     case "update":
                         this.log(`Updating ${tableName} record`, data);
@@ -440,7 +459,7 @@ export class ChorusCore {
                         this.log(`Unknown operation type: ${event.operation}`);
                 }
                 // Save the latest harmonic ID
-                this.saveLatestHarmonicId(event.id);
+                // this.saveLatestHarmonicId(event.id);
                 // Update the table state
                 this.updateTableState(tableName, {
                     lastUpdate: new Date(),
@@ -450,6 +469,7 @@ export class ChorusCore {
                 return true;
             }
             catch (err) {
+                console.warn(`Error during batch processing for ${tableName}:`, err);
                 const enhancedError = new SyncError(`Error processing ${tableName} harmonic ID ${event.id}`, err instanceof Error ? err : new Error(String(err)));
                 console.error(enhancedError);
                 // Store failed events for potential retry
@@ -547,6 +567,7 @@ export class ChorusCore {
             // Mark as initialized
             this.isInitialized = true;
             this.log("Chorus initialization complete");
+            this.markReady();
         });
     }
     /**
@@ -554,6 +575,10 @@ export class ChorusCore {
      */
     updateTableState(tableName, newState) {
         this.tableStates[tableName] = Object.assign(Object.assign({}, this.tableStates[tableName]), newState);
+        // Notify React component of state change
+        if (this.onTableStatesChange) {
+            this.onTableStatesChange(this.tableStates);
+        }
     }
     /**
      * Get the current state for a specific table

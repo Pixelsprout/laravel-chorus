@@ -33,10 +33,18 @@ export declare class ChorusCore {
     private onRejectedHarmonic?;
     private onSchemaVersionChange?;
     private onDatabaseVersionChange?;
+    private onTableStatesChange?;
     private processedRejectedHarmonics;
     private isOnline;
     private isRebuilding;
-    constructor();
+    private debugMode;
+    private readyPromise;
+    private resolveReady;
+    constructor(options?: {
+        debugMode: boolean;
+    });
+    private markReady;
+    waitUntilReady(): Promise<void | null>;
     /**
      * Set up offline event handlers
      */
@@ -49,10 +57,11 @@ export declare class ChorusCore {
      * Reset the ChorusCore state
      */
     reset(): void;
+    setDebugMode(debugMode: boolean): void;
     /**
      * Set up the ChorusCore with a userId and optional fallback schema
      */
-    setup(userId: string | number, onRejectedHarmonic?: (harmonic: HarmonicEvent) => void, onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void, onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void): void;
+    setup(userId: string | number, onRejectedHarmonic?: (harmonic: HarmonicEvent) => void, onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void, onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void, onTableStatesChange?: (tableStates: Record<string, TableState>) => void): void;
     /**
      * Fetch schema from server and initialize database
      */

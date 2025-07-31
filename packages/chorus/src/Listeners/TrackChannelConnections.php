@@ -7,7 +7,6 @@ namespace Pixelsprout\LaravelChorus\Listeners;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Log;
 use Laravel\Reverb\Events\ChannelCreated;
 use Laravel\Reverb\Events\ChannelRemoved;
 
@@ -28,25 +27,15 @@ final class TrackChannelConnections
         foreach (array_keys($activeChannels) as $channelName) {
             // Match channels with or without a prefix
             preg_match(
-                '/^private-chorus\.(.*?)\.user\.(.+)$/',
+                '/^private-chorus\.(?:(.*?)\.)?user\.(.+)$/',
                 $channelName,
                 $matches
             );
 
             if ($matches) {
-                /* We need to check if the prefix is included or not
-                 * to determine where the user ID is located.
-                 */
-                if (count($matches) === 3) {
-                    $userIds[] = $matches[2]; // Has Prefix
-                } elseif (count($matches) === 2) {
-                    $userIds[] = $matches[1]; // No Prefix
-                } else {
-                    // Handle unexpected match format
-                    Log::error(
-                        "Unexpected match format for channel: $channelName"
-                    );
-                }
+                // With the new regex, user ID is always in $matches[2]
+                // $matches[1] contains the prefix (empty if no prefix)
+                $userIds[] = $matches[2];
             }
         }
 
