@@ -60,7 +60,7 @@ final class ChorusInstall extends Command
             $envFile = base_path('.env');
             if (File::exists($envFile)) {
                 $env = File::get($envFile);
-                if (!str_contains($env, 'BROADCAST_DRIVER=reverb')) {
+                if (! str_contains($env, 'BROADCAST_DRIVER=reverb')) {
                     info(
                         'Note: For the best experience with Chorus, we recommend using the "reverb" driver.'
                     );
@@ -302,7 +302,7 @@ TS;
     {
         $envFile = base_path('.env');
 
-        if (!File::exists($envFile)) {
+        if (! File::exists($envFile)) {
             return;
         }
 
