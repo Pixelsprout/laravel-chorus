@@ -14,7 +14,6 @@ use Pixelsprout\LaravelChorus\Console\Commands\ChorusDebug;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusGenerate;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusInstall;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusPublish;
-use Pixelsprout\LaravelChorus\Console\Commands\ChorusStart;
 use Pixelsprout\LaravelChorus\Console\Commands\MakePrefixResolverCommand;
 use Pixelsprout\LaravelChorus\Console\Commands\MakeWriteActionCommand;
 use Pixelsprout\LaravelChorus\Listeners\TrackChannelConnections;
@@ -56,7 +55,6 @@ final class ChorusServiceProvider extends ServiceProvider
         // Register commands
         if ($this->app->runningInConsole()) {
             $this->commands([
-                ChorusStart::class,
                 ChorusInstall::class,
                 ChorusPublish::class,
                 ChorusGenerate::class,
