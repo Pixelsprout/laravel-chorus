@@ -6,6 +6,7 @@ namespace Pixelsprout\LaravelChorus\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use function Laravel\Prompts\info;
 
 final class ChorusPublish extends Command
 {
@@ -15,7 +16,7 @@ final class ChorusPublish extends Command
 
     public function handle(): void
     {
-        $this->info('Publishing Laravel Chorus assets...');
+        info('Publishing Laravel Chorus assets...');
 
         // Publish migrations, config, and JavaScript assets
         $this->publishAssets();
@@ -23,7 +24,7 @@ final class ChorusPublish extends Command
         // Publish channels configuration
         $this->publishChannels();
 
-        $this->info('Laravel Chorus assets have been published successfully!');
+        info('Laravel Chorus assets have been published successfully!');
     }
 
     private function publishAssets(): void
@@ -36,7 +37,7 @@ final class ChorusPublish extends Command
             '--tag' => 'chorus-config',
         ]);
 
-        $this->info('JavaScript resources published to resources/js/chorus');
+        info('JavaScript resources published to resources/js/chorus');
     }
 
     private function publishChannels(): void
@@ -46,7 +47,7 @@ final class ChorusPublish extends Command
 
         if (! File::exists($destinationPath)) {
             File::copy($stubPath, $destinationPath);
-            $this->info(
+            info(
                 'Copied channels.chorus.stub to routes/channels-chorus.php'
             );
         }
@@ -58,13 +59,13 @@ final class ChorusPublish extends Command
             $content = File::get($channelsFilePath);
             if (! str_contains($content, $requireStatement)) {
                 File::append($channelsFilePath, $requireStatement);
-                $this->info(
+                info(
                     'Added require statement for channels-chorus.php to routes/channels.php'
                 );
             }
         } else {
             File::put($channelsFilePath, '<?php'.$requireStatement);
-            $this->info(
+            info(
                 'Created routes/channels.php and added require statement for channels-chorus.php'
             );
         }
