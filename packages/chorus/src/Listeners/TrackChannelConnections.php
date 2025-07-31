@@ -7,7 +7,6 @@ namespace Pixelsprout\LaravelChorus\Listeners;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Log;
 use Laravel\Reverb\Events\ChannelCreated;
 use Laravel\Reverb\Events\ChannelRemoved;
 
@@ -24,7 +23,6 @@ final class TrackChannelConnections
     {
         $activeChannels = Cache::get(self::CACHE_KEY, []);
         $userIds = [];
-
 
         foreach (array_keys($activeChannels) as $channelName) {
             // Match channels with or without a prefix
