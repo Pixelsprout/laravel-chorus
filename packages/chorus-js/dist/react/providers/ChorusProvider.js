@@ -26,11 +26,13 @@ const HarmonicListener = ({ channel, onEvent }) => {
     });
     return null;
 };
-export function ChorusProvider({ children, userId, channelPrefix, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange, }) {
+export function ChorusProvider({ children, userId, channelPrefix, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange, debugMode, }) {
     const [isInitialized, setIsInitialized] = useState(false);
     const [tables, setTables] = useState({});
     const [schema, setSchema] = useState({});
     const [initializationError, setInitializationError] = useState(null);
+    if (debugMode)
+        chorusCore.setDebugMode(debugMode);
     const handleHarmonicEvent = (event) => __awaiter(this, void 0, void 0, function* () {
         // if (!chorusCore.getIsInitialized()) return;
         var _a;
@@ -127,15 +129,12 @@ export function ChorusProvider({ children, userId, channelPrefix, onRejectedHarm
             try {
                 setInitializationError(null);
                 chorusCore.setup(userId !== null && userId !== void 0 ? userId : "guest", onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange);
-                console.log("[Chorus] Starting schema fetch and initialization...");
                 const fetchedSchema = yield chorusCore.fetchAndInitializeSchema();
-                console.log("[Chorus] Starting table initialization...");
                 yield chorusCore.initializeTables();
                 if (!isCancelled) {
                     setSchema(fetchedSchema);
                 }
                 if (!isCancelled) {
-                    console.log("[Chorus] Initialization complete, updating state...");
                     setIsInitialized(chorusCore.getIsInitialized());
                     setTables(chorusCore.getAllTableStates());
                 }
@@ -184,7 +183,7 @@ export function useChorus() {
 export function useHarmonics(tableName, query) {
     const shadowTableName = `${tableName}_shadow`;
     const deltaTableName = `${tableName}_deltas`;
-    const { tables, isInitialized } = useChorus();
+    const { tables } = useChorus();
     const tableState = tables[tableName] || {
         lastUpdate: null,
         isLoading: false,

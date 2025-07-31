@@ -31,6 +31,7 @@ interface ChorusProviderProps {
   onRejectedHarmonic?: (harmonic: HarmonicEvent) => void;
   onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void;
   onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void;
+  debugMode?: boolean;
 }
 
 const HarmonicListener: React.FC<{
@@ -50,11 +51,14 @@ export function ChorusProvider({
   onRejectedHarmonic,
   onSchemaVersionChange,
   onDatabaseVersionChange,
+  debugMode,
 }: ChorusProviderProps) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [tables, setTables] = useState<Record<string, TableState>>({});
   const [schema, setSchema] = useState<Record<string, any>>({});
   const [initializationError, setInitializationError] = useState<string | null>(null);
+
+  if (debugMode) chorusCore.setDebugMode(debugMode);
 
   const handleHarmonicEvent = async (event: HarmonicEvent) => {
     // if (!chorusCore.getIsInitialized()) return;
@@ -159,10 +163,8 @@ export function ChorusProvider({
         setInitializationError(null);
         chorusCore.setup(userId ?? "guest", onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange);
         
-        console.log("[Chorus] Starting schema fetch and initialization...");
         const fetchedSchema = await chorusCore.fetchAndInitializeSchema();
         
-        console.log("[Chorus] Starting table initialization...");
         await chorusCore.initializeTables();
         
         if (!isCancelled) {
@@ -170,7 +172,6 @@ export function ChorusProvider({
         }
         
         if (!isCancelled) {
-          console.log("[Chorus] Initialization complete, updating state...");
           setIsInitialized(chorusCore.getIsInitialized());
           setTables(chorusCore.getAllTableStates());
         }
@@ -248,7 +249,7 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
   const shadowTableName = `${tableName}_shadow`;
   const deltaTableName = `${tableName}_deltas`;
 
-  const { tables, isInitialized } = useChorus();
+  const { tables } = useChorus();
   const tableState = tables[tableName] || {
     lastUpdate: null,
     isLoading: false,

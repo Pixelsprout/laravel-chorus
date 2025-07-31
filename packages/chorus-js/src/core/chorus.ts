@@ -56,8 +56,10 @@ export class ChorusCore {
   private processedRejectedHarmonics = new Set<string>();
   private isOnline: boolean = true;
   private isRebuilding: boolean = false;
+  private debugMode: boolean = false;
 
-  constructor() {
+  constructor(options: { debugMode: boolean } = { debugMode: false }) {
+    this.debugMode = options.debugMode ?? false;
     this.tableNames = [];
     this.setupOfflineHandlers();
   }
@@ -112,6 +114,10 @@ export class ChorusCore {
     this.tableStates = {};
     this.userId = null;
     this.log("ChorusCore has been reset.");
+  }
+
+  public setDebugMode(debugMode: boolean): void {
+    this.debugMode = debugMode;
   }
 
   /**
@@ -374,7 +380,7 @@ export class ChorusCore {
    * Simple logging utility
    */
   private log(message: string, data?: any): void {
-    if (process.env.NODE_ENV !== "production") {
+    if (process.env.NODE_ENV !== "production" && this.debugMode) {
       if (data === undefined) {
         console.log(`[Chorus] ${message}`);
       } else {

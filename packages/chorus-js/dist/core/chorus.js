@@ -25,7 +25,8 @@ export class SyncError extends Error {
  * ChorusCore class - handles the core data sync functionality
  */
 export class ChorusCore {
-    constructor() {
+    constructor(options = { debugMode: false }) {
+        var _a;
         this.db = null;
         this.schema = {};
         this.isInitialized = false;
@@ -34,6 +35,8 @@ export class ChorusCore {
         this.processedRejectedHarmonics = new Set();
         this.isOnline = true;
         this.isRebuilding = false;
+        this.debugMode = false;
+        this.debugMode = (_a = options.debugMode) !== null && _a !== void 0 ? _a : false;
         this.tableNames = [];
         this.setupOfflineHandlers();
     }
@@ -81,6 +84,9 @@ export class ChorusCore {
         this.tableStates = {};
         this.userId = null;
         this.log("ChorusCore has been reset.");
+    }
+    setDebugMode(debugMode) {
+        this.debugMode = debugMode;
     }
     /**
      * Set up the ChorusCore with a userId and optional fallback schema
@@ -294,7 +300,7 @@ export class ChorusCore {
      * Simple logging utility
      */
     log(message, data) {
-        if (process.env.NODE_ENV !== "production") {
+        if (process.env.NODE_ENV !== "production" && this.debugMode) {
             if (data === undefined) {
                 console.log(`[Chorus] ${message}`);
             }

@@ -36,7 +36,10 @@ export declare class ChorusCore {
     private processedRejectedHarmonics;
     private isOnline;
     private isRebuilding;
-    constructor();
+    private debugMode;
+    constructor(options?: {
+        debugMode: boolean;
+    });
     /**
      * Set up offline event handlers
      */
@@ -49,6 +52,7 @@ export declare class ChorusCore {
      * Reset the ChorusCore state
      */
     reset(): void;
+    setDebugMode(debugMode: boolean): void;
     /**
      * Set up the ChorusCore with a userId and optional fallback schema
      */

@@ -29,7 +29,6 @@ export class ChorusDatabase extends Dexie {
   private generateSchemaHash(tables: Record<string, string>): string {
     const sortedKeys = Object.keys(tables).sort();
     const schemaString = sortedKeys.map(key => `${key}:${tables[key]}`).join('|');
-    // Simple hash function
     let hash = 0;
     for (let i = 0; i < schemaString.length; i++) {
       const char = schemaString.charCodeAt(i);
@@ -44,39 +43,31 @@ export class ChorusDatabase extends Dexie {
   async initializeSchema(tables: Record<string, string>, forceVersion?: number): Promise<void> {
     const newSchemaHash = this.generateSchemaHash(tables);
 
-    // Get stored db version from localStorage (separate from chorus.ts schema version)
     const storedDbVersion = localStorage.getItem(`chorus_db_version_${this.userId}`);
-    
-    // Calculate version based on schema hash or use forced version
     const calculatedVersion = forceVersion || parseInt(newSchemaHash.slice(-8), 16) % 1000000 + 1;
     
-    // Check if schema has changed by comparing hash (primary check)
-    // Only force reinitialize if the calculated version is different from stored db version
     const hashMatches = this.currentSchemaHash === newSchemaHash;
     const versionChanged = storedDbVersion && calculatedVersion.toString() !== storedDbVersion;
     const schemaUnchanged = this.schemaInitialized && hashMatches && !versionChanged;
 
-    if (schemaUnchanged) {
-      console.log('[Chorus] Schema unchanged, but ensuring database is properly configured...');
-      // Even if schema is unchanged, we need to ensure Dexie knows about the tables
-      // and the database is open
-      const schemaWithDeltas: Record<string, string> = {};
-      for (const key in tables) {
-        if (Object.prototype.hasOwnProperty.call(tables, key)) {
-          schemaWithDeltas[key] = tables[key];
-          schemaWithDeltas[`${key}_shadow`] = tables[key];
-          schemaWithDeltas[`${key}_deltas`] =
+    const schemaWithDeltas: Record<string, string> = {};
+    for (const key in tables) {
+      if (Object.prototype.hasOwnProperty.call(tables, key)) {
+        schemaWithDeltas[key] = tables[key];
+        schemaWithDeltas[`${key}_shadow`] = tables[key];
+        schemaWithDeltas[`${key}_deltas`] =
             "++id, operation, data, sync_status, [operation+sync_status]";
-        }
       }
-      
+    }
+
+    if (schemaUnchanged) {
+
       // Configure the database schema even if unchanged
       this.version(calculatedVersion).stores(schemaWithDeltas);
       
       if (!this.isOpen()) {
         try {
           await this.open();
-          console.log('[Chorus] Database reopened successfully');
         } catch (error) {
           console.error('[Chorus] Failed to reopen database:', error);
           throw error;
@@ -85,32 +76,16 @@ export class ChorusDatabase extends Dexie {
       return;
     }
 
-    const schemaWithDeltas: Record<string, string> = {};
-    for (const key in tables) {
-      if (Object.prototype.hasOwnProperty.call(tables, key)) {
-        schemaWithDeltas[key] = tables[key];
-        // Add a shadow table for local write operations.
-        schemaWithDeltas[`${key}_shadow`] = tables[key];
-        schemaWithDeltas[`${key}_deltas`] =
-          "++id, operation, data, sync_status, [operation+sync_status]";
-      }
-    }
-
-    console.log('[Chorus] Initializing database schema with tables:', Object.keys(schemaWithDeltas));
-
     if (this.isOpen()) {
       this.close();
     }
 
-    console.log(`[Chorus] Using database version: ${calculatedVersion} (schema hash: ${newSchemaHash})`);
-    
     // Use the calculated version to trigger proper IndexedDB upgrades
     this.version(calculatedVersion).stores(schemaWithDeltas);
     
     // Open the database to ensure schema is applied
     try {
       await this.open();
-      console.log(`[Chorus] Database opened successfully with schema version ${calculatedVersion}`);
       this.schemaInitialized = true;
       this.currentSchemaHash = newSchemaHash;
       
