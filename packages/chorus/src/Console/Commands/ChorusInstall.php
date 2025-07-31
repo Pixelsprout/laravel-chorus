@@ -8,9 +8,9 @@ use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
+
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\error;
-use function Laravel\Prompts\text;
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\warning;
 
@@ -80,7 +80,6 @@ final class ChorusInstall extends Command
             default: true,
             hint: 'Chorus uses reverb to communicate change events with connected clients.'
         );
-
 
         if ($setupReverb) {
             // Run the Laravel broadcasting installer

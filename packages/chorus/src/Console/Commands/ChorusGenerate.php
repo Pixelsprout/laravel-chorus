@@ -11,7 +11,7 @@ use ReflectionClass;
 use Symfony\Component\Finder\Finder;
 
 use function Laravel\Prompts\error;
-use function \Laravel\Prompts\info;
+use function Laravel\Prompts\info;
 use function Laravel\Prompts\warning;
 
 final class ChorusGenerate extends Command

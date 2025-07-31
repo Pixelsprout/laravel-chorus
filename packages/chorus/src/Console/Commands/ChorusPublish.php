@@ -6,6 +6,7 @@ namespace Pixelsprout\LaravelChorus\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+
 use function Laravel\Prompts\info;
 
 final class ChorusPublish extends Command

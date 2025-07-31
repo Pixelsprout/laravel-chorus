@@ -6,6 +6,7 @@ namespace Pixelsprout\LaravelChorus\Console\Commands;
 
 use Illuminate\Console\Command;
 use Pixelsprout\LaravelChorus\Listeners\TrackChannelConnections;
+
 use function Laravel\Prompts\info;
 
 final class ChorusDebug extends Command
