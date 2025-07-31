@@ -47,9 +47,9 @@ final class ChorusInstall extends Command
     {
         $this->info('Setting up broadcasting for Laravel Chorus...');
 
-        // Check if Reverb is already installed
-        if (File::exists(config_path('reverb.php'))) {
-            $this->info('Reverb is already installed.');
+        // Check if Reverb is already installed and configured
+        if (File::exists(config_path('reverb.php')) && $this->isReverbConfigured()) {
+            $this->info('Reverb is already installed and configured.');
 
             // Check if the reverb driver is configured
             $envFile = base_path('.env');
@@ -287,5 +287,19 @@ TS;
             }
             throw new Exception('Package manager command failed');
         }
+    }
+
+    private function isReverbConfigured(): bool
+    {
+        $envFile = base_path('.env');
+
+        if (! File::exists($envFile)) {
+            return false;
+        }
+
+        $env = File::get($envFile);
+
+        // Check if REVERB_APP_ID is present and has a value
+        return preg_match('/REVERB_APP_ID=.+/', $env) === 1;
     }
 }
