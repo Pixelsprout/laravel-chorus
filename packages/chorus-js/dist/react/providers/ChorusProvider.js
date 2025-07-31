@@ -128,7 +128,11 @@ export function ChorusProvider({ children, userId, channelPrefix, onRejectedHarm
         const initialize = () => __awaiter(this, void 0, void 0, function* () {
             try {
                 setInitializationError(null);
-                chorusCore.setup(userId !== null && userId !== void 0 ? userId : "guest", onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange);
+                chorusCore.setup(userId !== null && userId !== void 0 ? userId : "guest", onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange, (newTableStates) => {
+                    if (!isCancelled) {
+                        setTables(newTableStates);
+                    }
+                });
                 const fetchedSchema = yield chorusCore.fetchAndInitializeSchema();
                 yield chorusCore.initializeTables();
                 if (!isCancelled) {

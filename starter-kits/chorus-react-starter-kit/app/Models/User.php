@@ -25,7 +25,12 @@ class User extends Authenticatable
         'password',
     ];
 
-    protected $syncFields = [
+    /**
+     * Fields to sync to client.
+     *
+     * @var array
+     */
+    protected array $syncFields = [
       'id' => JSType::String,
       'name' => JSType::String,
       'email' => JSType::String,

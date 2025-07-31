@@ -6,7 +6,6 @@ namespace Pixelsprout\LaravelChorus\Traits;
 
 use App\Models\User;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
-use Illuminate\Database\Eloquent\Model;
 use Pixelsprout\LaravelChorus\Adapters\HarmonicSourceAdapterManager;
 use Pixelsprout\LaravelChorus\Support\JSType;
 use Pixelsprout\LaravelChorus\Support\Prefix;

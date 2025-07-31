@@ -33,6 +33,7 @@ export declare class ChorusCore {
     private onRejectedHarmonic?;
     private onSchemaVersionChange?;
     private onDatabaseVersionChange?;
+    private onTableStatesChange?;
     private processedRejectedHarmonics;
     private isOnline;
     private isRebuilding;
@@ -60,7 +61,7 @@ export declare class ChorusCore {
     /**
      * Set up the ChorusCore with a userId and optional fallback schema
      */
-    setup(userId: string | number, onRejectedHarmonic?: (harmonic: HarmonicEvent) => void, onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void, onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void): void;
+    setup(userId: string | number, onRejectedHarmonic?: (harmonic: HarmonicEvent) => void, onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void, onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void, onTableStatesChange?: (tableStates: Record<string, TableState>) => void): void;
     /**
      * Fetch schema from server and initialize database
      */

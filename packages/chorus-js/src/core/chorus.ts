@@ -53,6 +53,7 @@ export class ChorusCore {
   private onRejectedHarmonic?: (harmonic: HarmonicEvent) => void;
   private onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void;
   private onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void;
+  private onTableStatesChange?: (tableStates: Record<string, TableState>) => void;
   private processedRejectedHarmonics = new Set<string>();
   private isOnline: boolean = true;
   private isRebuilding: boolean = false;
@@ -142,12 +143,14 @@ export class ChorusCore {
     userId: string | number, 
     onRejectedHarmonic?: (harmonic: HarmonicEvent) => void,
     onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void,
-    onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void
+    onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void,
+    onTableStatesChange?: (tableStates: Record<string, TableState>) => void
   ): void {
     this.userId = userId;
     this.onRejectedHarmonic = onRejectedHarmonic;
     this.onSchemaVersionChange = onSchemaVersionChange;
     this.onDatabaseVersionChange = onDatabaseVersionChange;
+    this.onTableStatesChange = onTableStatesChange;
     const dbName = `chorus_db_${userId || "guest"}`;
     this.db = createChorusDb(dbName);
     
@@ -724,6 +727,11 @@ export class ChorusCore {
       ...this.tableStates[tableName],
       ...newState,
     };
+    
+    // Notify React component of state change
+    if (this.onTableStatesChange) {
+      this.onTableStatesChange(this.tableStates);
+    }
   }
 
   /**

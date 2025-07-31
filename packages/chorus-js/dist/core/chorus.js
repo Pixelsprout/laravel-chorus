@@ -103,11 +103,12 @@ export class ChorusCore {
     /**
      * Set up the ChorusCore with a userId and optional fallback schema
      */
-    setup(userId, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange) {
+    setup(userId, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange, onTableStatesChange) {
         this.userId = userId;
         this.onRejectedHarmonic = onRejectedHarmonic;
         this.onSchemaVersionChange = onSchemaVersionChange;
         this.onDatabaseVersionChange = onDatabaseVersionChange;
+        this.onTableStatesChange = onTableStatesChange;
         const dbName = `chorus_db_${userId || "guest"}`;
         this.db = createChorusDb(dbName);
         // Don't initialize schema here - it will be fetched from server
@@ -574,6 +575,10 @@ export class ChorusCore {
      */
     updateTableState(tableName, newState) {
         this.tableStates[tableName] = Object.assign(Object.assign({}, this.tableStates[tableName]), newState);
+        // Notify React component of state change
+        if (this.onTableStatesChange) {
+            this.onTableStatesChange(this.tableStates);
+        }
     }
     /**
      * Get the current state for a specific table

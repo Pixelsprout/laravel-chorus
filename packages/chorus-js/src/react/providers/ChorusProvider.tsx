@@ -161,7 +161,17 @@ export function ChorusProvider({
     const initialize = async () => {
       try {
         setInitializationError(null);
-        chorusCore.setup(userId ?? "guest", onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange);
+        chorusCore.setup(
+          userId ?? "guest", 
+          onRejectedHarmonic, 
+          onSchemaVersionChange, 
+          onDatabaseVersionChange,
+          (newTableStates) => {
+            if (!isCancelled) {
+              setTables(newTableStates);
+            }
+          }
+        );
         
         const fetchedSchema = await chorusCore.fetchAndInitializeSchema();
         
