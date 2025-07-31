@@ -23,9 +23,10 @@ jobs:
       matrix:
         # define package to repository map
         package:
-          -
-            local_path: 'chorus'
+          - local_path: 'packages/chorus'
             split_repository: 'chorus'
+          - local_path: 'starter-kits/chorus-react-starter-kit'
+            split_repository: 'chorus-react-starter-kit'
 
     steps:
       -   uses: actions/checkout@v2
@@ -36,7 +37,7 @@ jobs:
         uses: "danharrin/monorepo-split-github-action@v2.3.0"
         with:
           # ↓ split "packages/easy-coding-standard" directory
-          package_directory: 'packages/${{ matrix.package.local_path }}'
+          package_directory: '${{ matrix.package.local_path }}'
 
           # ↓ into https://github.com/symplify/easy-coding-standard repository
           repository_organization: 'Pixelsprout'
