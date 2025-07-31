@@ -83,12 +83,6 @@
             "php-http/discovery": true
         }
     },
-    "repositories": [
-        {
-            "type": "path",
-            "url": "../../packages/chorus"
-        }
-    ],
     "minimum-stability": "dev",
     "prefer-stable": true
 }
