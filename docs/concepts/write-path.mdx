@@ -317,42 +317,34 @@ For complex offline synchronization, Chorus can use shadow tables to track local
 
 Shadow tables store a copy of the server data, allowing detection of both local and server changes:
 
-```sql
--- Main table (synchronized from server)
-CREATE TABLE messages (
-    id VARCHAR(36) PRIMARY KEY,
-    body TEXT,
-    user_id BIGINT,
-    created_at TIMESTAMP,
-    updated_at TIMESTAMP
-);
+```mermaid
+erDiagram
+    messages {
+        string id "UUID primary key"
+        string body "Message content"
+        number user_id "User identifier"
+        number created_at "Unix timestamp"
+        number updated_at "Unix timestamp"
+    }
 
--- Shadow table (tracks server state)
-CREATE TABLE messages_shadow (
-    id VARCHAR(36) PRIMARY KEY,
-    body TEXT,
-    user_id BIGINT,
-    created_at TIMESTAMP,
-    updated_at TIMESTAMP,
-    synced_at TIMESTAMP
-);
+    messages_shadow {
+        string body "Server state snapshot"
+        number user_id "User identifier"
+        number created_at "Unix timestamp"
+        number updated_at "Unix timestamp"
+        number synced_at "Last sync timestamp"
+    }
 
--- Delta table (tracks local changes)
-CREATE TABLE messages_delta (
-    id VARCHAR(36) PRIMARY KEY,
-    operation ENUM('create', 'update', 'delete'),
-    data JSON,
-    created_at TIMESTAMP
-);
+    messages_delta {
+        number id "primary key"
+        string operation "create|update|delete"
+        object data "Change payload as object"
+        string sync_status "pending|synced|rejected"
+    }
+
+    messages ||--o{ messages_delta : "generates changes"
+    messages ||--|| messages_shadow : "optimistic mirror"
 ```
-
-### Three-Way Merge
-
-When reconnecting after being offline, Chorus performs a three-way merge:
-
-1. **Server state** - Latest data from server
-2. **Shadow state** - What the server looked like when we went offline  
-3. **Local state** - Current local data with user changes
 
 ## Next Steps
 
