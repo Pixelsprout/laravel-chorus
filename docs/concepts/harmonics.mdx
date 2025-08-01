@@ -38,34 +38,35 @@ A harmonic is a change record stored in the `harmonics` database table that cont
 
 ### 1. Change Detection
 
-When a model with the `Harmonics` trait is modified, Laravel's model events automatically detect the change:
+<Steps>
+    <Step title="Change Detection">
+        When a model with the `Harmonics` trait is modified, Laravel's model events automatically detect the change:
 
-```php
-class Message extends Model
-{
-    use Harmonics;
-    
-    protected $syncFields = ['id', 'body', 'user_id'];
-}
+        ```php
+        class Message extends Model
+        {
+            use Harmonics;
 
-// This triggers harmonic creation
-$message = Message::create([
-    'body' => 'Hello world!',
-    'user_id' => 1
-]);
-```
+            protected $syncFields = ['id', 'body', 'user_id'];
+        }
 
-### 2. Harmonic Creation
-
-The trait's event listeners create a harmonic record:
-
-### 3. Broadcasting
-
-The harmonic is immediately broadcast via WebSocket to connected clients:
-
-### 4. Client Processing
-
-Connected clients receive the harmonic and update their local IndexedDB:
+        // This triggers harmonic creation
+        $message = Message::create([
+        'body' => 'Hello world!',
+        'user_id' => 1
+        ]);
+        ```
+    </Step>
+    <Step title="Harmonic Creation">
+        The trait's event listeners create a harmonic record.
+    </Step>
+    <Step title="Broadcasting">
+        The harmonic is immediately broadcast via WebSocket to connected clients.
+    </Step>
+    <Step title="Client Processing">
+        Connected clients receive the harmonic and update their local IndexedDB.
+    </Step>
+</Steps>
 
 ## Data Filtering in Harmonics
 

@@ -53,7 +53,7 @@ class CreateMessageAction extends WriteAction
     {
         // Validate user permissions
         $this->authorize('create', Message::class);
-        
+
         // Process the data
         $message = Message::create([
             'id' => $data['id'] ?? Str::uuid(),
@@ -62,10 +62,7 @@ class CreateMessageAction extends WriteAction
             'platform_id' => $data['platform_id'],
             'tenant_id' => auth()->user()->tenant_id,
         ]);
-        
-        // Additional business logic
-        $this->notifyMentionedUsers($message);
-        
+
         return $message;
     }
 
@@ -82,19 +79,6 @@ class CreateMessageAction extends WriteAction
     {
         if (!auth()->user()->can($ability, $model)) {
             throw new UnauthorizedException("Unauthorized to {$ability} messages");
-        }
-    }
-    
-    private function notifyMentionedUsers(Message $message): void
-    {
-        // Extract @mentions and send notifications
-        preg_match_all('/@(\w+)/', $message->body, $matches);
-        
-        foreach ($matches[1] as $username) {
-            $user = User::where('username', $username)->first();
-            if ($user) {
-                $user->notify(new MentionNotification($message));
-            }
         }
     }
 }
