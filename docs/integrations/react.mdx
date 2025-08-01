@@ -5,7 +5,9 @@ description: "Complete guide to integrating Laravel Chorus with React for real-t
 
 Laravel Chorus provides powerful React hooks and components that make it effortless to build real-time, offline-capable applications. This guide covers everything from basic setup to advanced patterns.
 
-## Quick Start
+Here's the improved version:
+
+## Setup
 
 ### 1. Add the Chorus Provider
 
@@ -383,57 +385,6 @@ export default function CollaborativeEditor() {
 ```
 
 ## Error Handling
-
-### Global Error Boundary
-
-Create a global error boundary for Chorus operations:
-
-```tsx
-import { ErrorBoundary } from 'react-error-boundary';
-import { ChorusError } from '@/chorus/errors';
-
-function ChorusErrorFallback({ error, resetErrorBoundary }: any) {
-    if (error instanceof ChorusError) {
-        return (
-            <div className="chorus-error">
-                <h2>Sync Error</h2>
-                <p>{error.message}</p>
-                
-                {error.type === 'network' && (
-                    <p>Check your internet connection and try again.</p>
-                )}
-                
-                {error.type === 'validation' && (
-                    <p>Please check your input and try again.</p>
-                )}
-                
-                <button onClick={resetErrorBoundary}>
-                    Try Again
-                </button>
-            </div>
-        );
-    }
-    
-    return (
-        <div className="general-error">
-            <h2>Something went wrong</h2>
-            <button onClick={resetErrorBoundary}>
-                Try Again
-            </button>
-        </div>
-    );
-}
-
-export default function App() {
-    return (
-        <ErrorBoundary FallbackComponent={ChorusErrorFallback}>
-            <ChorusProvider>
-                <YourApp />
-            </ChorusProvider>
-        </ErrorBoundary>
-    );
-}
-```
 
 ### Rejected Operations Handling
 
