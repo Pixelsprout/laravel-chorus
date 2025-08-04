@@ -4,8 +4,26 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js"
+    },
+    "./vue": {
+      "types": "./dist/vue/index.d.ts",
+      "import": "./dist/vue/index.js"
+    },
+    "./vue/components/*": "./src/vue/components/*",
+    "./vue/providers/*": "./src/vue/providers/*",
+    "./src/vue/providers/ChorusProvider.vue": "./src/vue/providers/ChorusProvider.vue"
+  },
   "files": [
-    "dist"
+    "dist",
+    "src/vue/**/*.vue"
   ],
   "scripts": {
     "build": "tsc",
@@ -16,11 +34,20 @@
   "license": "MIT",
   "description": "This package interfaces directly with the Chorus sync engine for Laravel, processing websocket events from Chorus and writing local data to IndexedDB.",
   "git repository": "https://github.com/Pixelsprout/laravel-chorus",
-  "keywords": ["laravel", "Sync engine", "Offline first", "Local First", "React", "Javascript"],
+  "keywords": [
+    "laravel",
+    "Sync engine",
+    "Offline first",
+    "Local First",
+    "React",
+    "Vue",
+    "Javascript"
+  ],
   "devDependencies": {
     "@types/node": "^24.0.10",
     "@types/react": "^19.1.8",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vue": "^3.5.0"
   },
   "dependencies": {
     "dexie": "^4.0.11",
@@ -28,6 +55,22 @@
   },
   "peerDependencies": {
     "@laravel/echo-react": "^2.1.4",
-    "react": "^19.0.0"
+    "@laravel/echo-vue": "^2.1.7",
+    "react": "^19.0.0",
+    "vue": "^3.5.0"
+  },
+  "peerDependenciesMeta": {
+    "@laravel/echo-react": {
+      "optional": true
+    },
+    "@laravel/echo-vue": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    }
   }
 }

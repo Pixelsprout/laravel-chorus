@@ -1,22 +1,618 @@
 ---
 title: "Vue Integration"
-description: "Vue.js integration for Laravel Chorus (Coming Soon)"
+description: "Complete guide to integrating Laravel Chorus with Vue.js for real-time, offline-capable applications."
 ---
 
-# Vue Integration
+Laravel Chorus provides powerful Vue composables and components that make it effortless to build real-time, offline-capable applications using Vue 3's Composition API. This guide covers everything from basic setup to advanced patterns.
 
-<Note>
-**Coming Soon:** Vue.js integration for Laravel Chorus is currently in development and will be available in a future release.
-</Note>
+## Setup
 
-Vue integration will provide:
+### 1. Add the Chorus Provider
 
-- **Composition API composables** for reactive data synchronization
-- **Built-in components** for common patterns like offline indicators
-- **Full TypeScript support** with auto-generated types
+Wrap your app's layout file with the Chorus provider:
 
-Stay updated on progress by following the [GitHub repository](https://github.com/braedencrankd/laravel-chorus).
+```vue
+<!-- resources/js/app.ts -->
+<template>
+  <ChorusProvider 
+    :user-id="userId"
+    :channel-prefix="channelPrefix"
+    :debug-mode="true"
+  >
+    <component :is="App" v-bind="pageProps" />
+  </ChorusProvider>
+</template>
+
+<script setup lang="ts">
+import ChorusProvider from '@pixelsprout/chorus-js/vue/providers/ChorusProvider.vue';
+
+interface Props {
+  App: any;
+  pageProps: any;
+  userId?: number;
+  channelPrefix?: string;
+}
+
+const props = defineProps<Props>();
+</script>
+```
+
+### 2. Use Data in Components
+
+Use Chorus composables to access synchronized data:
+
+```vue
+<!-- components/MessagesList.vue -->
+<template>
+  <div class="messages">
+    <div v-if="isLoading">Loading messages...</div>
+    <div v-else-if="error" class="error">Error: {{ error }}</div>
+    <div v-else>
+      <div 
+        v-for="message in data" 
+        :key="message.id" 
+        class="message"
+      >
+        <p>{{ message.body }}</p>
+        <small>{{ new Date(message.created_at).toLocaleTimeString() }}</small>
+        
+        <button @click="() => remove(message.id)">
+          Delete
+        </button>
+      </div>
+      
+      <MessageForm @submit="handleSendMessage" />
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { useTable } from '@pixelsprout/chorus-js/vue';
+import type { Message } from '@/types';
+
+// Get data and actions from table composable
+const { 
+  data, 
+  isLoading,
+  error,
+  create,
+  update,
+  remove
+} = useTable<Message>('messages');
+
+const handleSendMessage = async (body: string) => {
+  const tempId = crypto.randomUUID();
+  
+  await create(
+    // Optimistic data (immediate UI update)
+    {
+      id: tempId,
+      body,
+      user_id: user.id,
+      platform_id: currentPlatform.id,
+      created_at: new Date(),
+      updated_at: new Date(),
+    },
+    // Server data
+    {
+      body,
+      platform_id: currentPlatform.id,
+    }
+  );
+};
+</script>
+```
+
+## Core Composables
+
+### useTable Composable
+
+The primary composable that provides both data access and write actions for a table:
+
+```typescript
+const {
+    data,           // Current synchronized data (Ref<T[]>)
+    isLoading,      // Initial loading state (Ref<boolean>)
+    error,          // Error state (Ref<string | null>)
+    lastUpdate,     // Last synchronization timestamp (Ref<Date | null>)
+    create,         // Create new records
+    update,         // Update existing records  
+    remove,         // Delete records
+} = useTable<T>('tableName');
+```
+
+**Complete Example:**
+
+```vue
+<template>
+  <div>
+    <div v-if="isOffline" class="offline-banner">
+      You're offline. Changes will sync when reconnected.
+    </div>
+    
+    <div v-if="lastUpdate" class="sync-status">
+      Last updated: {{ lastUpdate.toLocaleTimeString() }}
+    </div>
+
+    <div v-if="isLoading">Loading users...</div>
+    <div v-else-if="error" class="error">Error: {{ error }}</div>
+    <div v-else class="user-list">
+      <div 
+        v-for="user in data" 
+        :key="user.id" 
+        class="user-card"
+      >
+        <h3>{{ user.name }}</h3>
+        <p>{{ user.email }}</p>
+        <button @click="() => toggleUserStatus(user)">
+          {{ user.is_active ? 'Deactivate' : 'Activate' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { useTable, useOffline } from '@pixelsprout/chorus-js/vue';
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  is_active: boolean;
+}
+
+const { 
+  data, 
+  isLoading,
+  error,
+  lastUpdate,
+  update
+} = useTable<User>('users');
+
+const { isOnline } = useOffline();
+const isOffline = computed(() => !isOnline.value);
+
+const toggleUserStatus = async (user: User) => {
+  await update(
+    user.id,
+    // Optimistic update
+    { ...user, is_active: !user.is_active },
+    // Server update
+    { is_active: !user.is_active }
+  );
+};
+</script>
+```
+
+### useOffline Composable
+
+Monitor and handle offline state:
+
+```vue
+<template>
+  <div :class="`status-bar ${isOffline ? 'offline' : 'online'}`">
+    <div v-if="isOffline" class="offline-status">
+      <span>📡 Offline</span>
+      <span v-if="pendingRequestsCount > 0">
+        {{ pendingRequestsCount }} operations queued
+      </span>
+    </div>
+    <div v-else class="online-status">
+      <span>🟢 Online</span>
+    </div>
+    
+    <button 
+      v-if="pendingRequestsCount > 0"
+      @click="clearPendingRequests" 
+      class="clear-queue"
+    >
+      Clear Queue
+    </button>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { useOffline } from '@pixelsprout/chorus-js/vue';
+import { computed } from 'vue';
+
+const { 
+  isOnline, 
+  pendingRequestsCount,
+  clearPendingRequests 
+} = useOffline();
+
+const isOffline = computed(() => !isOnline.value);
+</script>
+```
+
+### useHarmonics Composable
+
+For advanced data access with custom queries:
+
+```vue
+<template>
+  <div class="filtered-messages">
+    <div class="filters">
+      <select v-model="selectedPlatform" @change="updateFilter">
+        <option value="">All Platforms</option>
+        <option 
+          v-for="platform in platforms" 
+          :key="platform.id" 
+          :value="platform.id"
+        >
+          {{ platform.name }}
+        </option>
+      </select>
+    </div>
+
+    <div v-if="isLoading">Loading messages...</div>
+    <div v-else>
+      <div 
+        v-for="message in data" 
+        :key="message.id"
+        class="message"
+      >
+        <p>{{ message.body }}</p>
+        <span class="platform">{{ message.platform_name }}</span>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import { useHarmonics, useHarmonicsQuery } from '@pixelsprout/chorus-js/vue';
+
+interface Message {
+  id: string;
+  body: string;
+  platform_id: number;
+  platform_name: string;
+}
+
+const selectedPlatform = ref<number | null>(null);
+
+// Create a reactive query based on selected platform
+const query = useHarmonicsQuery<Message>(
+  (table) => selectedPlatform.value 
+    ? table.where('platform_id').equals(selectedPlatform.value)
+    : table,
+  [selectedPlatform] // dependencies
+);
+
+const { 
+  data, 
+  isLoading, 
+  error,
+  actions: { create, update, delete: remove }
+} = useHarmonics<Message>('messages', query.value);
+</script>
+```
+
+### Optimistic Updates with Rollback
+
+Handle complex optimistic updates with error recovery:
+
+```vue
+<template>
+  <div v-if="message" class="message-editor">
+    <div v-if="isEditing">
+      <textarea
+        v-model="editText"
+        class="edit-textarea"
+      />
+      <div class="edit-actions">
+        <button @click="handleSave">Save</button>
+        <button @click="cancelEdit">Cancel</button>
+      </div>
+    </div>
+    <div v-else>
+      <p>{{ message.body }}</p>
+      <small v-if="message.is_edited" class="edited-indicator">
+        (edited)
+      </small>
+      <button @click="startEdit">Edit</button>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import { useTable } from '@pixelsprout/chorus-js/vue';
+
+interface Message {
+  id: string;
+  body: string;
+  updated_at: Date;
+  is_edited?: boolean;
+}
+
+interface Props {
+  messageId: string;
+}
+
+const props = defineProps<Props>();
+
+const { data: messages, update } = useTable<Message>('messages');
+const isEditing = ref(false);
+const editText = ref('');
+
+const message = computed(() => 
+  messages.value?.find(m => m.id === props.messageId)
+);
+
+const startEdit = () => {
+  if (message.value) {
+    isEditing.value = true;
+    editText.value = message.value.body;
+  }
+};
+
+const cancelEdit = () => {
+  isEditing.value = false;
+  editText.value = '';
+};
+
+const handleSave = async () => {
+  if (!message.value || !editText.value.trim()) return;
+  
+  const originalText = message.value.body;
+  
+  try {
+    await update(
+      props.messageId,
+      // Optimistic update
+      { 
+        ...message.value, 
+        body: editText.value,
+        updated_at: new Date(),
+        is_edited: true 
+      },
+      // Server update
+      { body: editText.value },
+      // Error callback - rollback on failure
+      (error) => {
+        console.error('Update failed:', error);
+        // The composable automatically handles rollback
+        editText.value = originalText;
+        alert('Failed to save changes. Please try again.');
+      }
+    );
+    
+    isEditing.value = false;
+  } catch (error) {
+    console.error('Update error:', error);
+  }
+};
+</script>
+```
+
+### Real-time Collaboration
+
+Build collaborative features with presence indicators:
+
+```vue
+<template>
+  <div class="collaborative-editor">
+    <div 
+      v-for="message in data" 
+      :key="message.id" 
+      class="message-item"
+    >
+      <div class="message-content">
+        {{ message.body }}
+      </div>
+      
+      <div v-if="editingUsers.size > 0" class="editing-indicators">
+        <div 
+          v-for="userId in Array.from(editingUsers)" 
+          :key="userId" 
+          class="editing-user"
+        >
+          👤 User {{ userId }} is editing...
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue';
+import { useTable, usePresence } from '@pixelsprout/chorus-js/vue';
+
+interface Message {
+  id: string;
+  body: string;
+}
+
+const { data } = useTable<Message>('messages');
+const editingUsers = ref<Set<number>>(new Set());
+
+// Track who's currently editing
+const { broadcast, subscribe } = usePresence('message-editor');
+
+const handleStartEditing = (messageId: string) => {
+  broadcast('start-editing', { messageId, userId: user.id });
+};
+
+const handleStopEditing = (messageId: string) => {
+  broadcast('stop-editing', { messageId, userId: user.id });
+};
+
+onMounted(() => {
+  const unsubscribe = subscribe((event, data) => {
+    if (event === 'start-editing') {
+      editingUsers.value = new Set([...editingUsers.value, data.userId]);
+    } else if (event === 'stop-editing') {
+      const newSet = new Set(editingUsers.value);
+      newSet.delete(data.userId);
+      editingUsers.value = newSet;
+    }
+  });
+  
+  onUnmounted(unsubscribe);
+});
+</script>
+```
+
+## Built-in Components
+
+### OfflineIndicator Component
+
+Ready-to-use component for displaying offline status:
+
+```vue
+<template>
+  <div>
+    <OfflineIndicator 
+      class="mb-4"
+      :show-pending-count="true"
+      :show-retry-button="true"
+      @retry="handleRetry"
+    />
+    
+    <!-- Your app content -->
+  </div>
+</template>
+
+<script setup lang="ts">
+import OfflineIndicator from '@pixelsprout/chorus-js/vue/components/OfflineIndicator.vue';
+
+const handleRetry = () => {
+  console.log('Retrying pending operations...');
+};
+</script>
+```
+
+### OfflineBanner Component
+
+Simple banner for offline status:
+
+```vue
+<template>
+  <div>
+    <OfflineBanner class="sticky top-0 z-50" />
+    
+    <!-- Your app content -->
+  </div>
+</template>
+
+<script setup lang="ts">
+import OfflineBanner from '@pixelsprout/chorus-js/vue/components/OfflineBanner.vue';
+</script>
+```
+
+## Error Handling
+
+### Rejected Operations Handling
+
+Handle and display rejected operations:
+
+```vue
+<template>
+  <div v-if="rejectedOperations.length > 0" class="rejected-operations">
+    <h3>Failed Operations</h3>
+    
+    <div 
+      v-for="operation in rejectedOperations" 
+      :key="operation.id" 
+      class="rejected-operation"
+    >
+      <div class="operation-details">
+        <strong>{{ operation.action }}</strong> on {{ operation.table }}
+        <p>{{ operation.error }}</p>
+      </div>
+      
+      <div class="operation-actions">
+        <button @click="() => retry(operation.id)">
+          Retry
+        </button>
+        <button @click="() => dismiss(operation.id)">
+          Dismiss
+        </button>
+      </div>
+    </div>
+    
+    <button @click="dismissAll" class="dismiss-all">
+      Dismiss All
+    </button>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { useRejectedHarmonics } from '@pixelsprout/chorus-js/vue';
+
+const { 
+  rejectedOperations, 
+  retry, 
+  dismiss, 
+  dismissAll 
+} = useRejectedHarmonics();
+</script>
+```
+
+## TypeScript Support
+
+Vue Chorus comes with full TypeScript support. Define your types and get auto-completion:
+
+```typescript
+// types/index.ts
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Message {
+  id: string;
+  body: string;
+  user_id: number;
+  platform_id: number;
+  created_at: string;
+  updated_at: string;
+}
+```
+
+```vue
+<script setup lang="ts">
+import { useTable } from '@pixelsprout/chorus-js/vue';
+import type { User, Message } from '@/types';
+
+// Full type safety and auto-completion
+const { data: users, create: createUser } = useTable<User>('users');
+const { data: messages, update: updateMessage } = useTable<Message>('messages');
+
+// TypeScript will ensure correct typing
+const addUser = async (userData: Omit<User, 'id' | 'created_at' | 'updated_at'>) => {
+  await createUser(userData);
+};
+</script>
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="React Integration" href="/integrations/react" icon="react">
+Learn about React integration patterns
+</Card>
+
+<Card title="Write Actions" href="/concepts/write-path" icon="pen">
+Master server-side write operations
+</Card>
+
+<Card title="Concepts Deep Dive" href="/concepts/harmonics" icon="book">
+Understand Chorus core concepts
+</Card>
+
+<Card title="Advanced Features" href="/advanced/channel-prefixes" icon="gear">
+Explore advanced configuration options
+</Card>
+</CardGroup>
 
 ---
 
-In the meantime, check out our [React Integration](/integrations/react) to see what's possible with Chorus.
+You now have everything you need to build powerful real-time Vue applications with Laravel Chorus. The combination of Vue 3's reactivity system, optimistic updates, offline support, and real-time synchronization will deliver an exceptional user experience.
