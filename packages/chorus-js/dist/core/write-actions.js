@@ -7,8 +7,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-// Write Actions API for Chorus
-import { csrfManager } from './csrf';
+// Write Actions API for Chorus  
+import axios from 'axios';
 import { offlineManager } from './offline';
 export class WriteActionsAPI {
     constructor(baseUrl = '/api') {
@@ -39,7 +39,6 @@ export class WriteActionsAPI {
                 const url = `${this.baseUrl}/actions/${tableName}`;
                 offlineManager.cacheRequest(url, 'GET', undefined, {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfManager.getToken() || '',
                 });
                 // Return empty actions object for offline mode
                 // This allows the write actions to still be attempted if they support offline writes
@@ -50,8 +49,7 @@ export class WriteActionsAPI {
             const loadingPromise = this.performLoadActions(tableName);
             this.loadingPromises.set(tableName, loadingPromise);
             try {
-                const result = yield loadingPromise;
-                return result;
+                return yield loadingPromise;
             }
             finally {
                 // Clean up the loading promise
@@ -66,17 +64,8 @@ export class WriteActionsAPI {
         return __awaiter(this, void 0, void 0, function* () {
             console.log(`[WriteActions] Loading actions for '${tableName}'`);
             try {
-                const response = yield fetch(`${this.baseUrl}/actions/${tableName}`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfManager.getToken() || '',
-                    },
-                });
-                if (!response.ok) {
-                    throw new Error(`Failed to load actions: ${response.statusText}`);
-                }
-                const result = yield response.json();
+                const response = yield axios.get(`${this.baseUrl}/actions/${tableName}`);
+                const result = response.data;
                 if (result.success) {
                     this.actions.set(tableName, result.actions);
                     console.log(`[WriteActions] Successfully loaded ${Object.keys(result.actions).length} actions for '${tableName}'`);
@@ -176,27 +165,8 @@ export class WriteActionsAPI {
     executeOnline(tableName, actionName, data) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const csrfToken = csrfManager.getToken();
-                if (!csrfToken) {
-                    console.warn('[WriteActions] No CSRF token available, attempting to refresh...');
-                    yield csrfManager.refreshToken();
-                }
-                const response = yield fetch(`${this.baseUrl}/write/${tableName}/${actionName}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfManager.getToken() || '',
-                    },
-                    body: JSON.stringify(data),
-                });
-                const result = yield response.json();
-                // Handle CSRF token expiration
-                if (response.status === 419) {
-                    console.log('[WriteActions] CSRF token expired, refreshing and retrying...');
-                    yield csrfManager.refreshToken();
-                    return this.executeOnline(tableName, actionName, data);
-                }
-                return result;
+                const response = yield axios.post(`${this.baseUrl}/write/${tableName}/${actionName}`, data);
+                return response.data;
             }
             catch (error) {
                 console.error(`Error executing action ${actionName}:`, error);
@@ -210,27 +180,8 @@ export class WriteActionsAPI {
     executeBatchOnline(tableName, actionName, items) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const csrfToken = csrfManager.getToken();
-                if (!csrfToken) {
-                    console.warn('[WriteActions] No CSRF token available for batch, attempting to refresh...');
-                    yield csrfManager.refreshToken();
-                }
-                const response = yield fetch(`${this.baseUrl}/write/${tableName}/${actionName}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfManager.getToken() || '',
-                    },
-                    body: JSON.stringify({ items }),
-                });
-                const result = yield response.json();
-                // Handle CSRF token expiration
-                if (response.status === 419) {
-                    console.log('[WriteActions] CSRF token expired in batch, refreshing and retrying...');
-                    yield csrfManager.refreshToken();
-                    return this.executeBatchOnline(tableName, actionName, items);
-                }
-                return result;
+                const response = yield axios.post(`${this.baseUrl}/write/${tableName}/${actionName}`, { items });
+                return response.data;
             }
             catch (error) {
                 console.error(`Error executing batch action ${actionName}:`, error);
@@ -246,7 +197,6 @@ export class WriteActionsAPI {
             const url = `${this.baseUrl}/write/${tableName}/${actionName}`;
             const requestId = offlineManager.cacheRequest(url, 'POST', JSON.stringify(data), {
                 'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrfManager.getToken() || '',
             }, data // Store optimistic data
             );
             // Return optimistic response
@@ -269,7 +219,6 @@ export class WriteActionsAPI {
             const url = `${this.baseUrl}/write/${tableName}/${actionName}`;
             const requestId = offlineManager.cacheRequest(url, 'POST', JSON.stringify({ items }), {
                 'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrfManager.getToken() || '',
             }, items // Store optimistic data
             );
             // Return optimistic response

@@ -1,5 +1,5 @@
-// Write Actions API for Chorus
-import { csrfManager } from './csrf';
+// Write Actions API for Chorus  
+import axios from 'axios';
 import { offlineManager } from './offline';
 
 export interface WriteActionConfig {
@@ -77,7 +77,6 @@ export class WriteActionsAPI {
         undefined,
         {
           'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': csrfManager.getToken() || '',
         }
       );
 
@@ -92,8 +91,7 @@ export class WriteActionsAPI {
     this.loadingPromises.set(tableName, loadingPromise);
 
     try {
-      const result = await loadingPromise;
-      return result;
+      return await loadingPromise;
     } finally {
       // Clean up the loading promise
       this.loadingPromises.delete(tableName);
@@ -107,19 +105,9 @@ export class WriteActionsAPI {
     console.log(`[WriteActions] Loading actions for '${tableName}'`);
     
     try {
-      const response = await fetch(`${this.baseUrl}/actions/${tableName}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': csrfManager.getToken() || '',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to load actions: ${response.statusText}`);
-      }
-
-      const result = await response.json();
+      const response = await axios.get(`${this.baseUrl}/actions/${tableName}`);
+      const result = response.data;
+      
       if (result.success) {
         this.actions.set(tableName, result.actions);
         console.log(`[WriteActions] Successfully loaded ${Object.keys(result.actions).length} actions for '${tableName}'`);
@@ -235,32 +223,8 @@ export class WriteActionsAPI {
     data: Record<string, any>
   ): Promise<WriteActionResponse<T>> {
     try {
-      const csrfToken = csrfManager.getToken();
-      
-      if (!csrfToken) {
-        console.warn('[WriteActions] No CSRF token available, attempting to refresh...');
-        await csrfManager.refreshToken();
-      }
-
-      const response = await fetch(`${this.baseUrl}/write/${tableName}/${actionName}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': csrfManager.getToken() || '',
-        },
-        body: JSON.stringify(data),
-      });
-
-      const result = await response.json();
-
-      // Handle CSRF token expiration
-      if (response.status === 419) {
-        console.log('[WriteActions] CSRF token expired, refreshing and retrying...');
-        await csrfManager.refreshToken();
-        return this.executeOnline(tableName, actionName, data);
-      }
-
-      return result;
+      const response = await axios.post(`${this.baseUrl}/write/${tableName}/${actionName}`, data);
+      return response.data;
     } catch (error) {
       console.error(`Error executing action ${actionName}:`, error);
       throw error;
@@ -276,32 +240,8 @@ export class WriteActionsAPI {
     items: Array<Record<string, any>>
   ): Promise<BatchWriteResponse<T>> {
     try {
-      const csrfToken = csrfManager.getToken();
-      
-      if (!csrfToken) {
-        console.warn('[WriteActions] No CSRF token available for batch, attempting to refresh...');
-        await csrfManager.refreshToken();
-      }
-
-      const response = await fetch(`${this.baseUrl}/write/${tableName}/${actionName}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': csrfManager.getToken() || '',
-        },
-        body: JSON.stringify({ items }),
-      });
-
-      const result = await response.json();
-
-      // Handle CSRF token expiration
-      if (response.status === 419) {
-        console.log('[WriteActions] CSRF token expired in batch, refreshing and retrying...');
-        await csrfManager.refreshToken();
-        return this.executeBatchOnline(tableName, actionName, items);
-      }
-
-      return result;
+      const response = await axios.post(`${this.baseUrl}/write/${tableName}/${actionName}`, { items });
+      return response.data;
     } catch (error) {
       console.error(`Error executing batch action ${actionName}:`, error);
       throw error;
@@ -323,7 +263,6 @@ export class WriteActionsAPI {
       JSON.stringify(data),
       {
         'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfManager.getToken() || '',
       },
       data // Store optimistic data
     );
@@ -355,7 +294,6 @@ export class WriteActionsAPI {
       JSON.stringify({ items }),
       {
         'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfManager.getToken() || '',
       },
       items // Store optimistic data
     );

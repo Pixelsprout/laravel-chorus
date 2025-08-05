@@ -14,7 +14,7 @@ export {
 } from "./core/offline";
 export { offlineFetch, OfflineFetchOptions } from "./core/fetch";
 export { InertiaOfflineWrapper, createOfflineRouter, InertiaOfflineOptions } from "./core/inertia-offline";
-export { LaravelCSRFManager, csrfManager, CSRFTokenManager } from "./core/csrf";
+// CSRF tokens are handled automatically by axios when configured in Laravel
 export { 
   WriteActionsAPI, 
   writeActions, 

@@ -11,7 +11,6 @@ var __rest = (this && this.__rest) || function (s, e) {
 };
 // Offline-aware wrapper for Inertia.js requests
 import { offlineManager } from './offline';
-import { csrfManager } from './csrf';
 /**
  * Offline-aware wrapper for Inertia router methods
  */
@@ -28,14 +27,10 @@ export class InertiaOfflineWrapper {
             return this.originalRouter.post(url, data, inertiaOptions);
         }
         if (!skipOfflineCache) {
-            const csrfToken = csrfManager.getToken();
             const headers = {
                 'Content-Type': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
             };
-            if (csrfToken) {
-                headers['X-CSRF-TOKEN'] = csrfToken;
-            }
             const requestId = offlineManager.cacheRequest(url, 'POST', JSON.stringify(data), headers, optimisticData);
             if (onOfflineCached) {
                 onOfflineCached(requestId);
@@ -58,14 +53,10 @@ export class InertiaOfflineWrapper {
             return this.originalRouter.put(url, data, inertiaOptions);
         }
         if (!skipOfflineCache) {
-            const csrfToken = csrfManager.getToken();
             const headers = {
                 'Content-Type': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
             };
-            if (csrfToken) {
-                headers['X-CSRF-TOKEN'] = csrfToken;
-            }
             const requestId = offlineManager.cacheRequest(url, 'PUT', JSON.stringify(data), headers);
             if (onOfflineCached) {
                 onOfflineCached(requestId);
@@ -87,14 +78,10 @@ export class InertiaOfflineWrapper {
             return this.originalRouter.delete(url, inertiaOptions);
         }
         if (!skipOfflineCache) {
-            const csrfToken = csrfManager.getToken();
             const headers = {
                 'Content-Type': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
             };
-            if (csrfToken) {
-                headers['X-CSRF-TOKEN'] = csrfToken;
-            }
             const requestId = offlineManager.cacheRequest(url, 'DELETE', undefined, headers);
             if (onOfflineCached) {
                 onOfflineCached(requestId);
@@ -116,14 +103,10 @@ export class InertiaOfflineWrapper {
             return this.originalRouter.patch(url, data, inertiaOptions);
         }
         if (!skipOfflineCache) {
-            const csrfToken = csrfManager.getToken();
             const headers = {
                 'Content-Type': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
             };
-            if (csrfToken) {
-                headers['X-CSRF-TOKEN'] = csrfToken;
-            }
             const requestId = offlineManager.cacheRequest(url, 'PATCH', JSON.stringify(data), headers);
             if (onOfflineCached) {
                 onOfflineCached(requestId);
