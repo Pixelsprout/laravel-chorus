@@ -32,3 +32,9 @@ export type { ChorusState } from './injection-keys';
 
 // Export injection keys so they can be imported consistently
 export { ChorusCoreKey, ChorusStateKey } from './injection-keys';
+
+// Export shared provider types
+export type { 
+  ChorusProviderProps, 
+  VueChorusProviderProps 
+} from '../shared/provider-types';

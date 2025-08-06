@@ -7,3 +7,9 @@ export type { HarmonicEvent } from '../core/chorus';
 export type { UseOfflineReturn } from './hooks/useOffline';
 export type { OfflineIndicatorProps } from './components/OfflineIndicator';
 export type { UseWriteActionsReturn } from './hooks/useWriteActions';
+
+// Export shared provider types
+export type { 
+  ChorusProviderProps, 
+  ReactChorusProviderProps 
+} from '../shared/provider-types';

@@ -25,17 +25,9 @@ console.log('🎵 [ChorusProvider] Component is loading!');
 import { useEcho } from '@laravel/echo-vue';
 import { ChorusCore, HarmonicEvent, TableState } from '../../core/chorus';
 import { ChorusCoreKey, ChorusStateKey } from '../injection-keys';
+import type { VueChorusProviderProps } from '../../shared/provider-types';
 
-interface ChorusProviderProps {
-  userId?: number;
-  channelPrefix?: string;
-  onRejectedHarmonic?: (harmonic: HarmonicEvent) => void;
-  onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void;
-  onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void;
-  debugMode?: boolean;
-}
-
-const props = withDefaults(defineProps<ChorusProviderProps>(), {
+const props = withDefaults(defineProps<VueChorusProviderProps>(), {
   debugMode: false
 });
 
@@ -50,14 +42,6 @@ const initializationError = ref<string | null>(null);
 
 // According to Vue docs, provide should be called in setup()
 // We need to provide the core instance and reactive state
-console.log('[ChorusProvider] Providing keys:', { ChorusCoreKey, ChorusStateKey });
-console.log('[ChorusProvider] Key descriptions:', { 
-  coreDesc: ChorusCoreKey.description, 
-  stateDesc: ChorusStateKey.description,
-  coreString: ChorusCoreKey.toString(),
-  stateString: ChorusStateKey.toString()
-});
-console.log('[ChorusProvider] Providing chorusCore:', chorusCore);
 
 // Provide ChorusCore instance
 provide(ChorusCoreKey, chorusCore);
