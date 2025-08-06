@@ -4,8 +4,9 @@
       "Bash(rm:*)",
       "Bash(mv:*)",
       "Bash(grep:*)",
+      "Bash(rg:*)",
       "Bash(npm run build:*)",
-      "Bash(ls:*)"
+      "Bash(npm run lint:*)"
     ]
   },
   "enableAllProjectMcpServers": false

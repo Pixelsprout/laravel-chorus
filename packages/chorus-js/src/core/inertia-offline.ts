@@ -1,6 +1,5 @@
 // Offline-aware wrapper for Inertia.js requests
 import { offlineManager } from './offline';
-import { csrfManager } from './csrf';
 
 export interface InertiaOfflineOptions {
   skipOfflineCache?: boolean;
@@ -33,15 +32,10 @@ export class InertiaOfflineWrapper {
     }
 
     if (!skipOfflineCache) {
-      const csrfToken = csrfManager.getToken();
       const headers: Record<string, string> = { 
         'Content-Type': 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
       };
-      
-      if (csrfToken) {
-        headers['X-CSRF-TOKEN'] = csrfToken;
-      }
 
       const requestId = offlineManager.cacheRequest(
         url,
@@ -83,15 +77,10 @@ export class InertiaOfflineWrapper {
     }
 
     if (!skipOfflineCache) {
-      const csrfToken = csrfManager.getToken();
       const headers: Record<string, string> = { 
         'Content-Type': 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
       };
-      
-      if (csrfToken) {
-        headers['X-CSRF-TOKEN'] = csrfToken;
-      }
 
       const requestId = offlineManager.cacheRequest(
         url,
@@ -128,15 +117,10 @@ export class InertiaOfflineWrapper {
     }
 
     if (!skipOfflineCache) {
-      const csrfToken = csrfManager.getToken();
       const headers: Record<string, string> = { 
         'Content-Type': 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
       };
-      
-      if (csrfToken) {
-        headers['X-CSRF-TOKEN'] = csrfToken;
-      }
 
       const requestId = offlineManager.cacheRequest(
         url,
@@ -174,15 +158,10 @@ export class InertiaOfflineWrapper {
     }
 
     if (!skipOfflineCache) {
-      const csrfToken = csrfManager.getToken();
       const headers: Record<string, string> = { 
         'Content-Type': 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
       };
-      
-      if (csrfToken) {
-        headers['X-CSRF-TOKEN'] = csrfToken;
-      }
 
       const requestId = offlineManager.cacheRequest(
         url,

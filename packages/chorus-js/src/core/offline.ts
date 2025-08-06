@@ -1,5 +1,5 @@
 // Offline support for Chorus
-import { csrfManager, type CSRFTokenManager } from './csrf';
+import axios from 'axios';
 
 export interface OfflineRequest {
   id: string;
@@ -43,12 +43,9 @@ export class OfflineManager {
   private isOnline: boolean = navigator.onLine;
   private onlineCallbacks: (() => void)[] = [];
   private offlineCallbacks: (() => void)[] = [];
-  private csrfManager: CSRFTokenManager;
-  private duplicateChecker?: (data: any) => Promise<boolean>;
   private isProcessing: boolean = false;
 
-  constructor(csrfTokenManager?: CSRFTokenManager) {
-    this.csrfManager = csrfTokenManager || csrfManager;
+  constructor() {
     this.setupEventListeners();
   }
 
@@ -60,7 +57,10 @@ export class OfflineManager {
       this.isOnline = true;
       this.log('Browser came online');
       this.onlineCallbacks.forEach(callback => callback());
-      // Don't automatically process requests - let the application handle it
+      // Automatically process pending requests when coming back online
+      this.processPendingRequests().catch(err => {
+        console.error('[Chorus Offline] Error processing pending requests after coming online:', err);
+      });
     });
 
     window.addEventListener('offline', () => {
@@ -103,15 +103,10 @@ export class OfflineManager {
   ): string {
 
 
-    // Ensure CSRF token is included in headers
-    const csrfToken = this.csrfManager.getToken();
+    // CSRF tokens are now handled automatically by axios
     const requestHeaders = {
       ...headers,
     };
-
-    if (csrfToken && !requestHeaders['X-CSRF-TOKEN']) {
-      requestHeaders['X-CSRF-TOKEN'] = csrfToken;
-    }
 
     const request: OfflineRequest = {
       id: this.generateRequestId(),
@@ -181,15 +176,6 @@ export class OfflineManager {
 
     this.log(`Processing ${pendingRequests.length} pending requests`);
 
-    // Refresh CSRF token once at the beginning
-    let freshToken: string | null = null;
-    try {
-      freshToken = await this.csrfManager.refreshToken();
-      this.log('Refreshed CSRF token for batch processing');
-    } catch (err) {
-      this.log('Failed to refresh CSRF token, will use cached tokens:', err);
-    }
-
     // Group requests for potential batching
     const requestGroups = this.groupCachedRequests(pendingRequests);
     
@@ -199,14 +185,14 @@ export class OfflineManager {
     for (const group of requestGroups) {
       if (group.canBatch && group.requests.length > 1) {
         // Process as batch
-        this.log(`Processing batch of ${group.requests.length} ${group.resource} requests`);
-        const batchResult = await this.processBatchRequests(group, freshToken);
+        this.log(`Processing batch of ${group.requests.length} ${group.resource} requests (type: ${group.type})`);
+        const batchResult = await this.processBatchRequests(group);
         successfulRequests.push(...batchResult.successful);
         failedRequests.push(...batchResult.failed);
       } else {
         // Process individually
         for (const request of group.requests) {
-          const result = await this.processIndividualRequest(request, freshToken);
+          const result = await this.processIndividualRequest(request);
           if (result.success) {
             successfulRequests.push(request.id);
           } else if (result.shouldRetry) {
@@ -234,61 +220,24 @@ export class OfflineManager {
    */
   private async executeRequestWithToken(request: OfflineRequest): Promise<boolean> {
     try {
-      const response = await fetch(request.url, {
-        method: request.method,
-        body: request.body,
+      await axios({
+        method: request.method.toLowerCase() as any,
+        url: request.url,
+        data: request.body ? JSON.parse(request.body) : undefined,
         headers: {
           'Content-Type': 'application/json',
           ...request.headers,
         },
       });
 
-      if (!response.ok) {
-        this.log(`Request failed with status ${response.status}: ${request.method} ${request.url}`);
+      this.log(`Request successful: ${request.method} ${request.url}`);
+      return true;
+    } catch (err: any) {
+      if (err.response) {
+        this.log(`Request failed with status ${err.response.status}: ${request.method} ${request.url}`);
+      } else {
+        console.error(`Error executing request ${request.method} ${request.url}:`, err);
       }
-
-      return response.ok;
-    } catch (err) {
-      console.error(`Error executing request ${request.method} ${request.url}:`, err);
-      return false;
-    }
-  }
-
-  /**
-   * Execute a cached request with fresh CSRF token
-   */
-  private async executeRequest(request: OfflineRequest): Promise<boolean> {
-    try {
-      // Always refresh CSRF token before executing offline requests
-      this.log(`Refreshing CSRF token before executing ${request.method} ${request.url}`);
-      
-      let headers = { ...request.headers };
-      
-      try {
-        const newToken = await this.csrfManager.refreshToken();
-        headers['X-CSRF-TOKEN'] = newToken;
-        this.log(`Using fresh CSRF token for request`);
-      } catch (csrfError) {
-        this.log(`Failed to refresh CSRF token, using cached token:`, csrfError);
-        // Continue with cached token as fallback
-      }
-
-      const response = await fetch(request.url, {
-        method: request.method,
-        body: request.body,
-        headers: {
-          'Content-Type': 'application/json',
-          ...headers,
-        },
-      });
-
-      if (!response.ok) {
-        this.log(`Request failed with status ${response.status}: ${request.method} ${request.url}`);
-      }
-
-      return response.ok;
-    } catch (err) {
-      console.error(`Error executing request ${request.method} ${request.url}:`, err);
       return false;
     }
   }
@@ -438,7 +387,6 @@ export class OfflineManager {
    */
   private async processBatchRequests(
     group: RequestGroup, 
-    freshToken: string | null
   ): Promise<{ successful: string[], failed: OfflineRequest[] }> {
     const successful: string[] = [];
     const failed: OfflineRequest[] = [];
@@ -452,7 +400,7 @@ export class OfflineManager {
         this.log(`No action name found for batch group ${group.type}, falling back to individual requests`);
         // Fall back to individual processing
         for (const request of group.requests) {
-          const result = await this.processIndividualRequest(request, freshToken);
+          const result = await this.processIndividualRequest(request);
           if (result.success) {
             successful.push(request.id);
           } else if (result.shouldRetry) {
@@ -467,62 +415,41 @@ export class OfflineManager {
         return req.body ? JSON.parse(req.body) : {};
       });
 
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-
-      if (freshToken) {
-        headers['X-CSRF-TOKEN'] = freshToken;
-      }
-
       // Use the write actions batch endpoint format: /api/write/{table}/{action}
       const batchUrl = `/api/write/${group.resource}/${actionName}`;
       
       this.log(`Sending batch request to ${batchUrl} with ${items.length} items`);
 
-      const response = await fetch(batchUrl, {
-        method: 'POST',
-        body: JSON.stringify({ items }),
-        headers
+      const response = await axios.post(batchUrl, { items }, {
+        headers: {
+          'Content-Type': 'application/json',
+        }
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        
-        // Handle batch response format from our write actions
-        if (result.success && result.data && result.data.results) {
-          result.data.results.forEach((itemResult: any, index: number) => {
-            const request = group.requests[index];
-            if (itemResult.success) {
-              successful.push(request.id);
-              this.log(`Successfully processed batch item ${index}: ${request.method} ${request.url}`);
-            } else {
-              request.retryCount++;
-              if (request.retryCount < request.maxRetries) {
-                failed.push(request);
-                this.log(`Batch item ${index} failed, will retry: ${request.method} ${request.url}`);
-              } else {
-                this.log(`Batch item ${index} failed permanently: ${request.method} ${request.url}`);
-              }
-            }
-          });
-        } else {
-          this.log(`Unexpected batch response format, falling back to individual requests`);
-          // Fall back to individual processing
-          for (const request of group.requests) {
-            const result = await this.processIndividualRequest(request, freshToken);
-            if (result.success) {
-              successful.push(request.id);
-            } else if (result.shouldRetry) {
+      const result = response.data;
+      
+      // Handle batch response format from our write actions
+      if (result.success && result.data && result.data.results) {
+        result.data.results.forEach((itemResult: any, index: number) => {
+          const request = group.requests[index];
+          if (itemResult.success) {
+            successful.push(request.id);
+            this.log(`Successfully processed batch item ${index}: ${request.method} ${request.url}`);
+          } else {
+            request.retryCount++;
+            if (request.retryCount < request.maxRetries) {
               failed.push(request);
+              this.log(`Batch item ${index} failed, will retry: ${request.method} ${request.url}`);
+            } else {
+              this.log(`Batch item ${index} failed permanently: ${request.method} ${request.url}`);
             }
           }
-        }
+        });
       } else {
-        this.log(`Batch request failed with status ${response.status}, falling back to individual requests`);
+        this.log(`Unexpected batch response format, falling back to individual requests`);
         // Fall back to individual processing
         for (const request of group.requests) {
-          const result = await this.processIndividualRequest(request, freshToken);
+          const result = await this.processIndividualRequest(request);
           if (result.success) {
             successful.push(request.id);
           } else if (result.shouldRetry) {
@@ -530,11 +457,15 @@ export class OfflineManager {
           }
         }
       }
-    } catch (err) {
-      this.log(`Batch processing error, falling back to individual requests:`, err);
+    } catch (err: any) {
+      if (err.response) {
+        this.log(`Batch request failed with status ${err.response.status}, falling back to individual requests`);
+      } else {
+        this.log(`Batch processing error, falling back to individual requests:`, err);
+      }
       // Fall back to individual processing
       for (const request of group.requests) {
-        const result = await this.processIndividualRequest(request, freshToken);
+        const result = await this.processIndividualRequest(request);
         if (result.success) {
           successful.push(request.id);
         } else if (result.shouldRetry) {
@@ -551,17 +482,8 @@ export class OfflineManager {
    */
   private async processIndividualRequest(
     request: OfflineRequest, 
-    freshToken: string | null
   ): Promise<{ success: boolean, shouldRetry: boolean }> {
     try {
-      // Update request with fresh token if we have one
-      if (freshToken) {
-        request.headers = {
-          ...request.headers,
-          'X-CSRF-TOKEN': freshToken,
-        };
-      }
-
       const success = await this.executeRequestWithToken(request);
       if (success) {
         this.log(`Successfully processed request: ${request.method} ${request.url}`);
@@ -603,4 +525,4 @@ export class OfflineManager {
 }
 
 // Export singleton instance
-export const offlineManager = new OfflineManager(csrfManager);
+export const offlineManager = new OfflineManager();

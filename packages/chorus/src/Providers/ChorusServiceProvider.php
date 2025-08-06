@@ -36,10 +36,7 @@ final class ChorusServiceProvider extends ServiceProvider
 
         // Register API routes with configuration from config/chorus.php
         $this->app->booted(function () {
-            $routeConfig = config('chorus.routes', [
-                'prefix' => 'api',
-                'middleware' => ['web'],
-            ]);
+            $routeConfig = config('chorus.routes');
 
             Route::prefix($routeConfig['prefix'])
                 ->middleware($routeConfig['middleware'])

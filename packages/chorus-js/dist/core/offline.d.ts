@@ -1,4 +1,3 @@
-import { type CSRFTokenManager } from './csrf';
 export interface OfflineRequest {
     id: string;
     url: string;
@@ -33,10 +32,8 @@ export declare class OfflineManager {
     private isOnline;
     private onlineCallbacks;
     private offlineCallbacks;
-    private csrfManager;
-    private duplicateChecker?;
     private isProcessing;
-    constructor(csrfTokenManager?: CSRFTokenManager);
+    constructor();
     /**
      * Set up browser online/offline event listeners
      */
@@ -73,10 +70,6 @@ export declare class OfflineManager {
      * Execute request with token already updated
      */
     private executeRequestWithToken;
-    /**
-     * Execute a cached request with fresh CSRF token
-     */
-    private executeRequest;
     /**
      * Get current offline state
      */

@@ -54,4 +54,19 @@ return [
     |
     */
     'track_database_version' => env('CHORUS_TRACK_DATABASE_VERSION', true),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Routes Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure the API routes for Chorus. The default middleware includes
+    | 'web' for session/CSRF protection since we use axios which automatically
+    | handles CSRF tokens.
+    |
+    */
+    'routes' => [
+        'prefix' => env('CHORUS_ROUTE_PREFIX', 'api'),
+        'middleware' => ['web'], // Includes CSRF protection for axios
+    ],
 ];
