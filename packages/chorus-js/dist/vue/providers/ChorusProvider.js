@@ -3,6 +3,12 @@ import { ChorusCoreKey, ChorusStateKey } from '../injection-keys';
 // Composable to use Chorus in child components
 export function useChorus() {
     console.log('[useChorus] Looking for injection keys:', { ChorusCoreKey, ChorusStateKey });
+    console.log('[useChorus] Key descriptions:', {
+        coreDesc: ChorusCoreKey.description,
+        stateDesc: ChorusStateKey.description,
+        coreString: ChorusCoreKey.toString(),
+        stateString: ChorusStateKey.toString()
+    });
     // Use inject with explicit undefined as default to check if provided
     const chorusCore = inject(ChorusCoreKey, undefined);
     const chorusState = inject(ChorusStateKey, undefined);

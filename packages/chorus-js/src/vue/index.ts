@@ -29,3 +29,6 @@ export type {
 export type { UseOfflineReturn } from './composables/useOffline';
 export type { UseWriteActionsReturn } from './composables/useWriteActions';
 export type { ChorusState } from './injection-keys';
+
+// Export injection keys so they can be imported consistently
+export { ChorusCoreKey, ChorusStateKey } from './injection-keys';

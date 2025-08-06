@@ -51,6 +51,12 @@ const initializationError = ref<string | null>(null);
 // According to Vue docs, provide should be called in setup()
 // We need to provide the core instance and reactive state
 console.log('[ChorusProvider] Providing keys:', { ChorusCoreKey, ChorusStateKey });
+console.log('[ChorusProvider] Key descriptions:', { 
+  coreDesc: ChorusCoreKey.description, 
+  stateDesc: ChorusStateKey.description,
+  coreString: ChorusCoreKey.toString(),
+  stateString: ChorusStateKey.toString()
+});
 console.log('[ChorusProvider] Providing chorusCore:', chorusCore);
 
 // Provide ChorusCore instance

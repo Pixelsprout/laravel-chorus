@@ -9,6 +9,6 @@ export interface ChorusState {
   initializationError: Ref<string | null>;
 }
 
-// Shared injection keys for type safety
-export const ChorusCoreKey: InjectionKey<ChorusCore> = Symbol('chorusCore');
-export const ChorusStateKey: InjectionKey<ChorusState> = Symbol('chorusState');
+// Shared injection keys for type safety - using Symbol.for() to ensure global uniqueness
+export const ChorusCoreKey: InjectionKey<ChorusCore> = Symbol.for('chorus-vue-core');
+export const ChorusStateKey: InjectionKey<ChorusState> = Symbol.for('chorus-vue-state');

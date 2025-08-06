@@ -9,3 +9,4 @@ export type { UseTableOptions } from './composables/useTable';
 export type { UseOfflineReturn } from './composables/useOffline';
 export type { UseWriteActionsReturn } from './composables/useWriteActions';
 export type { ChorusState } from './injection-keys';
+export { ChorusCoreKey, ChorusStateKey } from './injection-keys';
