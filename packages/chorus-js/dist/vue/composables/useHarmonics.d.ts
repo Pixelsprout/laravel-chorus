@@ -14,7 +14,7 @@ interface HarmonicActions<T, TInput> {
     }) => Promise<void>) => Promise<void>;
 }
 export interface HarmonicResponse<T, TInput = never> {
-    data: Ref<T[] | undefined>;
+    data: Ref<T[]>;
     isLoading: Ref<boolean>;
     error: Ref<any>;
     lastUpdate: Ref<Date | null>;

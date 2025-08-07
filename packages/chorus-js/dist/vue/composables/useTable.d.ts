@@ -26,7 +26,7 @@ export interface UseTableOptions<T = any> {
 export declare function useTable<T extends {
     id: string | number;
 } = any>(tableName: string, options?: UseTableOptions<T>): {
-    data: import("vue").Ref<T[] | undefined, T[] | undefined>;
+    data: import("vue").Ref<T[], T[]>;
     isLoading: import("vue").Ref<boolean, boolean>;
     error: import("vue").Ref<any, any>;
     lastUpdate: import("vue").Ref<Date | null, Date | null>;

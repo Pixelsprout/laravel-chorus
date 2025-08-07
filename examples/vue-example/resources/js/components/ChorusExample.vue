@@ -2,8 +2,10 @@
 // Test the Vue Chorus implementation
 import {
     useChorus,
-    useOffline
+    useOffline,
+    useTable
 } from '@pixelsprout/chorus-js/vue';
+import { watch, computed } from 'vue';
 import OfflineIndicator from '@pixelsprout/chorus-js/vue/components/OfflineIndicator.vue';
 
 // Get Chorus state
@@ -19,47 +21,43 @@ const {
     isOnline,
     pendingRequestsCount
 } = useOffline();
+
+
+const {
+    data: usersData,
+    isLoading: usersIsLoading,
+    error: usersError,
+    lastUpdate: usersLastUpdate,
+} = useTable('users');
+
 </script>
 
 <template>
   <div class="chorus-example">
-    <h2>Chorus Vue Implementation Test</h2>
-
-    <div class="status">
-      <p>Initialized: {{ isInitialized }}</p>
-      <p v-if="initializationError" class="error">
-        Error: {{ initializationError }}
-      </p>
-    </div>
-
-    <OfflineIndicator class="mb-4" />
-
-    <div class="offline-status">
-      <p>Online: {{ isOnline }}</p>
-      <p>Pending Requests: {{ pendingRequestsCount }}</p>
-    </div>
-
-    <div class="schema-info">
-      <h3>Schema Tables:</h3>
-      <ul>
-        <li v-for="(tableSchema, tableName) in schema" :key="tableName">
-          {{ tableName }}
-        </li>
-      </ul>
-    </div>
-
-    <div class="table-states">
-      <h3>Table States:</h3>
-      <div v-for="(state, tableName) in tables" :key="tableName" class="table-state">
-        <h4>{{ tableName }}</h4>
-        <p>Loading: {{ state.isLoading }}</p>
-        <p>Last Update: {{ state.lastUpdate ? new Date(state.lastUpdate).toLocaleString() : 'Never' }}</p>
-        <p v-if="state.error" class="error">Error: {{ state.error }}</p>
+      <div v-if="usersIsLoading" class="loading">
+        Loading users data...
+      </div>
+      <div v-else-if="usersError" class="error">
+        Error loading users data: {{ usersError }}
+      </div>
+      <div v-else-if="usersData && usersData.length > 0">
+        <p>Total records: {{ usersData.length }}</p>
+        <div class="users-grid">
+          <div v-for="record in usersData" :key="record.id" class="user-card">
+            <h4>{{ record.name || record.title || `Record ${record.id}` }}</h4>
+            <div v-for="(value, key) in record" :key="key">
+              <p>
+                <span>{{ value }}</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-else class="no-data">
+        No users records found
       </div>
     </div>
-  </div>
 </template>
-
 
 
 <style scoped>
@@ -88,7 +86,7 @@ const {
   margin-bottom: 20px;
 }
 
-.schema-info, .table-states {
+.schema-info, .table-states, .users-list {
   margin-bottom: 20px;
 }
 
@@ -97,6 +95,54 @@ const {
   padding: 10px;
   border-radius: 4px;
   margin-bottom: 10px;
+}
+
+.users-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.user-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.user-card h4 {
+  margin: 0 0 10px 0;
+  color: #1f2937;
+  font-size: 1.1em;
+}
+
+.user-card p {
+  margin: 5px 0;
+  font-size: 0.9em;
+  color: #4b5563;
+}
+
+.unverified {
+  color: #dc2626 !important;
+  font-style: italic;
+}
+
+.loading {
+  text-align: center;
+  padding: 20px;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.no-data {
+  text-align: center;
+  padding: 20px;
+  color: #9ca3af;
+  font-style: italic;
+  background: #f9fafb;
+  border-radius: 4px;
 }
 
 h2, h3, h4 {

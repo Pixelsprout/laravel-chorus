@@ -1,22 +1,3 @@
-<template>
-  <div style="display: contents">
-    <!-- Debug indicator to show provider is rendering -->
-    <div style="position: fixed; top: 10px; right: 10px; background: green; color: white; padding: 4px; font-size: 10px; z-index: 9999;">
-      ChorusProvider Active
-    </div>
-    <HarmonicListener 
-      :channel="`chorus.user.${userId ?? 'guest'}`" 
-      @harmonic-event="handleHarmonicEvent" 
-    />
-    <HarmonicListener 
-      v-if="channelPrefix"
-      :channel="`chorus.${channelPrefix}.user.${userId ?? 'guest'}`" 
-      @harmonic-event="handleHarmonicEvent" 
-    />
-    <slot />
-  </div>
-</template>
-
 <script setup lang="ts">
 import { ref, reactive, provide, onMounted, onUnmounted, watch, defineComponent, h } from 'vue';
 
@@ -238,3 +219,22 @@ watch(initializationError, (error) => {
   }
 });
 </script>
+
+<template>
+  <div style="display: contents">
+    <!-- Debug indicator to show provider is rendering -->
+    <div style="position: fixed; top: 10px; right: 10px; background: green; color: white; padding: 4px; font-size: 10px; z-index: 9999;">
+      ChorusProvider Active
+    </div>
+    <HarmonicListener 
+      :channel="`chorus.user.${userId ?? 'guest'}`" 
+      @harmonic-event="handleHarmonicEvent" 
+    />
+    <HarmonicListener 
+      v-if="channelPrefix"
+      :channel="`chorus.${channelPrefix}.user.${userId ?? 'guest'}`" 
+      @harmonic-event="handleHarmonicEvent" 
+    />
+    <slot />
+  </div>
+</template>

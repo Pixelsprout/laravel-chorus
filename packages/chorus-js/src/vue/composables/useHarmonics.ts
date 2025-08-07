@@ -1,5 +1,7 @@
 import { ref, computed, watchEffect, onUnmounted, type Ref } from 'vue';
 import type { Collection, Table } from 'dexie';
+import { liveQuery } from 'dexie';
+import { useObservable } from '@vueuse/rxjs';
 import { useChorus } from '../providers/ChorusProvider';
 
 interface HarmonicActions<T, TInput> {
@@ -9,7 +11,7 @@ interface HarmonicActions<T, TInput> {
 }
 
 export interface HarmonicResponse<T, TInput = never> {
-  data: Ref<T[] | undefined>;
+  data: Ref<T[]>;
   isLoading: Ref<boolean>;
   error: Ref<any>;
   lastUpdate: Ref<Date | null>;
@@ -25,7 +27,6 @@ export function useHarmonics<T extends { id: string | number }, TInput = never>(
 
   const { chorusCore, tables, isInitialized } = useChorus();
   
-  const data: Ref<T[] | undefined> = ref(undefined);
   const isLoading = ref(false);
   const error = ref<any>(null);
   const lastUpdate = ref<Date | null>(null);
@@ -46,101 +47,83 @@ export function useHarmonics<T extends { id: string | number }, TInput = never>(
     lastUpdate.value = tableState.value.lastUpdate;
   });
 
-  let isActive = true;
-  let updateInterval: number | null = null;
+  // Use liveQuery for reactive database updates
+  const data = useObservable(
+    liveQuery(async (): Promise<T[]> => {
+      try {
+        await chorusCore.waitUntilReady();
 
-  const updateData = async () => {
-    if (!isActive) return;
-    
-    try {
-      await chorusCore.waitUntilReady(); // blocks until DB is initialized
+        // Check if the specific table exists
+        if (!chorusCore.hasTable(tableName)) {
+          console.warn(`[Chorus] Table ${tableName} does not exist in schema`);
+          return [] as T[];
+        }
 
-      // Check if the specific table exists
-      if (!chorusCore.hasTable(tableName)) {
-        console.warn(`[Chorus] Table ${tableName} does not exist in schema`);
-        data.value = [];
-        return;
-      }
+        const db = chorusCore.getDb();
+        if (!db || !db.isOpen()) {
+          console.log(`[Chorus] Database not available or not open for ${tableName}`);
+          return [] as T[];
+        }
 
-      const db = chorusCore.getDb();
-      if (!db || !db.isOpen()) {
-        console.log(`[Chorus] Database not available or not open for ${tableName}`);
-        data.value = [];
-        return;
-      }
+        const mainCollection = db.table(tableName);
+        const shadowCollection = db.table(shadowTableName);
 
-      const mainCollection = db.table(tableName);
-      const shadowCollection = db.table(shadowTableName);
+        if (!mainCollection || !shadowCollection) {
+          console.warn(`[Chorus] Tables not found: ${tableName}, ${shadowTableName}`);
+          return [] as T[];
+        }
 
-      if (!mainCollection || !shadowCollection) {
-        console.warn(`[Chorus] Tables not found: ${tableName}, ${shadowTableName}`);
-        data.value = [];
-        return;
-      }
-
-      const toArray = async (result: any): Promise<T[]> => {
-        if (Array.isArray(result)) {
+        const toArray = async (result: any): Promise<T[]> => {
+          if (Array.isArray(result)) {
+            return result;
+          }
+          if (result && typeof result.toArray === 'function') {
+            return await result.toArray();
+          }
           return result;
-        }
-        if (result && typeof result.toArray === 'function') {
-          return await result.toArray();
-        }
-        return result;
-      };
+        };
 
-      const mainQuery = query ? query(mainCollection) : mainCollection;
-      const shadowQuery = query ? query(shadowCollection) : shadowCollection;
+        const mainQuery = query ? query(mainCollection) : mainCollection;
+        const shadowQuery = query ? query(shadowCollection) : shadowCollection;
 
-      const [mainData, shadowData] = await Promise.all([
-        toArray(mainQuery),
-        toArray(shadowQuery)
-      ]);
+        const [mainData, shadowData] = await Promise.all([
+          toArray(mainQuery),
+          toArray(shadowQuery)
+        ]);
 
-      const shadowDataMap = new Map((shadowData ?? []).map((item) => [item.id, item]));
-      const merged = (mainData ?? []).map((item) =>
-          shadowDataMap.has(item.id) ? shadowDataMap.get(item.id)! : item
-      );
+        const shadowDataMap = new Map((shadowData ?? []).map((item) => [item.id, item]));
+        const merged = (mainData ?? []).map((item) =>
+            shadowDataMap.has(item.id) ? shadowDataMap.get(item.id)! : item
+        );
 
-      const mainDataIds = new Set((mainData ?? []).map((item) => item.id));
+        const mainDataIds = new Set((mainData ?? []).map((item) => item.id));
 
-      if(shadowData && shadowData.length) {
-        for (const item of shadowData) {
-          if (!mainDataIds.has(item.id)) {
-            merged.push(item);
+        if(shadowData && shadowData.length) {
+          for (const item of shadowData) {
+            if (!mainDataIds.has(item.id)) {
+              merged.push(item);
+            }
           }
         }
-      }
 
-      const deltaTable = chorusCore.getDb()?.table(deltaTableName);
-      if (!deltaTable) {
-        data.value = merged;
-        return;
-      }
+        const deltaTable = chorusCore.getDb()?.table(deltaTableName);
+        if (!deltaTable) {
+          return merged;
+        }
 
-      const pendingDeletes = await deltaTable
-          .where('[operation+sync_status]')
-          .equals(['delete', 'pending'])
-          .toArray();
-      const deleteIds = new Set(pendingDeletes.map((delta: any) => delta.data.id));
-      data.value = merged.filter((item) => !deleteIds.has(item.id));
-    } catch (queryError) {
-      console.error(`[Chorus] Error querying ${tableName}:`, queryError);
-      data.value = [];
-    }
-  };
-
-  // Watch for initialization and start polling
-  watchEffect(() => {
-    if (isInitialized.value) {
-      updateData();
-      
-      // Set up polling for real-time updates
-      if (updateInterval) {
-        clearInterval(updateInterval);
+        const pendingDeletes = await deltaTable
+            .where('[operation+sync_status]')
+            .equals(['delete', 'pending'])
+            .toArray();
+        const deleteIds = new Set(pendingDeletes.map((delta: any) => delta.data.id));
+        return merged.filter((item) => !deleteIds.has(item.id));
+      } catch (queryError) {
+        console.error(`[Chorus] Error querying ${tableName}:`, queryError);
+        return [] as T[];
       }
-      updateInterval = window.setInterval(updateData, 100); // Poll every 100ms
-    }
-  });
+    }) as any,
+    { initialValue: [] as T[] }
+  ) as Ref<T[]>;
 
   // Actions
   const actions: HarmonicActions<T, TInput> = {
@@ -160,8 +143,6 @@ export function useHarmonics<T extends { id: string | number }, TInput = never>(
           console.error("[Chorus] Side effect for create failed:", error),
         );
       }
-      // Trigger immediate update
-      updateData();
     },
     update: async (inputData, sideEffect) => {
       const db = chorusCore.getDb();
@@ -179,8 +160,6 @@ export function useHarmonics<T extends { id: string | number }, TInput = never>(
           console.error("[Chorus] Side effect for update failed:", error),
         );
       }
-      // Trigger immediate update
-      updateData();
     },
     delete: async (inputData, sideEffect) => {
       const db = chorusCore.getDb();
@@ -198,17 +177,8 @@ export function useHarmonics<T extends { id: string | number }, TInput = never>(
           console.error("[Chorus] Side effect for delete failed:", error),
         );
       }
-      // Trigger immediate update
-      updateData();
     },
   };
-
-  onUnmounted(() => {
-    isActive = false;
-    if (updateInterval) {
-      clearInterval(updateInterval);
-    }
-  });
 
   return {
     data,
