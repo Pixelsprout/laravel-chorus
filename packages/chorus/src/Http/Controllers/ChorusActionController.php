@@ -9,10 +9,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Pixelsprout\LaravelChorus\Contracts\ChorusActionInterface;
 use Pixelsprout\LaravelChorus\Models\Harmonic;
-use Illuminate\Support\Str;
 
 final class ChorusActionController extends Controller
 {
@@ -23,7 +23,7 @@ final class ChorusActionController extends Controller
     {
         try {
             // Validate that the action class exists and implements ChorusActionInterface
-            if (!class_exists($actionClass)) {
+            if (! class_exists($actionClass)) {
                 return response()->json([
                     'success' => false,
                     'error' => "Action class not found: {$actionClass}",
@@ -32,7 +32,7 @@ final class ChorusActionController extends Controller
 
             $action = app($actionClass);
 
-            if (!$action instanceof ChorusActionInterface) {
+            if (! $action instanceof ChorusActionInterface) {
                 return response()->json([
                     'success' => false,
                     'error' => "Class {$actionClass} does not implement ChorusActionInterface",
@@ -115,7 +115,7 @@ final class ChorusActionController extends Controller
      */
     protected function handleBatchAction(Request $request, ChorusActionInterface $action, string $actionClass): JsonResponse
     {
-        if (!$action->supportsBatch()) {
+        if (! $action->supportsBatch()) {
             return response()->json([
                 'success' => false,
                 'error' => "Action '{$actionClass}' does not support batch operations",

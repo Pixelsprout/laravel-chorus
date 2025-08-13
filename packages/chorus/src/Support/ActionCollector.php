@@ -6,15 +6,30 @@ namespace Pixelsprout\LaravelChorus\Support;
 
 use Exception;
 use Illuminate\Database\Eloquent\Model;
-use Pixelsprout\LaravelChorus\Support\ModelsThat;
 use Pixelsprout\LaravelChorus\Traits\Harmonics;
 
 final class ActionCollector
 {
     public ModelActionProxy $messages;
+
     private array $operations = [];
+
     private array $modelProxies = [];
+
     private bool $collecting = false;
+
+    public function __get(string $tableName): ModelActionProxy
+    {
+        if (! $this->collecting) {
+            throw new Exception('ActionCollector is not currently collecting operations');
+        }
+
+        if (! isset($this->modelProxies[$tableName])) {
+            $this->modelProxies[$tableName] = new ModelActionProxy($this, $tableName);
+        }
+
+        return $this->modelProxies[$tableName];
+    }
 
     public function startCollecting(): void
     {
@@ -38,22 +53,9 @@ final class ActionCollector
         return $this->operations;
     }
 
-    public function __get(string $tableName): ModelActionProxy
-    {
-        if (!$this->collecting) {
-            throw new Exception('ActionCollector is not currently collecting operations');
-        }
-
-        if (!isset($this->modelProxies[$tableName])) {
-            $this->modelProxies[$tableName] = new ModelActionProxy($this, $tableName);
-        }
-
-        return $this->modelProxies[$tableName];
-    }
-
     public function addOperation(string $tableName, string $operation, array $data): void
     {
-        if (!$this->collecting) {
+        if (! $this->collecting) {
             throw new Exception('ActionCollector is not currently collecting operations');
         }
 
@@ -99,7 +101,7 @@ final class ActionCollector
 
         // Find the model class for this table
         $modelClass = $this->findModelClassForTable($tableName);
-        if (!$modelClass) {
+        if (! $modelClass) {
             throw new Exception("No model found for table: {$tableName}");
         }
 
@@ -115,22 +117,24 @@ final class ActionCollector
 
     private function updateModel(Model $model, array $data): Model
     {
-        if (!isset($data['id'])) {
+        if (! isset($data['id'])) {
             throw new Exception('Update operation requires an id field');
         }
 
         $instance = $model->findOrFail($data['id']);
         $instance->update($data);
+
         return $instance->fresh();
     }
 
     private function deleteModel(Model $model, array $data): bool
     {
-        if (!isset($data['id'])) {
+        if (! isset($data['id'])) {
             throw new Exception('Delete operation requires an id field');
         }
 
         $instance = $model->findOrFail($data['id']);
+
         return $instance->delete();
     }
 

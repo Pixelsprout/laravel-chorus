@@ -30,92 +30,6 @@ abstract class ChorusAction implements ChorusActionInterface
     }
 
     /**
-     * Handle an RPC-style action with multiple write operations
-     */
-    public function handle(Request $request): mixed
-    {
-        // Check if this is a new callback-style request with operations
-        if ($request->has('operations')) {
-            return $this->handleWithOperations($request);
-        }
-        
-        // Legacy handling - validate the request data
-        $data = $request->all();
-        $this->validateItem($data);
-
-        $collector = new ActionCollector();
-        
-        return DB::transaction(function () use ($request, $collector) {
-            $collector->startCollecting();
-            
-            try {
-                // Execute the user-defined action logic
-                $this->execute($request, $collector);
-                
-                // Execute all collected operations
-                $results = $collector->executeOperations();
-                
-                return [
-                    'success' => true,
-                    'operations' => $results,
-                    'summary' => [
-                        'total' => count($results),
-                        'successful' => count(array_filter($results, fn($r) => $r['success'])),
-                        'failed' => count(array_filter($results, fn($r) => !$r['success'])),
-                    ],
-                ];
-            } finally {
-                $collector->stopCollecting();
-            }
-        });
-    }
-
-    /**
-     * Handle requests with pre-collected operations from the client
-     */
-    protected function handleWithOperations(Request $request): mixed
-    {
-        $operations = $request->input('operations', []);
-        
-        // Validate that we have operations
-        if (empty($operations)) {
-            throw new Exception('No operations provided');
-        }
-        
-        $collector = new ActionCollector();
-        
-        return DB::transaction(function () use ($request, $collector, $operations) {
-            $collector->startCollecting();
-            
-            try {
-                // Add the operations from the client to the collector
-                foreach ($operations as $operation) {
-                    $collector->addOperation(
-                        $operation['table'],
-                        $operation['operation'],
-                        $operation['data']
-                    );
-                }
-                
-                // Execute all operations
-                $results = $collector->executeOperations();
-                
-                return [
-                    'success' => true,
-                    'operations' => $results,
-                    'summary' => [
-                        'total' => count($results),
-                        'successful' => count(array_filter($results, fn($r) => $r['success'])),
-                        'failed' => count(array_filter($results, fn($r) => !$r['success'])),
-                    ],
-                ];
-            } finally {
-                $collector->stopCollecting();
-            }
-        });
-    }
-
-    /**
      * Execute the action logic with access to the action collector
      */
     abstract protected function execute(Request $request, ActionCollector $actions): void;
@@ -124,6 +38,47 @@ abstract class ChorusAction implements ChorusActionInterface
      * Get validation rules for this action
      */
     abstract public function rules(): array;
+
+    /**
+     * Handle an RPC-style action with multiple write operations
+     */
+    final public function handle(Request $request): mixed
+    {
+        // Check if this is a new callback-style request with operations
+        if ($request->has('operations')) {
+            return $this->handleWithOperations($request);
+        }
+
+        // Legacy handling - validate the request data
+        $data = $request->all();
+        $this->validateItem($data);
+
+        $collector = new ActionCollector();
+
+        return DB::transaction(function () use ($request, $collector) {
+            $collector->startCollecting();
+
+            try {
+                // Execute the user-defined action logic
+                $this->execute($request, $collector);
+
+                // Execute all collected operations
+                $results = $collector->executeOperations();
+
+                return [
+                    'success' => true,
+                    'operations' => $results,
+                    'summary' => [
+                        'total' => count($results),
+                        'successful' => count(array_filter($results, fn ($r) => $r['success'])),
+                        'failed' => count(array_filter($results, fn ($r) => ! $r['success'])),
+                    ],
+                ];
+            } finally {
+                $collector->stopCollecting();
+            }
+        });
+    }
 
     /**
      * Handle batch write operations
@@ -142,7 +97,7 @@ abstract class ChorusAction implements ChorusActionInterface
                 // Create a new request with the item data
                 $itemRequest = $request->duplicate();
                 $itemRequest->merge($item);
-                
+
                 $result = $this->handle($itemRequest);
                 $results[] = [
                     'success' => true,
@@ -205,6 +160,51 @@ abstract class ChorusAction implements ChorusActionInterface
     final public function setConfig(array $config): void
     {
         $this->config = array_merge($this->config, $config);
+    }
+
+    /**
+     * Handle requests with pre-collected operations from the client
+     */
+    protected function handleWithOperations(Request $request): mixed
+    {
+        $operations = $request->input('operations', []);
+
+        // Validate that we have operations
+        if (empty($operations)) {
+            throw new Exception('No operations provided');
+        }
+
+        $collector = new ActionCollector();
+
+        return DB::transaction(function () use ($collector, $operations) {
+            $collector->startCollecting();
+
+            try {
+                // Add the operations from the client to the collector
+                foreach ($operations as $operation) {
+                    $collector->addOperation(
+                        $operation['table'],
+                        $operation['operation'],
+                        $operation['data']
+                    );
+                }
+
+                // Execute all operations
+                $results = $collector->executeOperations();
+
+                return [
+                    'success' => true,
+                    'operations' => $results,
+                    'summary' => [
+                        'total' => count($results),
+                        'successful' => count(array_filter($results, fn ($r) => $r['success'])),
+                        'failed' => count(array_filter($results, fn ($r) => ! $r['success'])),
+                    ],
+                ];
+            } finally {
+                $collector->stopCollecting();
+            }
+        });
     }
 
     /**

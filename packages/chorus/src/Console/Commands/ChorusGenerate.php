@@ -285,10 +285,10 @@ final class ChorusGenerate extends Command
             try {
                 $action = new $actionClass();
                 $actionName = class_basename($actionClass);
-                
+
                 // Remove 'Action' suffix if it exists
                 $interfaceName = str_replace('Action', '', $actionName);
-                
+
                 $rules = $action->rules();
                 $config = $action->getConfig();
 
@@ -319,8 +319,9 @@ final class ChorusGenerate extends Command
         // Check for ChorusActions directory
         $actionDirectory = app_path('Actions/ChorusActions');
 
-        if (!File::exists($actionDirectory)) {
+        if (! File::exists($actionDirectory)) {
             warning("ChorusActions directory not found at {$actionDirectory}");
+
             return $actions;
         }
 
@@ -333,7 +334,7 @@ final class ChorusGenerate extends Command
             if (class_exists($className)) {
                 try {
                     $reflection = new ReflectionClass($className);
-                    
+
                     // Check if it extends ChorusAction
                     $parentClass = $reflection->getParentClass();
                     if ($parentClass && $parentClass->getName() === 'Pixelsprout\\LaravelChorus\\Support\\ChorusAction') {
@@ -358,7 +359,7 @@ final class ChorusGenerate extends Command
         foreach ($rules as $field => $rule) {
             $ruleString = is_array($rule) ? implode('|', $rule) : $rule;
             $isOptional = str_contains($ruleString, 'nullable') || str_contains($ruleString, 'sometimes');
-            
+
             $type = 'any';
             if (str_contains($ruleString, 'string')) {
                 $type = 'string';
@@ -387,7 +388,7 @@ final class ChorusGenerate extends Command
     {
         $directory = resource_path('js/_generated');
 
-        if (!File::exists($directory)) {
+        if (! File::exists($directory)) {
             File::makeDirectory($directory, 0755, true);
         }
 
@@ -397,12 +398,12 @@ final class ChorusGenerate extends Command
         // Generate parameter interfaces
         foreach ($actionInterfaces as $actionName => $actionData) {
             $content .= "export interface {$actionName}Params {\n";
-            
+
             foreach ($actionData['parameters'] as $field => $paramData) {
                 $optional = $paramData['optional'] ? '?' : '';
                 $content .= "  {$field}{$optional}: {$paramData['type']};\n";
             }
-            
+
             $content .= "}\n\n";
         }
 
@@ -444,7 +445,7 @@ final class ChorusGenerate extends Command
 
         // Generate callback-style action functions
         foreach ($actionInterfaces as $actionName => $actionData) {
-            $functionName = lcfirst($actionName) . 'Action';
+            $functionName = lcfirst($actionName).'Action';
             $content .= "export declare function {$functionName}(\n";
             $content .= "  callback: (writes: WritesProxy) => void\n";
             $content .= "): Promise<ChorusActionResponse>;\n\n";
@@ -464,8 +465,8 @@ final class ChorusGenerate extends Command
             $escapedClassName = addslashes($actionData['className']);
             $content .= "  {$actionName}: {\n";
             $content .= "    className: '{$escapedClassName}',\n";
-            $content .= "    allowOfflineWrites: " . ($actionData['config']['allowOfflineWrites'] ? 'true' : 'false') . ",\n";
-            $content .= "    supportsBatch: " . ($actionData['config']['supportsBatch'] ? 'true' : 'false') . ",\n";
+            $content .= '    allowOfflineWrites: '.($actionData['config']['allowOfflineWrites'] ? 'true' : 'false').",\n";
+            $content .= '    supportsBatch: '.($actionData['config']['supportsBatch'] ? 'true' : 'false').",\n";
             $content .= "  },\n";
         }
         $content .= "};\n\n";
@@ -481,9 +482,9 @@ final class ChorusGenerate extends Command
 
         // Generate implementation for each action function
         foreach ($actionInterfaces as $actionName => $actionData) {
-            $functionName = lcfirst($actionName) . 'Action';
+            $functionName = lcfirst($actionName).'Action';
             $routeName = $this->convertToKebabCase($actionName);
-            
+
             $implContent .= "export async function {$functionName}(\n";
             $implContent .= "  callback: (writes: WritesProxy) => void\n";
             $implContent .= "): Promise<ChorusActionResponse> {\n";
@@ -491,8 +492,8 @@ final class ChorusGenerate extends Command
             $implContent .= "    '{$routeName}',\n";
             $implContent .= "    callback,\n";
             $implContent .= "    {\n";
-            $implContent .= "      optimistic: " . ($actionData['config']['allowOfflineWrites'] ? 'true' : 'false') . ",\n";
-            $implContent .= "      offline: " . ($actionData['config']['allowOfflineWrites'] ? 'true' : 'false') . ",\n";
+            $implContent .= '      optimistic: '.($actionData['config']['allowOfflineWrites'] ? 'true' : 'false').",\n";
+            $implContent .= '      offline: '.($actionData['config']['allowOfflineWrites'] ? 'true' : 'false').",\n";
             $implContent .= "    }\n";
             $implContent .= "  );\n";
             $implContent .= "}\n\n";
@@ -509,6 +510,6 @@ final class ChorusGenerate extends Command
      */
     protected function convertToKebabCase(string $string): string
     {
-        return strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $string));
+        return mb_strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $string));
     }
 }
