@@ -3,12 +3,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import type { Message, Platform } from '@/_generated/types';
+import type { Platform } from '@/_generated/types';
+import { createMessageWithActivityAction } from '@/_generated/chorus-actions';
 
 import { usePage } from '@inertiajs/react';
 import { type SharedData } from '@/types';
 import { SendIcon, WifiOffIcon } from 'lucide-react';
-import { useOffline, useTable } from '@pixelsprout/chorus-js';
+import { useOffline } from '@pixelsprout/chorus-js';
 import { useForm } from '@tanstack/react-form';
 import { uuidv7 } from 'uuidv7';
 import type { AnyFieldApi } from '@tanstack/react-form';
@@ -38,9 +39,6 @@ export default function CreateMessageForm({
     const { auth } = usePage<SharedData>().props;
     const { isOnline } = useOffline();
 
-    // Get both data and actions from the combined hook
-    const { create: createMessage } = useTable<Message>('messages');
-
     // Forms
     const createMessageForm = useForm({
         defaultValues: {
@@ -50,34 +48,38 @@ export default function CreateMessageForm({
         onSubmit: async ({ value, formApi }) => {
             try {
                 const messageId = uuidv7();
-                const now = new Date();
 
-                // Execute the write action using the unified API (optimistic + server)
-                await createMessage(
-                    {                  // Optimistic data for immediate UI update
+                // Execute the new ChorusAction with callback-style API
+                const result = await createMessageWithActivityAction((writes) => {
+                    // Create the message
+                    writes.messages.create({
                         id: messageId,
                         body: value.message,
                         platform_id: value.platformId,
-                        tenant_id: String(auth.user.tenant_id),
-                        user_id: String(auth.user.id),
-                        created_at: now.toString(),
-                        updated_at: now.toString(),
-                    },
-                    {                  // Server data
-                        id: messageId,
-                        message: value.message,
-                        platformId: value.platformId,
-                    },
-                    (result) => {      // Callback for server response
-                        if (result.success) {
-                            // Clear form on success
-                            formApi.reset();
-                            console.log('Message created successfully:', result.data);
-                        } else {
-                            console.error('Message creation failed:', result.error);
-                        }
-                    }
-                );
+                        user_id: auth.user.id,
+                        tenant_id: auth.user.tenant_id,
+                    });
+
+                    // Update user's last activity (handled automatically by the action)
+                    writes.users.update({
+                        id: auth.user.id,
+                        last_activity_at: new Date().toISOString(),
+                    });
+
+                    // Update platform metrics (handled automatically by the action)
+                    writes.platforms.update({
+                        id: value.platformId,
+                        last_message_at: new Date().toISOString(),
+                    });
+                });
+
+                if (result.success) {
+                    // Clear form on success
+                    formApi.reset();
+                    console.log('Message created successfully:', result);
+                } else {
+                    console.error('Message creation failed:', result.error);
+                }
             } catch (err) {
                 console.error('Error creating message:', err);
             }
@@ -198,31 +200,19 @@ export default function CreateMessageForm({
                                     // Test rejected harmonic by sending invalid data
                                     try {
                                         const invalidMessageId = uuidv7();
-                                        const now = new Date();
 
-                                        // Create optimistic message for immediate UI update
-                                        const invalidMessage: Message = {
-                                            id: invalidMessageId,
-                                            body: '', // This will fail validation
-                                            platform_id: 'invalid-platform-id', // This will also fail
-                                            tenant_id: String(auth.user.tenant_id),
-                                            user_id: String(auth.user.id),
-                                            created_at: now,
-                                            updated_at: now,
-                                        };
-
-                                        // Execute the write action with invalid data using unified API
-                                        await createMessage(
-                                            invalidMessage, // Optimistic data
-                                            {               // Server data (invalid)
+                                        // Execute the ChorusAction with invalid data to test rejection
+                                        const result = await createMessageWithActivityAction((writes) => {
+                                            writes.messages.create({
                                                 id: invalidMessageId,
-                                                message: '', // This will fail validation
-                                                platformId: 'invalid-platform-id', // This will also fail
-                                            },
-                                            (result) => {   // Callback
-                                                console.log('Test rejection result:', result);
-                                            }
-                                        );
+                                                body: '', // This will fail validation (empty message)
+                                                platform_id: 'invalid-platform-id', // This will also fail
+                                                user_id: auth.user.id,
+                                                tenant_id: auth.user.tenant_id,
+                                            });
+                                        });
+
+                                        console.log('Test rejection result:', result);
                                     } catch (err) {
                                         console.error('Test rejection error:', err);
                                     }

@@ -57,11 +57,17 @@ final class ChorusGenerate extends Command
         // Generate TypeScript interfaces
         $interfaces = $this->generateInterfaces($harmonicsModels);
 
+        // Generate ChorusAction interfaces
+        $actionInterfaces = $this->generateActionInterfaces();
+
         // Save schema file
         $this->saveSchema($schema);
 
         // Save types file
         $this->saveTypes($interfaces);
+
+        // Save action interfaces file
+        $this->saveActionInterfaces($actionInterfaces);
 
         info('Schema generation complete!');
 
@@ -263,5 +269,246 @@ final class ChorusGenerate extends Command
         File::put("{$directory}/types.ts", $content);
 
         info("Types saved to {$directory}/types.ts");
+    }
+
+    /**
+     * Generate RPC-like interfaces for ChorusActions
+     */
+    protected function generateActionInterfaces(): array
+    {
+        $actionInterfaces = [];
+
+        // Get all ChorusAction classes
+        $actions = $this->getChorusActions();
+
+        foreach ($actions as $actionClass) {
+            try {
+                $action = new $actionClass();
+                $actionName = class_basename($actionClass);
+                
+                // Remove 'Action' suffix if it exists
+                $interfaceName = str_replace('Action', '', $actionName);
+                
+                $rules = $action->rules();
+                $config = $action->getConfig();
+
+                $actionInterfaces[$interfaceName] = [
+                    'className' => $actionClass,
+                    'rules' => $rules,
+                    'config' => $config,
+                    'parameters' => $this->convertRulesToTypeScript($rules),
+                ];
+
+                info("Added action interface for {$interfaceName}");
+            } catch (Exception $e) {
+                warning("Error generating action interface for {$actionClass}: ".$e->getMessage());
+            }
+        }
+
+        return $actionInterfaces;
+    }
+
+    /**
+     * Get all ChorusAction classes in the application
+     */
+    protected function getChorusActions(): array
+    {
+        $actions = [];
+        $appNamespace = app()->getNamespace();
+
+        // Check for ChorusActions directory
+        $actionDirectory = app_path('Actions/ChorusActions');
+
+        if (!File::exists($actionDirectory)) {
+            warning("ChorusActions directory not found at {$actionDirectory}");
+            return $actions;
+        }
+
+        $finder = new Finder();
+        $finder->files()->in($actionDirectory)->name('*.php');
+
+        foreach ($finder as $file) {
+            $className = $appNamespace.'Actions\\ChorusActions\\'.str_replace(['/', '.php'], ['\\', ''], $file->getRelativePathname());
+
+            if (class_exists($className)) {
+                try {
+                    $reflection = new ReflectionClass($className);
+                    
+                    // Check if it extends ChorusAction
+                    $parentClass = $reflection->getParentClass();
+                    if ($parentClass && $parentClass->getName() === 'Pixelsprout\\LaravelChorus\\Support\\ChorusAction') {
+                        $actions[] = $className;
+                    }
+                } catch (Exception $e) {
+                    warning("Error analyzing action {$className}: ".$e->getMessage());
+                }
+            }
+        }
+
+        return $actions;
+    }
+
+    /**
+     * Convert Laravel validation rules to TypeScript types
+     */
+    protected function convertRulesToTypeScript(array $rules): array
+    {
+        $parameters = [];
+
+        foreach ($rules as $field => $rule) {
+            $ruleString = is_array($rule) ? implode('|', $rule) : $rule;
+            $isOptional = str_contains($ruleString, 'nullable') || str_contains($ruleString, 'sometimes');
+            
+            $type = 'any';
+            if (str_contains($ruleString, 'string')) {
+                $type = 'string';
+            } elseif (str_contains($ruleString, 'integer') || str_contains($ruleString, 'numeric')) {
+                $type = 'number';
+            } elseif (str_contains($ruleString, 'boolean')) {
+                $type = 'boolean';
+            } elseif (str_contains($ruleString, 'array')) {
+                $type = 'any[]';
+            }
+
+            $parameters[$field] = [
+                'type' => $type,
+                'optional' => $isOptional,
+                'rules' => $ruleString,
+            ];
+        }
+
+        return $parameters;
+    }
+
+    /**
+     * Save action interfaces to file
+     */
+    protected function saveActionInterfaces(array $actionInterfaces): void
+    {
+        $directory = resource_path('js/_generated');
+
+        if (!File::exists($directory)) {
+            File::makeDirectory($directory, 0755, true);
+        }
+
+        $content = "// Auto-generated TypeScript interfaces for Chorus Actions\n";
+        $content .= '// Generated on '.now()->toDateTimeString()."\n\n";
+
+        // Generate parameter interfaces
+        foreach ($actionInterfaces as $actionName => $actionData) {
+            $content .= "export interface {$actionName}Params {\n";
+            
+            foreach ($actionData['parameters'] as $field => $paramData) {
+                $optional = $paramData['optional'] ? '?' : '';
+                $content .= "  {$field}{$optional}: {$paramData['type']};\n";
+            }
+            
+            $content .= "}\n\n";
+        }
+
+        // Generate response interface
+        $content .= "export interface ChorusActionResponse {\n";
+        $content .= "  success: boolean;\n";
+        $content .= "  operations?: {\n";
+        $content .= "    success: boolean;\n";
+        $content .= "    index: number;\n";
+        $content .= "    operation: {\n";
+        $content .= "      table: string;\n";
+        $content .= "      operation: string;\n";
+        $content .= "      data: any;\n";
+        $content .= "    };\n";
+        $content .= "    data?: any;\n";
+        $content .= "    error?: string;\n";
+        $content .= "  }[];\n";
+        $content .= "  summary?: {\n";
+        $content .= "    total: number;\n";
+        $content .= "    successful: number;\n";
+        $content .= "    failed: number;\n";
+        $content .= "  };\n";
+        $content .= "  error?: string;\n";
+        $content .= "}\n\n";
+
+        // Generate model proxy interfaces
+        $content .= "export interface ModelProxy {\n";
+        $content .= "  create(data: Record<string, any>): void;\n";
+        $content .= "  update(data: Record<string, any>): void;\n";
+        $content .= "  delete(data: Record<string, any>): void;\n";
+        $content .= "}\n\n";
+
+        $content .= "export interface WritesProxy {\n";
+        $content .= "  messages: ModelProxy;\n";
+        $content .= "  users: ModelProxy;\n";
+        $content .= "  platforms: ModelProxy;\n";
+        $content .= "  [tableName: string]: ModelProxy;\n";
+        $content .= "}\n\n";
+
+        // Generate callback-style action functions
+        foreach ($actionInterfaces as $actionName => $actionData) {
+            $functionName = lcfirst($actionName) . 'Action';
+            $content .= "export declare function {$functionName}(\n";
+            $content .= "  callback: (writes: WritesProxy) => void\n";
+            $content .= "): Promise<ChorusActionResponse>;\n\n";
+        }
+
+        // Generate legacy interface for backwards compatibility
+        $content .= "export interface ChorusActions {\n";
+        foreach ($actionInterfaces as $actionName => $actionData) {
+            $content .= "  {$actionName}(params: {$actionName}Params): Promise<ChorusActionResponse>;\n";
+        }
+        $content .= "}\n\n";
+
+        // Generate action metadata
+        $content .= "export const chorusActionMeta = {\n";
+        foreach ($actionInterfaces as $actionName => $actionData) {
+            // Escape backslashes for JavaScript strings
+            $escapedClassName = addslashes($actionData['className']);
+            $content .= "  {$actionName}: {\n";
+            $content .= "    className: '{$escapedClassName}',\n";
+            $content .= "    allowOfflineWrites: " . ($actionData['config']['allowOfflineWrites'] ? 'true' : 'false') . ",\n";
+            $content .= "    supportsBatch: " . ($actionData['config']['supportsBatch'] ? 'true' : 'false') . ",\n";
+            $content .= "  },\n";
+        }
+        $content .= "};\n\n";
+
+        // Generate the actual implementation file
+        $implContent = "// Auto-generated implementation for Chorus Actions\n";
+        $implContent .= '// Generated on '.now()->toDateTimeString()."\n\n";
+        $implContent .= "import { ChorusActionsAPI } from '@pixelsprout/chorus-js/core';\n";
+        $implContent .= "import type { ChorusActionResponse, WritesProxy, ModelProxy } from './actions';\n\n";
+
+        $implContent .= "// Create the global ChorusActionsAPI instance\n";
+        $implContent .= "const chorusAPI = new ChorusActionsAPI('/api');\n\n";
+
+        // Generate implementation for each action function
+        foreach ($actionInterfaces as $actionName => $actionData) {
+            $functionName = lcfirst($actionName) . 'Action';
+            $routeName = $this->convertToKebabCase($actionName);
+            
+            $implContent .= "export async function {$functionName}(\n";
+            $implContent .= "  callback: (writes: WritesProxy) => void\n";
+            $implContent .= "): Promise<ChorusActionResponse> {\n";
+            $implContent .= "  return await chorusAPI.executeActionWithCallback(\n";
+            $implContent .= "    '{$routeName}',\n";
+            $implContent .= "    callback,\n";
+            $implContent .= "    {\n";
+            $implContent .= "      optimistic: " . ($actionData['config']['allowOfflineWrites'] ? 'true' : 'false') . ",\n";
+            $implContent .= "      offline: " . ($actionData['config']['allowOfflineWrites'] ? 'true' : 'false') . ",\n";
+            $implContent .= "    }\n";
+            $implContent .= "  );\n";
+            $implContent .= "}\n\n";
+        }
+
+        File::put("{$directory}/actions.ts", $content);
+        File::put("{$directory}/chorus-actions.ts", $implContent);
+        info("Action interfaces saved to {$directory}/actions.ts");
+        info("Action implementations saved to {$directory}/chorus-actions.ts");
+    }
+
+    /**
+     * Convert PascalCase to kebab-case
+     */
+    protected function convertToKebabCase(string $string): string
+    {
+        return strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $string));
     }
 }

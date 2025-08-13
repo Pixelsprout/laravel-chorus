@@ -1,7 +1,7 @@
-import messages from './messages'
+import actions from './actions'
 
 const chorus = {
-    messages,
+    actions,
 }
 
 export default chorus

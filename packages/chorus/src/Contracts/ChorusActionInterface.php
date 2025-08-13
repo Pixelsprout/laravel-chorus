@@ -6,12 +6,12 @@ namespace Pixelsprout\LaravelChorus\Contracts;
 
 use Illuminate\Http\Request;
 
-interface WriteActionInterface
+interface ChorusActionInterface
 {
     /**
-     * Handle a single item write operation
+     * Handle an RPC-style action with multiple write operations
      */
-    public function handle(Request $request, array $data): mixed;
+    public function handle(Request $request): mixed;
 
     /**
      * Handle batch write operations

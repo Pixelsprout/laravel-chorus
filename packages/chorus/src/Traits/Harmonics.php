@@ -111,27 +111,27 @@ trait Harmonics
     }
 
     /**
-     * Get write actions defined for this model
+     * Get chorus actions defined for this model
      */
-    public function getWriteActions(): array
+    public function getChorusActions(): array
     {
-        $writeActions = [];
+        $chorusActions = [];
 
-        if (property_exists($this, 'writeActions') && is_array($this->writeActions)) {
-            $writeActions = $this->writeActions;
-        } elseif (method_exists($this, 'writeActions')) {
-            $writeActions = $this->writeActions();
+        if (property_exists($this, 'chorusActions') && is_array($this->chorusActions)) {
+            $chorusActions = $this->chorusActions;
+        } elseif (method_exists($this, 'chorusActions')) {
+            $chorusActions = $this->chorusActions();
         }
 
-        return $writeActions;
+        return $chorusActions;
     }
 
     /**
-     * Get a specific write action by name
+     * Get a specific chorus action by name
      */
-    public function getWriteAction(string $actionName): ?object
+    public function getChorusAction(string $actionName): ?object
     {
-        $actions = $this->getWriteActions();
+        $actions = $this->getChorusActions();
 
         foreach ($actions as $name => $actionConfig) {
             if ($name === $actionName) {
