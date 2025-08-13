@@ -9,3 +9,4 @@ export { useOffline } from "./react/hooks/useOffline";
 export { useWriteActions, UseWriteActionsReturn } from "./react/hooks/useWriteActions";
 export { useTable, useTables } from "./react/hooks/useTable";
 export { OfflineIndicator, OfflineBanner } from "./react/components/OfflineIndicator";
+export type { ChorusProviderProps, ReactChorusProviderProps, VueChorusProviderProps } from './shared/provider-types';

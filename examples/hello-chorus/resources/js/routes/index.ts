@@ -1,4 +1,4 @@
-import { queryParams, type QueryParams } from '@/wayfinder'
+import { queryParams, type QueryParams } from './../wayfinder'
 /**
 * @see routes/web.php:6
 * @route '/'

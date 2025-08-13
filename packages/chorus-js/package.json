@@ -4,8 +4,26 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js"
+    },
+    "./vue": {
+      "types": "./dist/vue/index.d.ts",
+      "import": "./dist/vue/index.js"
+    },
+    "./vue/components/*": "./src/vue/components/*",
+    "./vue/providers/*": "./src/vue/providers/*",
+    "./src/vue/providers/ChorusProvider.vue": "./src/vue/providers/ChorusProvider.vue"
+  },
   "files": [
-    "dist"
+    "dist",
+    "src/vue/**/*.vue"
   ],
   "scripts": {
     "build": "tsc",
@@ -22,20 +40,40 @@
     "Offline first",
     "Local First",
     "React",
+    "Vue",
     "Javascript"
   ],
   "devDependencies": {
     "@types/node": "^24.0.10",
     "@types/react": "^19.1.8",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vue": "^3.5.0"
   },
   "dependencies": {
+    "@vueuse/rxjs": "^12.8.2",
     "axios": "^1.11.0",
     "dexie": "^4.0.11",
-    "dexie-react-hooks": "^1.1.7"
+    "dexie-react-hooks": "^1.1.7",
+    "rxjs": "^7.8.2"
   },
   "peerDependencies": {
     "@laravel/echo-react": "^2.1.4",
-    "react": "^19.0.0"
+    "@laravel/echo-vue": "^2.1.7",
+    "react": "^19.0.0",
+    "vue": "^3.5.0"
+  },
+  "peerDependenciesMeta": {
+    "@laravel/echo-react": {
+      "optional": true
+    },
+    "@laravel/echo-vue": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    }
   }
 }

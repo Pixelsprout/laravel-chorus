@@ -2,6 +2,7 @@ import { useEcho } from "@laravel/echo-react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { ChorusCore, HarmonicEvent, TableState } from "../../core/chorus";
+import type { ReactChorusProviderProps } from "../../shared/provider-types";
 
 import React from "react";
 import {Collection, Table} from "dexie";
@@ -23,17 +24,6 @@ const ChorusContext = createContext<ChorusContextState>({
   schema: {},
 });
 
-// The Provider component
-interface ChorusProviderProps {
-  children: React.ReactNode;
-  userId?: number;
-  channelPrefix?: string;
-  onRejectedHarmonic?: (harmonic: HarmonicEvent) => void;
-  onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void;
-  onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void;
-  debugMode?: boolean;
-}
-
 const HarmonicListener: React.FC<{
   channel: string;
   onEvent: (event: HarmonicEvent) => void;
@@ -52,7 +42,7 @@ export function ChorusProvider({
   onSchemaVersionChange,
   onDatabaseVersionChange,
   debugMode,
-}: ChorusProviderProps) {
+}: ReactChorusProviderProps) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [tables, setTables] = useState<Record<string, TableState>>({});
   const [schema, setSchema] = useState<Record<string, any>>({});

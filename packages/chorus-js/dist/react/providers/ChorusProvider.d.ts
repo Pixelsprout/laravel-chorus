@@ -1,4 +1,5 @@
-import { HarmonicEvent, TableState } from "../../core/chorus";
+import { TableState } from "../../core/chorus";
+import type { ReactChorusProviderProps } from "../../shared/provider-types";
 import React from "react";
 import { Collection, Table } from "dexie";
 interface ChorusContextState {
@@ -6,16 +7,7 @@ interface ChorusContextState {
     tables: Record<string, TableState>;
     schema: Record<string, any>;
 }
-interface ChorusProviderProps {
-    children: React.ReactNode;
-    userId?: number;
-    channelPrefix?: string;
-    onRejectedHarmonic?: (harmonic: HarmonicEvent) => void;
-    onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void;
-    onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void;
-    debugMode?: boolean;
-}
-export declare function ChorusProvider({ children, userId, channelPrefix, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange, debugMode, }: ChorusProviderProps): React.JSX.Element;
+export declare function ChorusProvider({ children, userId, channelPrefix, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange, debugMode, }: ReactChorusProviderProps): React.JSX.Element;
 export declare function useChorus(): ChorusContextState;
 type Action<TInput, T> = (data: TInput, sideEffect?: (data: TInput) => Promise<void>) => void;
 interface HarmonicActions<T, TInput> {

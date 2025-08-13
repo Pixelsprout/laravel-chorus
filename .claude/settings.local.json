@@ -6,7 +6,8 @@
       "Bash(grep:*)",
       "Bash(rg:*)",
       "Bash(npm run build:*)",
-      "Bash(npm run lint:*)"
+      "Bash(npm run lint:*)",
+      "Bash(find:*)"
     ]
   },
   "enableAllProjectMcpServers": false
