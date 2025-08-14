@@ -6,14 +6,28 @@ namespace Pixelsprout\LaravelChorus\Support;
 
 use Exception;
 use Illuminate\Database\Eloquent\Model;
-use Pixelsprout\LaravelChorus\Support\ModelsThat;
 use Pixelsprout\LaravelChorus\Traits\Harmonics;
 
 final class ActionCollector
 {
     private array $operations = [];
+
     private array $modelProxies = [];
+
     private bool $collecting = false;
+
+    public function __get(string $tableName): ModelActionProxy
+    {
+        if (! $this->collecting) {
+            throw new Exception('ActionCollector is not currently collecting operations');
+        }
+
+        if (! isset($this->modelProxies[$tableName])) {
+            $this->modelProxies[$tableName] = new ModelActionProxy($this, $tableName);
+        }
+
+        return $this->modelProxies[$tableName];
+    }
 
     public function startCollecting(): void
     {
@@ -37,22 +51,9 @@ final class ActionCollector
         return $this->operations;
     }
 
-    public function __get(string $tableName): ModelActionProxy
-    {
-        if (!$this->collecting) {
-            throw new Exception('ActionCollector is not currently collecting operations');
-        }
-
-        if (!isset($this->modelProxies[$tableName])) {
-            $this->modelProxies[$tableName] = new ModelActionProxy($this, $tableName);
-        }
-
-        return $this->modelProxies[$tableName];
-    }
-
     public function addOperation(string $tableName, string $operation, array $data, mixed $result = null): void
     {
-        if (!$this->collecting) {
+        if (! $this->collecting) {
             throw new Exception('ActionCollector is not currently collecting operations');
         }
 
@@ -92,14 +93,14 @@ final class ActionCollector
 final class ModelActionProxy
 {
     private string $modelClass;
-    
+
     public function __construct(
         private ActionCollector $collector,
         private string $tableName
     ) {
         $this->modelClass = $this->findModelClassForTable($tableName);
-        
-        if (!$this->modelClass) {
+
+        if (! $this->modelClass) {
             throw new Exception("No model found for table: {$tableName}");
         }
     }
@@ -108,25 +109,25 @@ final class ModelActionProxy
     {
         $model = new $this->modelClass();
         $result = $model->create($data);
-        
+
         $this->collector->addOperation($this->tableName, 'create', $data, $result);
-        
+
         return $result;
     }
 
     public function update(array $data): Model
     {
-        if (!isset($data['id'])) {
+        if (! isset($data['id'])) {
             throw new Exception('Update operation requires an id field');
         }
-        
+
         $model = new $this->modelClass();
         $instance = $model->findOrFail($data['id']);
         $instance->update($data);
         $result = $instance->fresh();
-        
+
         $this->collector->addOperation($this->tableName, 'update', $data, $result);
-        
+
         return $result;
     }
 
@@ -134,20 +135,20 @@ final class ModelActionProxy
     {
         // Handle both array with id or direct id
         $actualId = is_array($id) ? $id['id'] : $id;
-        
-        if (!$actualId) {
+
+        if (! $actualId) {
             throw new Exception('Delete operation requires an id');
         }
-        
+
         $model = new $this->modelClass();
         $instance = $model->findOrFail($actualId);
         $result = $instance->delete();
-        
+
         $this->collector->addOperation($this->tableName, 'delete', ['id' => $actualId], $result);
-        
+
         return $result;
     }
-    
+
     private function findModelClassForTable(string $tableName): ?string
     {
         // This could be optimized with caching
