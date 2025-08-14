@@ -8,19 +8,17 @@ use Pixelsprout\LaravelChorus\Support\ChorusAction;
 
 final class {{ class }} extends ChorusAction
 {
-    protected array $config = [
-        'allowOfflineWrites' => true,
-        'supportsBatch' => true,
-    ];
-
     public function rules(): array
     {
         return [
             // Define your validation rules here
+            // 'tableName.operation' => [
+            //     'field' => 'required|string|max:255',
+            // ]
         ];
     }
 
-    protected function execute(Request $request, ActionCollector $actions): void
+    protected function handle(Request $request, ActionCollector $actions): void
     {
         $data = $request->all();
 

@@ -94,10 +94,9 @@ final class ChorusWriteController extends Controller
                 if ($action) {
                     $actions[$name] = [
                         'name' => $name,
-                        'config' => $action->getConfig(),
                         'rules' => $action->rules(),
-                        'allowsOfflineWrites' => $action->allowsOfflineWrites(),
-                        'supportsBatch' => $action->supportsBatch(),
+                        'allowsOfflineWrites' => true,
+                        'supportsBatch' => true,
                     ];
                 }
             }
@@ -192,12 +191,6 @@ final class ChorusWriteController extends Controller
      */
     protected function handleBatchAction(Request $request, object $action, string $tableName, string $actionName): JsonResponse
     {
-        if (! $action->supportsBatch()) {
-            return response()->json([
-                'success' => false,
-                'error' => "Action '{$actionName}' does not support batch operations",
-            ], 400);
-        }
 
         try {
             $items = $request->input('items', $request->input('batch', []));

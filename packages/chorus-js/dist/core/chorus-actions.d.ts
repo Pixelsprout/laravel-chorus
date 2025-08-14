@@ -1,4 +1,4 @@
-import { ModelProxy } from './writes-collector';
+import { WritesProxy } from './writes-collector';
 export interface ChorusActionResponse {
     success: boolean;
     operations?: {
@@ -37,7 +37,7 @@ export declare class ChorusActionsAPI {
     /**
      * Execute a ChorusAction with callback-style writes collection
      */
-    executeActionWithCallback(actionName: string, callback: (writes: Record<string, ModelProxy>) => void, options?: {
+    executeActionWithCallback(actionName: string, callback: (writes: WritesProxy) => void, options?: {
         optimistic?: boolean;
         offline?: boolean;
     }): Promise<ChorusActionResponse>;

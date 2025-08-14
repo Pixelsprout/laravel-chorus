@@ -1,0 +1,440 @@
+---
+title: "Chorus Actions"
+description: "Master Chorus Actions - the powerful RPC-style system for handling multi-table write operations with validation, offline support, and optimistic updates."
+---
+
+# Chorus Actions
+
+**Chorus Actions** are the core of Laravel Chorus's write operations system. They provide a clean, powerful way to handle complex multi-table operations with built-in validation, offline support, and real-time synchronization.
+
+## Core Concepts
+
+### What is a Chorus Action?
+
+A Chorus Action is a server-side class that:
+- **Handles multiple operations** atomically across different tables
+- **Validates data** using operation-specific validation rules
+- **Supports offline writes** automatically with queue and sync
+- **Enables optimistic updates** for instant UI feedback
+- **Generates TypeScript functions** for type-safe client usage
+
+### Key Features
+
+- ✅ **Multi-table operations** - Create, update, delete across multiple tables in one action
+- ✅ **Automatic offline support** - No configuration needed
+- ✅ **Operation validation** - Table.operation-specific validation rules
+- ✅ **Type generation** - Auto-generated TypeScript functions
+- ✅ **Single operation shorthand** - Simplified API for simple actions
+- ✅ **Optimistic updates** - Instant UI feedback
+
+## Creating Chorus Actions
+
+### Generate with Artisan
+
+```bash
+php artisan chorus:make-action CreateMessageWithActivityAction
+```
+
+This creates a new action in `app/Actions/ChorusActions/`.
+
+### Basic Structure
+
+```php
+<?php
+
+namespace App\Actions\ChorusActions;
+
+use Illuminate\Http\Request;
+use Pixelsprout\LaravelChorus\Support\ActionCollector;
+use Pixelsprout\LaravelChorus\Support\ChorusAction;
+
+final class CreateMessageWithActivityAction extends ChorusAction
+{
+    public function rules(): array
+    {
+        return [
+            'messages.create' => [
+                'body' => 'required|string|max:1000',
+                'platform_id' => 'required|uuid|exists:platforms,id',
+                'user_id' => 'required|uuid|exists:users,id',
+            ],
+            'users.update' => [
+                'id' => 'required|uuid|exists:users,id',
+                'last_activity_at' => 'required|date',
+            ],
+        ];
+    }
+
+    protected function handle(Request $request, ActionCollector $actions): void
+    {
+        $data = $request->all();
+        $user = auth()->user();
+
+        // Create message
+        $actions->messages->create([
+            'id' => Str::uuid(),
+            'body' => $data['body'],
+            'platform_id' => $data['platform_id'],
+            'user_id' => $user->id,
+            'tenant_id' => $user->tenant_id,
+        ]);
+
+        // Update user activity
+        $actions->users->update([
+            'id' => $user->id,
+            'last_activity_at' => now(),
+        ]);
+    }
+}
+```
+
+## Validation System
+
+### Operation-Specific Rules
+
+The `rules()` method uses a `table.operation` format for precise validation:
+
+```php
+public function rules(): array
+{
+    return [
+        'messages.create' => [
+            'body' => 'required|string|max:1000',
+            'platform_id' => 'required|uuid|exists:platforms,id',
+        ],
+        'messages.update' => [
+            'id' => 'required|uuid|exists:messages,id',
+            'body' => 'required|string|max:1000',
+        ],
+        'users.update' => [
+            'id' => 'required|uuid|exists:users,id',
+            'last_activity_at' => 'required|date',
+        ],
+    ];
+}
+```
+
+### Available Operations
+
+- **`create`** - Insert new records
+- **`update`** - Modify existing records
+- **`delete`** - Remove records
+
+## Automatic UUID Generation
+
+Chorus automatically generates UUIDs for create operations when the `id` field is missing:
+
+```typescript
+// UUID automatically generated
+writes.messages.create({
+    body: "Hello world",
+    user_id: 123,
+});
+
+// You can still provide your own ID if needed
+writes.messages.create({
+    id: "custom-id-123",
+    body: "Hello world", 
+    user_id: 123,
+});
+```
+
+This eliminates the need for manual UUID generation in your client code:
+
+```typescript
+// ❌ Before: Manual UUID generation
+import { uuidv7 } from 'uuidv7';
+
+const messageId = uuidv7();
+writes.messages.create({
+    id: messageId,
+    body: "Hello world",
+});
+
+// ✅ After: Automatic UUID generation  
+writes.messages.create({
+    body: "Hello world",
+});
+```
+
+## ActionCollector
+
+The `ActionCollector` provides table-specific proxies for database operations:
+
+```php
+protected function handle(Request $request, ActionCollector $actions): void
+{
+    $data = $request->all();
+    
+    // Create operations (UUID auto-generated on client)
+    $message = $actions->messages->create([
+        'id' => $data['id'], // UUID provided by client
+        'body' => $data['body'],
+        'user_id' => auth()->id(),
+    ]);
+
+    // Update operations
+    $user = $actions->users->update([
+        'id' => auth()->id(),
+        'last_seen_at' => now(),
+    ]);
+
+    // Delete operations  
+    $actions->comments->delete($data['comment_id']);
+}
+```
+
+### Return Values
+
+ActionCollector methods return the actual Eloquent model instances:
+
+```php
+$message = $actions->messages->create($data);
+// $message is now a Message model instance
+
+$user = $actions->users->update($userData);
+// $user is the updated User model instance
+
+$deleted = $actions->posts->delete($postId);
+// $deleted is boolean true/false
+```
+
+## Single Operation Shorthand
+
+For actions with only **one operation rule**, clients can use simplified data format:
+
+### Server-Side (Single Operation)
+
+```php
+final class SimpleCreateMessageAction extends ChorusAction
+{
+    public function rules(): array
+    {
+        return [
+            'messages.create' => [
+                'body' => 'required|string|max:1000',
+                'platform_id' => 'required|uuid|exists:platforms,id',
+            ],
+        ];
+    }
+
+    protected function handle(Request $request, ActionCollector $actions): void
+    {
+        $data = $request->all();
+        
+        // UUID auto-generated on client, just use the provided data
+        $actions->messages->create([
+            'id' => $data['id'], // UUID provided by client
+            'body' => $data['body'],
+            'platform_id' => $data['platform_id'],
+            'user_id' => auth()->id(),
+        ]);
+    }
+}
+```
+
+### Client-Side Usage
+
+```typescript
+// Full format (always works) - UUID auto-generated
+await createMessageAction((writes) => {
+    writes.messages.create({
+        body: "Hello world",
+        platform_id: "abc-123"
+    });
+});
+
+// Shorthand format (single operation only) - UUID auto-generated
+await createMessageAction({
+    body: "Hello world",
+    platform_id: "abc-123"
+});
+```
+
+## Client-Side Integration
+
+### Generated Functions
+
+Chorus automatically generates TypeScript functions for each action:
+
+```typescript
+// Auto-generated in resources/js/_generated/chorus-actions.ts
+export async function createMessageWithActivityAction(
+  callback: (writes: WritesProxy) => void
+): Promise<ChorusActionResponse>;
+```
+
+### React Example
+
+```tsx
+import { createMessageWithActivityAction } from '@/_generated/chorus-actions';
+
+export default function CreateMessageForm() {
+    const handleSubmit = async (formData) => {
+        const result = await createMessageWithActivityAction((writes) => {
+            // UUID automatically generated for create operations
+            writes.messages.create({
+                body: formData.message,
+                platform_id: formData.platformId,
+                user_id: user.id,
+                tenant_id: user.tenant_id,
+            });
+            
+            writes.users.update({
+                id: user.id,
+                last_activity_at: new Date().toISOString(),
+            });
+        });
+        
+        if (result.success) {
+            console.log('Message created successfully!');
+        }
+    };
+}
+```
+
+### Vue Example
+
+```vue
+<script setup>
+import { createMessageWithActivityAction } from '@/_generated/chorus-actions';
+
+const handleSubmit = async (formData) => {
+    const result = await createMessageWithActivityAction((writes) => {
+        // UUID automatically generated for create operations
+        writes.messages.create({
+            body: formData.message,
+            platform_id: formData.platformId,
+            user_id: user.id,
+        });
+        
+        writes.users.update({
+            id: user.id,
+            last_activity_at: new Date().toISOString(),
+        });
+    });
+};
+</script>
+```
+
+## Advanced Patterns
+
+### Authorization
+
+```php
+protected function handle(Request $request, ActionCollector $actions): void
+{
+    // Check permissions before operations
+    if (!auth()->user()->can('create', Message::class)) {
+        throw new UnauthorizedException('Cannot create messages');
+    }
+    
+    if (!$this->canUpdateUser(auth()->id())) {
+        throw new UnauthorizedException('Cannot update user data');
+    }
+    
+    // Proceed with operations...
+    $actions->messages->create($data);
+}
+```
+
+### Database Transactions
+
+```php
+protected function handle(Request $request, ActionCollector $actions): void
+{
+    DB::transaction(function () use ($request, $actions) {
+        // All operations in a single transaction
+        $actions->messages->create($messageData);
+        $actions->users->update($userData);  
+        $actions->platforms->update($platformData);
+    });
+}
+```
+
+### Complex Business Logic
+
+```php
+protected function handle(Request $request, ActionCollector $actions): void
+{
+    $data = $request->all();
+    $user = auth()->user();
+    
+    // Create the message (UUID auto-generated on client)
+    $message = $actions->messages->create([
+        'id' => $data['id'], // UUID provided by client
+        'body' => $data['body'],
+        'user_id' => $user->id,
+        'platform_id' => $data['platform_id'],
+    ]);
+    
+    // Update user stats based on message content
+    $wordCount = str_word_count($data['body']);
+    $actions->users->update([
+        'id' => $user->id,
+        'total_words' => DB::raw("total_words + {$wordCount}"),
+        'message_count' => DB::raw('message_count + 1'),
+        'last_activity_at' => now(),
+    ]);
+    
+    // Award achievements
+    if ($user->message_count >= 100) {
+        $actions->user_achievements->create([
+            'user_id' => $user->id,
+            'achievement_id' => 'prolific_writer',
+            'earned_at' => now(),
+        ]);
+    }
+}
+```
+
+## Best Practices
+
+### 1. Name Actions Descriptively
+```php
+// Good
+CreateMessageWithActivityAction
+UpdatePostAndNotifyFollowersAction
+DeleteUserAndCleanupDataAction
+
+// Avoid
+MessageAction
+PostAction
+UserAction
+```
+
+### 2. Keep Actions Focused
+Each action should represent a single business operation, even if it touches multiple tables.
+
+### 3. Use Transactions for Consistency
+Wrap related operations in database transactions to ensure data consistency.
+
+### 4. Validate Everything
+Use comprehensive validation rules for each operation to prevent invalid data.
+
+### 5. Handle Authorization
+Always check permissions before performing operations.
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Write Path" href="/concepts/write-path" icon="pen">
+Understand the complete write path flow
+</Card>
+
+<Card title="React Integration" href="/integrations/react" icon="react">
+Use Chorus Actions in React components
+</Card>
+
+<Card title="Vue Integration" href="/integrations/vue" icon="vuejs">
+Use Chorus Actions in Vue components  
+</Card>
+
+<Card title="Commands" href="/commands" icon="terminal">
+Generate and manage Chorus Actions with Artisan
+</Card>
+</CardGroup>
+
+---
+
+Chorus Actions provide a powerful, flexible system for handling complex write operations while maintaining real-time synchronization and offline support. The combination of multi-table operations, automatic validation, and type-safe client integration makes building sophisticated real-time applications straightforward and maintainable.

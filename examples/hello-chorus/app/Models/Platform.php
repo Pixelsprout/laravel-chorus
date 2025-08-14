@@ -21,6 +21,7 @@ class Platform extends Model
     protected $syncFields = [
         'id' => JSType::String,
         'name' => JSType::String,
+        'last_message_at' => JSType::String,
     ];
 
     // Has many messages

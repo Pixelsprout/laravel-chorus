@@ -27,6 +27,7 @@ class User extends Authenticatable
         'email',
         'password',
         'tenant_id',
+        'last_activity_at'
     ];
 
     protected $syncFields = [

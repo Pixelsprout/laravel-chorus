@@ -9,21 +9,7 @@ use Illuminate\Support\Str;
 
 final class CreateMessageWithActivityAction extends ChorusAction
 {
-    protected array $config = [
-        'allowOfflineWrites' => true,
-        'supportsBatch' => true,
-    ];
-
-    public function rules(): array
-    {
-        return [
-            'message' => 'required|string|max:255',
-            'platformId' => 'required|string|uuid|exists:platforms,id',
-            'id' => 'nullable|string|uuid',
-        ];
-    }
-
-    protected function execute(Request $request, ActionCollector $actions): void
+    protected function handle(Request $request, ActionCollector $actions): void
     {
         $user = auth()->user();
 
@@ -33,11 +19,11 @@ final class CreateMessageWithActivityAction extends ChorusAction
 
         $data = $request->all();
 
-        // Create the message using the action collector
+        // Create the message using the action collector (UUID auto-generated on client)
         $actions->messages->create([
-            'id' => $data['id'] ?? Str::uuid(),
-            'body' => $data['message'],
-            'platform_id' => $data['platformId'],
+            'id' => $data['id'], // UUID provided by client
+            'body' => $data['body'],
+            'platform_id' => $data['platform_id'],
             'user_id' => $user->id,
             'tenant_id' => $user->tenant_id,
         ]);
@@ -55,4 +41,27 @@ final class CreateMessageWithActivityAction extends ChorusAction
             'message_count' => \DB::raw('message_count + 1'),
         ]);
     }
+
+    public function rules(): array
+    {
+        return [
+            'messages.create' => [
+                'id' => 'nullable|string|uuid',
+                'body' => 'required|string|max:1000',
+                'platform_id' => 'required|string|uuid|exists:platforms,id',
+                'user_id' => 'required|string|uuid|exists:users,id',
+                'tenant_id' => 'required|string|uuid',
+            ],
+            'users.update' => [
+                'id' => 'required|string|uuid|exists:users,id',
+                'last_activity_at' => 'required|date',
+            ],
+            'platforms.update' => [
+                'id' => 'required|string|uuid|exists:platforms,id',
+                'last_message_at' => 'nullable|date',
+                'message_count' => 'nullable|numeric|min:0',
+            ],
+        ];
+    }
+
 }

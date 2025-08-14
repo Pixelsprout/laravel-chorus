@@ -1,9 +1,9 @@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import type { Message } from '@/_generated/types';
+import { deleteMessageAction } from '@/_generated/chorus-actions';
 import { TrashIcon } from 'lucide-react';
 import { useState } from 'react';
-import { useTable } from '@pixelsprout/chorus-js';
 
 interface DeleteMessageFormProps {
     message: Message;
@@ -15,7 +15,6 @@ export default function DeleteMessageForm({
     const [deletingMessage, setDeletingMessage] = useState<Message | null>(null);
     const [isOpen, setIsOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
-    const { remove: deleteMessage } = useTable<Message>('messages');
 
     // Confirm delete message
     const confirmDeleteMessage = async () => {
@@ -24,23 +23,23 @@ export default function DeleteMessageForm({
         try {
             setIsDeleting(true);
 
-            // Use unified API: optimistic data, server data, callback
-            await deleteMessage(
-                { id: deletingMessage.id }, // Optimistic data for immediate UI update
-                { id: deletingMessage.id }, // Server data
-                (result) => {               // Server response callback
-                    if (result.success) {
-                        setDeletingMessage(null);
-                        setIsOpen(false);
-                        console.log('Message deleted successfully:', result.data);
-                    } else {
-                        console.error('Message deletion failed:', result.error);
-                    }
-                    setIsDeleting(false);
-                }
-            );
+            // Use new ChorusAction API
+            const result = await deleteMessageAction((writes) => {
+                writes.messages.delete({
+                    id: deletingMessage.id
+                });
+            });
+
+            if (result.success) {
+                setDeletingMessage(null);
+                setIsOpen(false);
+                console.log('Message deleted successfully:', result);
+            } else {
+                console.error('Message deletion failed:', result.error);
+            }
         } catch (err) {
             console.error('Error deleting message:', err);
+        } finally {
             setIsDeleting(false);
         }
     };

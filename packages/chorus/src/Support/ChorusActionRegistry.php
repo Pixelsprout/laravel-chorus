@@ -30,10 +30,9 @@ final class ChorusActionRegistry
                     if ($action) {
                         $actions[$actionName] = [
                             'name' => $actionName,
-                            'config' => $action->getConfig(),
                             'rules' => $action->rules(),
-                            'allowsOfflineWrites' => $action->allowsOfflineWrites(),
-                            'supportsBatch' => $action->supportsBatch(),
+                            'allowsOfflineWrites' => true,
+                            'supportsBatch' => true,
                         ];
                     }
                 }

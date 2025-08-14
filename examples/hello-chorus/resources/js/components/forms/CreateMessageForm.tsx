@@ -11,7 +11,6 @@ import { type SharedData } from '@/types';
 import { SendIcon, WifiOffIcon } from 'lucide-react';
 import { useOffline } from '@pixelsprout/chorus-js';
 import { useForm } from '@tanstack/react-form';
-import { uuidv7 } from 'uuidv7';
 import type { AnyFieldApi } from '@tanstack/react-form';
 
 function FieldInfo({ field }: { field: AnyFieldApi }) {
@@ -47,13 +46,10 @@ export default function CreateMessageForm({
         },
         onSubmit: async ({ value, formApi }) => {
             try {
-                const messageId = uuidv7();
-
                 // Execute the new ChorusAction with callback-style API
                 const result = await createMessageWithActivityAction((writes) => {
-                    // Create the message
+                    // Create the message (UUID auto-generated)
                     writes.messages.create({
-                        id: messageId,
                         body: value.message,
                         platform_id: value.platformId,
                         user_id: auth.user.id,
@@ -199,12 +195,9 @@ export default function CreateMessageForm({
                                 onClick={async () => {
                                     // Test rejected harmonic by sending invalid data
                                     try {
-                                        const invalidMessageId = uuidv7();
-
                                         // Execute the ChorusAction with invalid data to test rejection
                                         const result = await createMessageWithActivityAction((writes) => {
                                             writes.messages.create({
-                                                id: invalidMessageId,
                                                 body: '', // This will fail validation (empty message)
                                                 platform_id: 'invalid-platform-id', // This will also fail
                                                 user_id: auth.user.id,

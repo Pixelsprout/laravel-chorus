@@ -115,12 +115,6 @@ final class ChorusActionController extends Controller
      */
     protected function handleBatchAction(Request $request, ChorusActionInterface $action, string $actionClass): JsonResponse
     {
-        if (!$action->supportsBatch()) {
-            return response()->json([
-                'success' => false,
-                'error' => "Action '{$actionClass}' does not support batch operations",
-            ], 400);
-        }
 
         try {
             $items = $request->input('items', $request->input('batch', []));

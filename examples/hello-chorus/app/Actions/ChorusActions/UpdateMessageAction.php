@@ -8,10 +8,6 @@ use Pixelsprout\LaravelChorus\Support\ChorusAction;
 
 final class UpdateMessageAction extends ChorusAction
 {
-    protected array $config = [
-        'allowOfflineWrites' => true,
-        'supportsBatch' => true,
-    ];
 
     public function rules(): array
     {
@@ -21,7 +17,7 @@ final class UpdateMessageAction extends ChorusAction
         ];
     }
 
-    protected function execute(Request $request, ActionCollector $actions): void
+    protected function handle(Request $request, ActionCollector $actions): void
     {
         $user = auth()->user();
 

@@ -13,115 +13,130 @@ use Pixelsprout\LaravelChorus\Contracts\ChorusActionInterface;
 
 abstract class ChorusAction implements ChorusActionInterface
 {
-    /**
-     * Action configuration
-     */
-    protected array $config = [
-        'allowOfflineWrites' => false,
-        'supportsBatch' => true,
-    ];
 
     /**
      * Make the action invokable for direct route usage
      */
     public function __invoke(Request $request): mixed
     {
-        return $this->handle($request);
+        return $this->processAction($request);
     }
 
     /**
-     * Handle an RPC-style action with multiple write operations
+     * Process an RPC-style action with multiple write operations
      */
-    public function handle(Request $request): mixed
-    {
-        // Check if this is a new callback-style request with operations
-        if ($request->has('operations')) {
-            return $this->handleWithOperations($request);
-        }
-        
-        // Legacy handling - validate the request data
-        $data = $request->all();
-        $this->validateItem($data);
-
-        $collector = new ActionCollector();
-        
-        return DB::transaction(function () use ($request, $collector) {
-            $collector->startCollecting();
-            
-            try {
-                // Execute the user-defined action logic
-                $this->execute($request, $collector);
-                
-                // Execute all collected operations
-                $results = $collector->executeOperations();
-                
-                return [
-                    'success' => true,
-                    'operations' => $results,
-                    'summary' => [
-                        'total' => count($results),
-                        'successful' => count(array_filter($results, fn($r) => $r['success'])),
-                        'failed' => count(array_filter($results, fn($r) => !$r['success'])),
-                    ],
-                ];
-            } finally {
-                $collector->stopCollecting();
-            }
-        });
-    }
-
-    /**
-     * Handle requests with pre-collected operations from the client
-     */
-    protected function handleWithOperations(Request $request): mixed
+    public function processAction(Request $request): mixed
     {
         $operations = $request->input('operations', []);
         
-        // Validate that we have operations
-        if (empty($operations)) {
-            throw new Exception('No operations provided');
-        }
+        // Normalize single operation shorthand
+        $operations = $this->normalizeSingleOperationFormat($operations);
+        
+        // Convert client operations to request data for validation
+        $requestData = $this->extractRequestDataFromOperations($operations);
+        $mergedRequest = $request->duplicate();
+        $mergedRequest->merge($requestData);
+        
+        
+        // Validate individual operations
+        $this->validateOperations($operations);
         
         $collector = new ActionCollector();
+        $collector->startCollecting();
         
-        return DB::transaction(function () use ($request, $collector, $operations) {
-            $collector->startCollecting();
+        try {
+            // Execute the user-defined action logic
+            $this->handle($mergedRequest, $collector);
             
-            try {
-                // Add the operations from the client to the collector
-                foreach ($operations as $operation) {
-                    $collector->addOperation(
-                        $operation['table'],
-                        $operation['operation'],
-                        $operation['data']
-                    );
-                }
-                
-                // Execute all operations
-                $results = $collector->executeOperations();
-                
-                return [
-                    'success' => true,
-                    'operations' => $results,
-                    'summary' => [
-                        'total' => count($results),
-                        'successful' => count(array_filter($results, fn($r) => $r['success'])),
-                        'failed' => count(array_filter($results, fn($r) => !$r['success'])),
-                    ],
-                ];
-            } finally {
-                $collector->stopCollecting();
-            }
-        });
+            // Get results of operations that were executed by the user's logic
+            $results = $collector->getOperationResults();
+            
+            return [
+                'success' => true,
+                'operations' => $results,
+                'summary' => [
+                    'total' => count($results),
+                    'successful' => count(array_filter($results, fn($r) => $r['success'])),
+                    'failed' => count(array_filter($results, fn($r) => !$r['success'])),
+                ],
+            ];
+        } finally {
+            $collector->stopCollecting();
+        }
+    }
+
+    
+    /**
+     * Extract request data from client operations for validation
+     */
+    private function extractRequestDataFromOperations(array $operations): array
+    {
+        $requestData = [];
+        
+        foreach ($operations as $operation) {
+            $data = $operation['data'] ?? [];
+            $requestData = array_merge($requestData, $data);
+        }
+        
+        return $requestData;
+    }
+    
+    /**
+     * Normalize single operation shorthand format
+     * If there's only one operation rule and operations is a single object, convert it
+     */
+    private function normalizeSingleOperationFormat(array $operations): array
+    {
+        $operationRules = $this->rules();
+        
+        // Only apply shorthand if there's exactly one operation rule
+        if (count($operationRules) !== 1) {
+            return $operations;
+        }
+        
+        // Check if operations looks like shorthand (single object without operation structure)
+        if (!empty($operations) && !$this->isOperationStructure($operations)) {
+            $operationKey = array_key_first($operationRules);
+            [$table, $operation] = explode('.', $operationKey, 2);
+            
+            // Convert shorthand to full operation structure
+            return [[
+                'table' => $table,
+                'operation' => $operation,
+                'data' => $operations,
+            ]];
+        }
+        
+        return $operations;
+    }
+    
+    /**
+     * Check if the array looks like an operation structure
+     */
+    private function isOperationStructure(array $data): bool
+    {
+        // If it's a numeric array with operation objects, it's operation structure
+        if (array_is_list($data) && !empty($data)) {
+            $firstItem = $data[0];
+            return is_array($firstItem) && 
+                   isset($firstItem['table']) && 
+                   isset($firstItem['operation']) && 
+                   isset($firstItem['data']);
+        }
+        
+        // If it has table/operation/data keys at the root level, it might be operation structure
+        return isset($data['table']) && isset($data['operation']) && isset($data['data']);
     }
 
     /**
-     * Execute the action logic with access to the action collector
+     * Handle the action logic with access to the action collector
      */
-    abstract protected function execute(Request $request, ActionCollector $actions): void;
+    abstract protected function handle(Request $request, ActionCollector $actions): void;
+
 
     /**
-     * Get validation rules for this action
+     * Get validation rules for specific operations
+     * Returns array with 'table.operation' => ['field' => 'rules'] format
      */
     abstract public function rules(): array;
 
@@ -130,10 +145,6 @@ abstract class ChorusAction implements ChorusActionInterface
      */
     final public function handleBatch(Request $request, array $items): array
     {
-        if (! $this->supportsBatch()) {
-            throw new Exception('This action does not support batch operations');
-        }
-
         $results = [];
         $errors = [];
 
@@ -143,7 +154,7 @@ abstract class ChorusAction implements ChorusActionInterface
                 $itemRequest = $request->duplicate();
                 $itemRequest->merge($item);
                 
-                $result = $this->handle($itemRequest);
+                $result = $this->processAction($itemRequest);
                 $results[] = [
                     'success' => true,
                     'index' => $index,
@@ -175,47 +186,59 @@ abstract class ChorusAction implements ChorusActionInterface
         ];
     }
 
-    /**
-     * Get the action configuration
-     */
-    final public function getConfig(): array
-    {
-        return $this->config;
-    }
 
+    
     /**
-     * Check if this action supports offline writes
+     * Validate operations using table.operation-specific rules
      */
-    final public function allowsOfflineWrites(): bool
+    protected function validateOperations(array $operations): void
     {
-        return $this->config['allowOfflineWrites'] ?? false;
-    }
-
-    /**
-     * Check if this action supports batch operations
-     */
-    final public function supportsBatch(): bool
-    {
-        return $this->config['supportsBatch'] ?? true;
-    }
-
-    /**
-     * Set configuration options
-     */
-    final public function setConfig(array $config): void
-    {
-        $this->config = array_merge($this->config, $config);
-    }
-
-    /**
-     * Validate a single item
-     */
-    protected function validateItem(array $data): void
-    {
-        $validator = Validator::make($data, $this->rules() ?? []);
-
-        if ($validator->fails()) {
-            throw new ValidationException($validator);
+        $operationRules = $this->rules();
+        
+        if (empty($operationRules)) {
+            return; // No operation validation rules defined
+        }
+        
+        foreach ($operations as $index => $operation) {
+            $table = $operation['table'] ?? null;
+            $operationType = $operation['operation'] ?? null;
+            $data = $operation['data'] ?? [];
+            
+            if (!$table || !$operationType) {
+                throw new ValidationException(
+                    Validator::make([], ['operation' => 'required'])
+                        ->errors()
+                        ->add('operation', "Operation #{$index} is missing table or operation type")
+                );
+            }
+            
+            $ruleKey = "{$table}.{$operationType}";
+            
+            if (isset($operationRules[$ruleKey])) {
+                $validator = Validator::make($data, $operationRules[$ruleKey]);
+                
+                if ($validator->fails()) {
+                    $errors = $validator->errors();
+                    
+                    // Prefix error messages with operation context
+                    $contextualErrors = [];
+                    foreach ($errors->messages() as $field => $messages) {
+                        $contextualErrors["{$ruleKey}.{$field}"] = array_map(
+                            fn($message) => "Operation #{$index} ({$ruleKey}): {$message}",
+                            $messages
+                        );
+                    }
+                    
+                    $contextualValidator = Validator::make([], []);
+                    foreach ($contextualErrors as $field => $messages) {
+                        foreach ($messages as $message) {
+                            $contextualValidator->errors()->add($field, $message);
+                        }
+                    }
+                    
+                    throw new ValidationException($contextualValidator);
+                }
+            }
         }
     }
 }

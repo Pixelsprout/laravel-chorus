@@ -290,12 +290,10 @@ final class ChorusGenerate extends Command
                 $interfaceName = str_replace('Action', '', $actionName);
                 
                 $rules = $action->rules();
-                $config = $action->getConfig();
 
                 $actionInterfaces[$interfaceName] = [
                     'className' => $actionClass,
                     'rules' => $rules,
-                    'config' => $config,
                     'parameters' => $this->convertRulesToTypeScript($rules),
                 ];
 
@@ -464,8 +462,8 @@ final class ChorusGenerate extends Command
             $escapedClassName = addslashes($actionData['className']);
             $content .= "  {$actionName}: {\n";
             $content .= "    className: '{$escapedClassName}',\n";
-            $content .= "    allowOfflineWrites: " . ($actionData['config']['allowOfflineWrites'] ? 'true' : 'false') . ",\n";
-            $content .= "    supportsBatch: " . ($actionData['config']['supportsBatch'] ? 'true' : 'false') . ",\n";
+            $content .= "    allowOfflineWrites: true,\n";
+            $content .= "    supportsBatch: true,\n";
             $content .= "  },\n";
         }
         $content .= "};\n\n";
@@ -491,8 +489,8 @@ final class ChorusGenerate extends Command
             $implContent .= "    '{$routeName}',\n";
             $implContent .= "    callback,\n";
             $implContent .= "    {\n";
-            $implContent .= "      optimistic: " . ($actionData['config']['allowOfflineWrites'] ? 'true' : 'false') . ",\n";
-            $implContent .= "      offline: " . ($actionData['config']['allowOfflineWrites'] ? 'true' : 'false') . ",\n";
+            $implContent .= "      optimistic: true,\n";
+            $implContent .= "      offline: true,\n";
             $implContent .= "    }\n";
             $implContent .= "  );\n";
             $implContent .= "}\n\n";

@@ -45,23 +45,43 @@ use Illuminate\Http\Request;
 use Pixelsprout\LaravelChorus\Support\ChorusAction;
 use Pixelsprout\LaravelChorus\Support\ActionCollector;
 
-class CreateMessageWithActivityAction extends ChorusAction
+final class CreateMessageWithActivityAction extends ChorusAction
 {
-    protected array $config = [
-        'allowOfflineWrites' => true,
-    ];
+    public function rules(): array
+    {
+        return [
+            'messages.create' => [
+                'id' => 'nullable|uuid',
+                'body' => 'required|string|max:1000',
+                'platform_id' => 'required|uuid|exists:platforms,id',
+                'user_id' => 'required|uuid|exists:users,id',
+                'tenant_id' => 'required|uuid',
+            ],
+            'users.update' => [
+                'id' => 'required|uuid|exists:users,id',
+                'last_activity_at' => 'required|date',
+            ],
+            'platforms.update' => [
+                'id' => 'required|uuid|exists:platforms,id',
+                'last_message_at' => 'nullable|date',
+                'message_count' => 'nullable|numeric',
+            ],
+        ];
+    }
 
-    protected function execute(Request $request, ActionCollector $actions): void
+    protected function handle(Request $request, ActionCollector $actions): void
     {
         // Authorization check
         $this->authorize('create', Message::class);
 
-        // Execute multiple operations in a single transaction
+        $data = $request->all();
+
+        // Execute multiple operations atomically (UUID auto-generated on client)
         $actions->messages->create([
-            'id' => $request->input('id') ?? Str::uuid(),
-            'body' => $request->input('body'),
+            'id' => $data['id'], // UUID provided by client
+            'body' => $data['body'],
             'user_id' => auth()->id(),
-            'platform_id' => $request->input('platform_id'),
+            'platform_id' => $data['platform_id'],
             'tenant_id' => auth()->user()->tenant_id,
         ]);
 
@@ -73,19 +93,10 @@ class CreateMessageWithActivityAction extends ChorusAction
 
         // Update platform metrics
         $actions->platforms->update([
-            'id' => $request->input('platform_id'),
+            'id' => $data['platform_id'],
             'last_message_at' => now(),
             'message_count' => \DB::raw('message_count + 1'),
         ]);
-    }
-
-    public function rules(): array
-    {
-        return [
-            'body' => 'required|string|max:1000',
-            'platform_id' => 'required|uuid|exists:platforms,id',
-            'id' => 'nullable|uuid',
-        ];
     }
     
     protected function authorize(string $ability, $model): void
@@ -109,23 +120,35 @@ use Illuminate\Http\Request;
 use Pixelsprout\LaravelChorus\Support\ChorusAction;
 use Pixelsprout\LaravelChorus\Support\ActionCollector;
 
-class UpdateMessageAction extends ChorusAction
+final class UpdateMessageAction extends ChorusAction
 {
-    protected array $config = [
-        'allowOfflineWrites' => true,
-    ];
-
-    protected function execute(Request $request, ActionCollector $actions): void
+    public function rules(): array
     {
-        $messageId = $request->input('id');
+        return [
+            'messages.update' => [
+                'id' => 'required|uuid|exists:messages,id',
+                'body' => 'required|string|max:1000',
+                'updated_at' => 'nullable|date',
+            ],
+            'users.update' => [
+                'id' => 'required|uuid|exists:users,id',
+                'last_activity_at' => 'required|date',
+            ],
+        ];
+    }
+
+    protected function handle(Request $request, ActionCollector $actions): void
+    {
+        $data = $request->all();
+        $messageId = $data['id'];
         $message = Message::findOrFail($messageId);
         
         // Authorization check
         $this->authorize('update', $message);
         
         // Optimistic locking check
-        if ($request->has('updated_at')) {
-            $expectedUpdatedAt = Carbon::parse($request->input('updated_at'));
+        if (isset($data['updated_at'])) {
+            $expectedUpdatedAt = Carbon::parse($data['updated_at']);
             if ($message->updated_at->gt($expectedUpdatedAt)) {
                 throw new ConflictException('Message was updated by another user');
             }
@@ -134,7 +157,7 @@ class UpdateMessageAction extends ChorusAction
         // Update the message
         $actions->messages->update([
             'id' => $messageId,
-            'body' => $request->input('body'),
+            'body' => $data['body'],
             'is_edited' => true,
             'edited_at' => now(),
         ]);
@@ -144,15 +167,6 @@ class UpdateMessageAction extends ChorusAction
             'id' => auth()->id(),
             'last_activity_at' => now(),
         ]);
-    }
-
-    public function rules(): array
-    {
-        return [
-            'id' => 'required|uuid|exists:messages,id',
-            'body' => 'required|string|max:1000',
-            'updated_at' => 'nullable|date',
-        ];
     }
     
     protected function authorize(string $ability, $model): void
@@ -176,41 +190,35 @@ use Illuminate\Http\Request;
 use Pixelsprout\LaravelChorus\Support\ChorusAction;
 use Pixelsprout\LaravelChorus\Support\ActionCollector;
 
-class DeleteMessageAction extends ChorusAction
+final class DeleteMessageAction extends ChorusAction
 {
-    protected array $config = [
-        'allowOfflineWrites' => true,
-    ];
-
-    protected function execute(Request $request, ActionCollector $actions): void
-    {
-        $messageId = $request->input('id');
-        $message = Message::findOrFail($messageId);
-        
-        // Authorization check
-        $this->authorize('delete', $message);
-        
-        // Delete the message
-        $actions->messages->delete($messageId);
-        
-        // Update platform message count
-        $actions->platforms->update([
-            'id' => $message->platform_id,
-            'message_count' => \DB::raw('message_count - 1'),
-        ]);
-        
-        // Update user activity
-        $actions->users->update([
-            'id' => auth()->id(),
-            'last_activity_at' => now(),
-        ]);
-    }
-
     public function rules(): array
     {
         return [
-            'id' => 'required|uuid|exists:messages,id',
+            'id' => 'required|string|uuid',
         ];
+    }
+
+    protected function handle(Request $request, ActionCollector $actions): void
+    {
+        $user = auth()->user();
+
+        if (!$user) {
+            throw new \Exception('User must be authenticated');
+        }
+
+        $data = $request->all();
+        
+        // Delete the message using the action collector
+        $actions->messages->delete([
+            'id' => $data['id'],
+        ]);
+
+        // Update user's last activity timestamp
+        $actions->users->update([
+            'id' => $user->id,
+            'last_activity_at' => now(),
+        ]);
     }
     
     protected function authorize(string $ability, $model): void
@@ -239,13 +247,62 @@ Route::chorus('update-message', UpdateMessageAction::class);
 Route::chorus('delete-message', DeleteMessageAction::class);
 ```
 
-### Configuration Options
+### Automatic Features
+
+All Chorus Actions automatically support:
+- **Offline writes** - Operations are queued when offline and synced when reconnected
+- **Batch operations** - Multiple items can be processed in a single request
+- **Optimistic updates** - UI updates immediately while server processes in background
+
+## Single Operation Shorthand
+
+For actions with only one operation rule, you can use a simplified data format:
 
 ```php
-protected array $config = [
-    // Allow writes when client is offline
-    'allowOfflineWrites' => true,
-];
+// Single operation action
+final class SimpleCreateMessageAction extends ChorusAction
+{
+    public function rules(): array
+    {
+        return [
+            'messages.create' => [
+                'body' => 'required|string|max:1000',
+                'platform_id' => 'required|uuid|exists:platforms,id',
+            ],
+        ];
+    }
+
+    protected function handle(Request $request, ActionCollector $actions): void
+    {
+        $data = $request->all();
+        
+        // UUID auto-generated on client, just use the provided data
+        $actions->messages->create([
+            'id' => $data['id'], // UUID provided by client
+            'body' => $data['body'],
+            'platform_id' => $data['platform_id'],
+            'user_id' => auth()->id(),
+        ]);
+    }
+}
+```
+
+**Client-side usage:**
+
+```typescript
+// Full format (always works) - UUID auto-generated
+await createMessageAction((writes) => {
+    writes.messages.create({
+        body: "Hello world",
+        platform_id: "abc-123"
+    });
+});
+
+// Shorthand format (single operation only) - UUID auto-generated
+await createMessageAction({
+    body: "Hello world", 
+    platform_id: "abc-123"
+});
 ```
 
 ## Client-Side Chorus Actions

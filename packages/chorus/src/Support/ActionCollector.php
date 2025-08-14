@@ -11,7 +11,6 @@ use Pixelsprout\LaravelChorus\Traits\Harmonics;
 
 final class ActionCollector
 {
-    public ModelActionProxy $messages;
     private array $operations = [];
     private array $modelProxies = [];
     private bool $collecting = false;
@@ -51,7 +50,7 @@ final class ActionCollector
         return $this->modelProxies[$tableName];
     }
 
-    public function addOperation(string $tableName, string $operation, array $data): void
+    public function addOperation(string $tableName, string $operation, array $data, mixed $result = null): void
     {
         if (!$this->collecting) {
             throw new Exception('ActionCollector is not currently collecting operations');
@@ -61,79 +60,94 @@ final class ActionCollector
             'table' => $tableName,
             'operation' => $operation,
             'data' => $data,
+            'result' => $result,
             'timestamp' => microtime(true),
         ];
     }
 
-    public function executeOperations(): array
+    public function getOperationResults(): array
     {
         $results = [];
 
         foreach ($this->operations as $index => $operation) {
-            try {
-                $result = $this->executeOperation($operation);
-                $results[] = [
-                    'success' => true,
-                    'index' => $index,
-                    'operation' => $operation,
-                    'data' => $result,
-                ];
-            } catch (Exception $e) {
-                $results[] = [
-                    'success' => false,
-                    'index' => $index,
-                    'operation' => $operation,
-                    'error' => $e->getMessage(),
-                ];
-            }
+            $results[] = [
+                'success' => true,
+                'index' => $index,
+                'operation' => [
+                    'table' => $operation['table'],
+                    'operation' => $operation['operation'],
+                    'data' => $operation['data'],
+                ],
+                'data' => $operation['result'],
+            ];
         }
 
         return $results;
     }
 
-    private function executeOperation(array $operation): mixed
-    {
-        $tableName = $operation['table'];
-        $operationType = $operation['operation'];
-        $data = $operation['data'];
+    // Note: Operations are now executed immediately by the proxy methods
+    // This method is kept for backwards compatibility but no longer used
+}
 
-        // Find the model class for this table
-        $modelClass = $this->findModelClassForTable($tableName);
-        if (!$modelClass) {
+final class ModelActionProxy
+{
+    private string $modelClass;
+    
+    public function __construct(
+        private ActionCollector $collector,
+        private string $tableName
+    ) {
+        $this->modelClass = $this->findModelClassForTable($tableName);
+        
+        if (!$this->modelClass) {
             throw new Exception("No model found for table: {$tableName}");
         }
-
-        $model = new $modelClass();
-
-        return match ($operationType) {
-            'create' => $model->create($data),
-            'update' => $this->updateModel($model, $data),
-            'delete' => $this->deleteModel($model, $data),
-            default => throw new Exception("Unsupported operation: {$operationType}"),
-        };
     }
 
-    private function updateModel(Model $model, array $data): Model
+    public function create(array $data): Model
+    {
+        $model = new $this->modelClass();
+        $result = $model->create($data);
+        
+        $this->collector->addOperation($this->tableName, 'create', $data, $result);
+        
+        return $result;
+    }
+
+    public function update(array $data): Model
     {
         if (!isset($data['id'])) {
             throw new Exception('Update operation requires an id field');
         }
-
+        
+        $model = new $this->modelClass();
         $instance = $model->findOrFail($data['id']);
         $instance->update($data);
-        return $instance->fresh();
+        $result = $instance->fresh();
+        
+        $this->collector->addOperation($this->tableName, 'update', $data, $result);
+        
+        return $result;
     }
 
-    private function deleteModel(Model $model, array $data): bool
+    public function delete(mixed $id): bool
     {
-        if (!isset($data['id'])) {
-            throw new Exception('Delete operation requires an id field');
+        // Handle both array with id or direct id
+        $actualId = is_array($id) ? $id['id'] : $id;
+        
+        if (!$actualId) {
+            throw new Exception('Delete operation requires an id');
         }
-
-        $instance = $model->findOrFail($data['id']);
-        return $instance->delete();
+        
+        $model = new $this->modelClass();
+        $instance = $model->findOrFail($actualId);
+        $result = $instance->delete();
+        
+        $this->collector->addOperation($this->tableName, 'delete', ['id' => $actualId], $result);
+        
+        return $result;
     }
-
+    
     private function findModelClassForTable(string $tableName): ?string
     {
         // This could be optimized with caching
@@ -147,28 +161,5 @@ final class ActionCollector
         }
 
         return null;
-    }
-}
-
-final class ModelActionProxy
-{
-    public function __construct(
-        private ActionCollector $collector,
-        private string $tableName
-    ) {}
-
-    public function create(array $data): void
-    {
-        $this->collector->addOperation($this->tableName, 'create', $data);
-    }
-
-    public function update(array $data): void
-    {
-        $this->collector->addOperation($this->tableName, 'update', $data);
-    }
-
-    public function delete(array $data): void
-    {
-        $this->collector->addOperation($this->tableName, 'delete', $data);
     }
 }

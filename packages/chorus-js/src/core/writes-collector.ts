@@ -1,4 +1,19 @@
 // Client-side writes collector for ChorusActions
+
+// Simple UUID v4 generator (fallback if no UUID library is available)
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  
+  // Fallback UUID v4 implementation
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 export interface WriteOperation {
   table: string;
   operation: 'create' | 'update' | 'delete';
@@ -11,6 +26,8 @@ export interface ModelProxy {
   update(data: Record<string, any>): void;
   delete(data: Record<string, any>): void;
 }
+
+export type WritesProxy = Record<string, ModelProxy>;
 
 export class ClientWritesCollector {
   private operations: WriteOperation[] = [];
@@ -69,7 +86,13 @@ class ClientModelProxy implements ModelProxy {
   ) {}
 
   create(data: Record<string, any>): void {
-    this.collector.addOperation(this.tableName, 'create', data);
+    // Automatically add UUID if id field is missing
+    const dataWithId = {
+      ...data,
+      id: data.id || generateUUID(),
+    };
+    
+    this.collector.addOperation(this.tableName, 'create', dataWithId);
   }
 
   update(data: Record<string, any>): void {
@@ -82,7 +105,7 @@ class ClientModelProxy implements ModelProxy {
 }
 
 // Create a proxy-based writes object for the callback API
-export function createWritesProxy(collector: ClientWritesCollector): Record<string, ModelProxy> {
+export function createWritesProxy(collector: ClientWritesCollector): WritesProxy {
   return new Proxy({}, {
     get(target, tableName: string) {
       return collector.getTableProxy(tableName);

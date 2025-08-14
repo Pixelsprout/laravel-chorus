@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { ClientWritesCollector, createWritesProxy, WriteOperation, ModelProxy } from './writes-collector';
+import { ClientWritesCollector, createWritesProxy, WriteOperation, ModelProxy, WritesProxy } from './writes-collector';
 
 export interface ChorusActionResponse {
   success: boolean;
@@ -67,7 +67,7 @@ export class ChorusActionsAPI {
    */
   async executeActionWithCallback(
     actionName: string,
-    callback: (writes: Record<string, ModelProxy>) => void,
+    callback: (writes: WritesProxy) => void,
     options: {
       optimistic?: boolean;
       offline?: boolean;

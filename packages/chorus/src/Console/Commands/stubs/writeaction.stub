@@ -7,11 +7,6 @@ use Pixelsprout\LaravelChorus\Support\WriteAction;
 
 class {{ class }} extends WriteAction
 {
-    protected array $config = [
-        'allowOfflineWrites' => true,
-        'supportsBatch' => true,
-    ];
-
     public function handle(Request $request, array $data): mixed
     {
         $user = auth()->user();
