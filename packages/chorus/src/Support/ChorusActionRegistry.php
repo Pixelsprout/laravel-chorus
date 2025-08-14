@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Pixelsprout\LaravelChorus\Support;
 
-use Illuminate\Support\Facades\Route;
-use Pixelsprout\LaravelChorus\Http\Controllers\ChorusWriteController;
 use Pixelsprout\LaravelChorus\Traits\Harmonics;
 
 final class ChorusActionRegistry

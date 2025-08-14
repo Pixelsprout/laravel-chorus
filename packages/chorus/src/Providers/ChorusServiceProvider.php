@@ -15,8 +15,8 @@ use Pixelsprout\LaravelChorus\Console\Commands\ChorusGenerate;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusInstall;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusIntro;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusPublish;
-use Pixelsprout\LaravelChorus\Console\Commands\MakePrefixResolverCommand;
 use Pixelsprout\LaravelChorus\Console\Commands\MakeChorusActionCommand;
+use Pixelsprout\LaravelChorus\Console\Commands\MakePrefixResolverCommand;
 use Pixelsprout\LaravelChorus\Console\Commands\MakeWriteActionCommand;
 use Pixelsprout\LaravelChorus\Listeners\TrackChannelConnections;
 
