@@ -10,9 +10,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 import axios from 'axios';
 import { ClientWritesCollector, createWritesProxy } from './writes-collector';
 export class ChorusActionsAPI {
-    constructor(baseURL = '/api', axiosConfig) {
+    constructor(baseURL = '/api', axiosConfig, chorusCore) {
         this.cache = new Map();
+        this.chorusCore = null;
         this.baseURL = baseURL;
+        this.chorusCore = chorusCore || null;
         this.axios = axios.create(Object.assign({ baseURL, headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
@@ -28,6 +30,18 @@ export class ChorusActionsAPI {
         if (token) {
             this.axios.defaults.headers.common['X-CSRF-TOKEN'] = token;
         }
+    }
+    /**
+     * Set the ChorusCore instance for database integration
+     */
+    setChorusCore(chorusCore) {
+        this.chorusCore = chorusCore;
+    }
+    /**
+     * Get the current ChorusCore instance
+     */
+    getChorusCore() {
+        return this.chorusCore;
     }
     /**
      * Execute a ChorusAction with callback-style writes collection
@@ -69,6 +83,10 @@ export class ChorusActionsAPI {
                 return response.data;
             }
             catch (error) {
+                // Rollback optimistic updates on failure
+                if (options.optimistic) {
+                    yield this.rollbackOptimisticUpdates(operations);
+                }
                 // Handle network errors
                 if (this.isNetworkError(error)) {
                     return this.handleOfflineActionWithOperations(actionName, operations);
@@ -170,11 +188,79 @@ export class ChorusActionsAPI {
         }));
     }
     handleOptimisticUpdates(operations) {
-        // Emit optimistic update events for each operation
-        operations.forEach(operation => {
-            window.dispatchEvent(new CustomEvent('chorus:optimistic-operation', {
-                detail: operation
-            }));
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!this.chorusCore) {
+                // Fallback to event emission if no ChorusCore is available
+                operations.forEach(operation => {
+                    window.dispatchEvent(new CustomEvent('chorus:optimistic-operation', {
+                        detail: operation
+                    }));
+                });
+                return;
+            }
+            const db = this.chorusCore.getDb();
+            if (!db || !this.chorusCore.getIsInitialized()) {
+                console.warn('[ChorusActionsAPI] Cannot perform optimistic updates: database not ready');
+                return;
+            }
+            // Process each operation and write to delta/shadow tables
+            for (const operation of operations) {
+                try {
+                    yield this.writeOptimisticOperation(db, operation);
+                }
+                catch (error) {
+                    console.error('[ChorusActionsAPI] Failed to write optimistic operation:', operation, error);
+                }
+            }
+        });
+    }
+    writeOptimisticOperation(db, operation) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const { table, operation: operationType, data } = operation;
+            const deltaTableName = `${table}_deltas`;
+            const shadowTableName = `${table}_shadow`;
+            // Write to delta table for tracking
+            const deltaEntry = {
+                operation: operationType,
+                data: data,
+                sync_status: 'pending',
+                timestamp: operation.timestamp || Date.now(),
+            };
+            yield db.table(deltaTableName).add(deltaEntry);
+            // Handle optimistic updates to shadow table for immediate UI feedback
+            switch (operationType) {
+                case 'create':
+                    // Add new record to shadow table
+                    yield db.table(shadowTableName).put(data);
+                    break;
+                case 'update':
+                    if (!data.id) {
+                        console.warn('[ChorusActionsAPI] Update operation missing id:', data);
+                        break;
+                    }
+                    // Update existing record in shadow table, or create if doesn't exist
+                    const existing = yield db.table(shadowTableName).get(data.id);
+                    if (existing) {
+                        yield db.table(shadowTableName).put(Object.assign(Object.assign({}, existing), data));
+                    }
+                    else {
+                        // If not in shadow, get from main table and update
+                        const mainRecord = yield db.table(table).get(data.id);
+                        if (mainRecord) {
+                            yield db.table(shadowTableName).put(Object.assign(Object.assign({}, mainRecord), data));
+                        }
+                    }
+                    break;
+                case 'delete':
+                    if (!data.id) {
+                        console.warn('[ChorusActionsAPI] Delete operation missing id:', data);
+                        break;
+                    }
+                    // Remove from shadow table
+                    yield db.table(shadowTableName).delete(data.id);
+                    break;
+            }
+            console.log(`[ChorusActionsAPI] Optimistic ${operationType} written for ${table}:`, data);
         });
     }
     handleOfflineActionWithOperations(actionName, operations) {
@@ -278,6 +364,82 @@ export class ChorusActionsAPI {
         return !error.response || error.code === 'NETWORK_ERROR';
     }
     /**
+     * Rollback optimistic updates for failed operations
+     */
+    rollbackOptimisticUpdates(operations) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!this.chorusCore) {
+                console.warn('[ChorusActionsAPI] Cannot rollback: no ChorusCore instance');
+                return;
+            }
+            const db = this.chorusCore.getDb();
+            if (!db || !this.chorusCore.getIsInitialized()) {
+                console.warn('[ChorusActionsAPI] Cannot rollback: database not ready');
+                return;
+            }
+            // Process each operation and rollback optimistic changes
+            for (const operation of operations) {
+                try {
+                    yield this.rollbackOptimisticOperation(db, operation);
+                }
+                catch (error) {
+                    console.error('[ChorusActionsAPI] Failed to rollback optimistic operation:', operation, error);
+                }
+            }
+        });
+    }
+    rollbackOptimisticOperation(db, operation) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const { table, operation: operationType, data } = operation;
+            const deltaTableName = `${table}_deltas`;
+            const shadowTableName = `${table}_shadow`;
+            // Find and mark the corresponding delta as rejected
+            const pendingDeltas = yield db.table(deltaTableName)
+                .where('sync_status')
+                .equals('pending')
+                .toArray();
+            for (const delta of pendingDeltas) {
+                if (JSON.stringify(delta.data) === JSON.stringify(data)) {
+                    yield db.table(deltaTableName).update(delta.id, {
+                        sync_status: 'rejected',
+                        rejected_reason: 'Action failed on server'
+                    });
+                    break;
+                }
+            }
+            // Remove optimistic changes from shadow table
+            switch (operationType) {
+                case 'create':
+                    if (data.id) {
+                        yield db.table(shadowTableName).delete(data.id);
+                    }
+                    break;
+                case 'update':
+                    if (data.id) {
+                        // Restore original record from main table to shadow
+                        const originalRecord = yield db.table(table).get(data.id);
+                        if (originalRecord) {
+                            yield db.table(shadowTableName).put(originalRecord);
+                        }
+                        else {
+                            yield db.table(shadowTableName).delete(data.id);
+                        }
+                    }
+                    break;
+                case 'delete':
+                    if (data.id) {
+                        // Restore the deleted record to shadow table from main table
+                        const originalRecord = yield db.table(table).get(data.id);
+                        if (originalRecord) {
+                            yield db.table(shadowTableName).put(originalRecord);
+                        }
+                    }
+                    break;
+            }
+            console.log(`[ChorusActionsAPI] Optimistic ${operationType} rolled back for ${table}:`, data);
+        });
+    }
+    /**
      * Sync offline actions when coming back online
      */
     syncOfflineActions() {
@@ -297,4 +459,25 @@ export class ChorusActionsAPI {
             localStorage.removeItem('chorus_offline_actions');
         });
     }
+}
+/**
+ * Global ChorusActionsAPI instance for integration
+ */
+let globalChorusActionsAPI = null;
+/**
+ * Get or create the global ChorusActionsAPI instance
+ */
+export function getGlobalChorusActionsAPI() {
+    if (!globalChorusActionsAPI) {
+        globalChorusActionsAPI = new ChorusActionsAPI();
+    }
+    return globalChorusActionsAPI;
+}
+/**
+ * Connect ChorusActionsAPI with ChorusCore for optimistic updates
+ */
+export function connectChorusActionsAPI(chorusCore, chorusActionsAPI) {
+    const api = chorusActionsAPI || getGlobalChorusActionsAPI();
+    api.setChorusCore(chorusCore);
+    console.log('[Chorus] ChorusActionsAPI connected to ChorusCore');
 }

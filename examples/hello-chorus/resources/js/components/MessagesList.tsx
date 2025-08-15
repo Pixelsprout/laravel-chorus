@@ -4,6 +4,7 @@ import { usePage } from '@inertiajs/react';
 import { type SharedData } from '@/types';
 import UpdateMessageForm from './forms/UpdateMessageForm';
 import DeleteMessageForm from './forms/DeleteMessageForm';
+import { formatDate } from '@/lib/date-utils';
 
 interface MessagesListProps {
     messages: Message[] | undefined;
@@ -26,16 +27,6 @@ export default function MessagesList({
 }: MessagesListProps) {
     const { auth } = usePage<SharedData>().props;
 
-    // Format the date in a readable format
-    const formatDate = (date: Date) => {
-        return new Intl.DateTimeFormat('en-US', {
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true,
-        }).format(date);
-    };
 
     // Get user name by user_id
     const getUserName = (userId: string) => {
@@ -152,7 +143,7 @@ export default function MessagesList({
 
                                                 <div className="text-muted-foreground flex items-center gap-4 text-xs whitespace-nowrap">
                                                     <span>{message.id}</span>
-                                                    <span>{formatDate(new Date(message.created_at))}</span>
+                                                    <span>{formatDate(message.created_at)}</span>
                                                 </div>
                                             </div>
                                         </div>

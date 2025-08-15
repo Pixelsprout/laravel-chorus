@@ -1,4 +1,5 @@
-import { WritesProxy } from './writes-collector';
+import { WriteOperation, WritesProxy } from './writes-collector';
+import { ChorusCore } from './chorus';
 export interface ChorusActionResponse {
     success: boolean;
     operations?: {
@@ -32,8 +33,17 @@ export declare class ChorusActionsAPI {
     private axios;
     private baseURL;
     private cache;
-    constructor(baseURL?: string, axiosConfig?: any);
+    private chorusCore;
+    constructor(baseURL?: string, axiosConfig?: any, chorusCore?: ChorusCore);
     private setupCSRFHandling;
+    /**
+     * Set the ChorusCore instance for database integration
+     */
+    setChorusCore(chorusCore: ChorusCore): void;
+    /**
+     * Get the current ChorusCore instance
+     */
+    getChorusCore(): ChorusCore | null;
     /**
      * Execute a ChorusAction with callback-style writes collection
      */
@@ -62,6 +72,7 @@ export declare class ChorusActionsAPI {
     createActionClient(actionMeta?: Record<string, ChorusActionMeta>): Record<string, (params: Record<string, any>, options?: any) => Promise<ChorusActionResponse>>;
     private handleOptimisticUpdate;
     private handleOptimisticUpdates;
+    private writeOptimisticOperation;
     private handleOfflineActionWithOperations;
     private handleOfflineAction;
     private handleOfflineBatch;
@@ -71,7 +82,20 @@ export declare class ChorusActionsAPI {
     private isOffline;
     private isNetworkError;
     /**
+     * Rollback optimistic updates for failed operations
+     */
+    rollbackOptimisticUpdates(operations: WriteOperation[]): Promise<void>;
+    private rollbackOptimisticOperation;
+    /**
      * Sync offline actions when coming back online
      */
     syncOfflineActions(): Promise<void>;
 }
+/**
+ * Get or create the global ChorusActionsAPI instance
+ */
+export declare function getGlobalChorusActionsAPI(): ChorusActionsAPI;
+/**
+ * Connect ChorusActionsAPI with ChorusCore for optimistic updates
+ */
+export declare function connectChorusActionsAPI(chorusCore: ChorusCore, chorusActionsAPI?: ChorusActionsAPI): void;

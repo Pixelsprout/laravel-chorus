@@ -1,6 +1,8 @@
 // Export core ChorusActionsAPI for generated action functions
 export { 
   ChorusActionsAPI,
+  getGlobalChorusActionsAPI,
+  connectChorusActionsAPI,
   type ChorusActionResponse,
   type ChorusActionConfig,
   type ChorusActionMeta,

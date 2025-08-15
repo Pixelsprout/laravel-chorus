@@ -12,6 +12,7 @@ import RejectedMessages from '@/components/RejectedMessages';
 import MessagesFilter from '@/components/MessagesFilter';
 import MessagesList from '@/components/MessagesList';
 import { Card } from '@/components/ui/card';
+import { formatDateTime } from '@/lib/date-utils';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -66,7 +67,7 @@ function DashboardContent() {
                             currentUser?.last_activity_at && (
                                 <div className="text-muted-foreground flex items-center text-sm">
                                     <ClockIcon className="mr-1 h-3 w-3" />
-                                    Last activity: {new Date(currentUser.last_activity_at).toLocaleString()}
+                                    Last activity: {formatDateTime(currentUser.last_activity_at)}
                                 </div>
                             )
                         }
@@ -104,7 +105,7 @@ function DashboardContent() {
                                     {platform.last_message_at && (
                                         <div className="mt-2 text-sm flex items-center">
                                             <ClockIcon className="mr-1 h-3 w-3" />
-                                            Last message: {new Date(platform.last_message_at).toLocaleString()}
+                                            Last message: {formatDateTime(platform.last_message_at)}
                                         </div>
                                     )}
                                     {!platform.last_message_at && (

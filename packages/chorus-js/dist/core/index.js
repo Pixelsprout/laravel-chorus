@@ -1,5 +1,5 @@
 // Export core ChorusActionsAPI for generated action functions
-export { ChorusActionsAPI, } from './chorus-actions';
+export { ChorusActionsAPI, getGlobalChorusActionsAPI, connectChorusActionsAPI, } from './chorus-actions';
 export { ClientWritesCollector, createWritesProxy, } from './writes-collector';
 // Export other core components
 export { ChorusDatabase, createChorusDb } from "./db";

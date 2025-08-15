@@ -11,6 +11,7 @@ import { useEcho } from "@laravel/echo-react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { ChorusCore } from "../../core/chorus";
+import { connectChorusActionsAPI } from "../../core/chorus-actions";
 import React from "react";
 // Create a new ChorusCore instance
 const chorusCore = new ChorusCore();
@@ -135,6 +136,8 @@ export function ChorusProvider({ children, userId, channelPrefix, onRejectedHarm
                 });
                 const fetchedSchema = yield chorusCore.fetchAndInitializeSchema();
                 yield chorusCore.initializeTables();
+                // Connect ChorusActionsAPI with ChorusCore for optimistic updates
+                connectChorusActionsAPI(chorusCore);
                 if (!isCancelled) {
                     setSchema(fetchedSchema);
                 }

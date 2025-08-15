@@ -1,4 +1,4 @@
-export { ChorusActionsAPI, type ChorusActionResponse, type ChorusActionConfig, type ChorusActionMeta, } from './chorus-actions';
+export { ChorusActionsAPI, getGlobalChorusActionsAPI, connectChorusActionsAPI, type ChorusActionResponse, type ChorusActionConfig, type ChorusActionMeta, } from './chorus-actions';
 export { ClientWritesCollector, createWritesProxy, type WriteOperation, type ModelProxy, type WritesProxy, } from './writes-collector';
 export { ChorusDatabase, createChorusDb } from "./db";
 export { ChorusCore, HarmonicEvent, TableState, SyncError, } from "./chorus";
