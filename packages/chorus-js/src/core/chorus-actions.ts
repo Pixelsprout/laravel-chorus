@@ -56,6 +56,9 @@ export class ChorusActionsAPI {
 
     // Add CSRF token handling for Laravel
     this.setupCSRFHandling();
+    
+    // Set up automatic offline sync when coming back online
+    this.setupOfflineSync();
   }
 
   private setupCSRFHandling() {
@@ -64,6 +67,29 @@ export class ChorusActionsAPI {
     if (token) {
       this.axios.defaults.headers.common['X-CSRF-TOKEN'] = token;
     }
+  }
+
+  private setupOfflineSync() {
+    // Listen for when the browser comes back online
+    window.addEventListener('online', () => {
+      console.log('[ChorusActionsAPI] Network restored, attempting to sync offline actions...');
+      this.syncOfflineActions().catch(error => {
+        console.error('[ChorusActionsAPI] Failed to sync offline actions after coming online:', error);
+      });
+    });
+
+    // Also sync when the page becomes visible (user returns to tab)
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && navigator.onLine) {
+        const offlineActions = JSON.parse(localStorage.getItem('chorus_offline_actions') || '[]');
+        if (offlineActions.length > 0) {
+          console.log('[ChorusActionsAPI] Page visible and online, syncing offline actions...');
+          this.syncOfflineActions().catch(error => {
+            console.error('[ChorusActionsAPI] Failed to sync offline actions on visibility change:', error);
+          });
+        }
+      }
+    });
   }
 
   /**
@@ -549,16 +575,67 @@ export class ChorusActionsAPI {
     
     if (offlineActions.length === 0) return;
 
+    console.log(`[ChorusActionsAPI] Syncing ${offlineActions.length} offline actions...`);
+    
+    const synced: any[] = [];
+    const failed: any[] = [];
+
     for (const action of offlineActions) {
       try {
-        await this.executeAction(action.actionName, action.params, { offline: false });
+        let result: ChorusActionResponse;
+        
+        // Handle new operations format
+        if (action.operations && Array.isArray(action.operations)) {
+          // Recreate the callback that would generate these operations
+          const callback = (writes: any) => {
+            action.operations.forEach((op: WriteOperation) => {
+              const tableProxy = writes[op.table];
+              if (tableProxy && typeof tableProxy[op.operation] === 'function') {
+                tableProxy[op.operation](op.data);
+              }
+            });
+          };
+          
+          result = await this.executeActionWithCallback(action.actionName, callback, { 
+            offline: false,
+            optimistic: false // Don't do optimistic updates during sync
+          });
+        } 
+        // Handle legacy params format
+        else if (action.params) {
+          result = await this.executeAction(action.actionName, action.params, { offline: false });
+        } 
+        else {
+          console.warn('[ChorusActionsAPI] Skipping malformed offline action:', action);
+          failed.push(action);
+          continue;
+        }
+        
+        if (result.success) {
+          synced.push(action);
+          console.log(`[ChorusActionsAPI] Successfully synced offline action: ${action.actionName}`);
+        } else {
+          failed.push(action);
+          console.error(`[ChorusActionsAPI] Failed to sync offline action: ${action.actionName}`, result.error);
+        }
       } catch (error) {
-        console.error('Failed to sync offline action:', action, error);
+        failed.push(action);
+        console.error('[ChorusActionsAPI] Failed to sync offline action:', action, error);
       }
     }
 
-    // Clear offline actions after successful sync
-    localStorage.removeItem('chorus_offline_actions');
+    // Only clear successfully synced actions
+    if (synced.length > 0) {
+      if (failed.length === 0) {
+        // All actions synced successfully, clear storage
+        localStorage.removeItem('chorus_offline_actions');
+        console.log(`[ChorusActionsAPI] All ${synced.length} offline actions synced successfully`);
+      } else {
+        // Some actions failed, keep only the failed ones
+        localStorage.setItem('chorus_offline_actions', JSON.stringify(failed));
+        console.log(`[ChorusActionsAPI] ${synced.length} actions synced, ${failed.length} actions remain offline`);
+      }
+    }
   }
 }
 
@@ -584,4 +661,15 @@ export function connectChorusActionsAPI(chorusCore: ChorusCore, chorusActionsAPI
   const api = chorusActionsAPI || getGlobalChorusActionsAPI();
   api.setChorusCore(chorusCore);
   console.log('[Chorus] ChorusActionsAPI connected to ChorusCore');
+  
+  // Trigger initial sync if we're online and have pending actions
+  if (navigator.onLine) {
+    const offlineActions = JSON.parse(localStorage.getItem('chorus_offline_actions') || '[]');
+    if (offlineActions.length > 0) {
+      console.log('[ChorusActionsAPI] Found pending offline actions on initialization, syncing...');
+      api.syncOfflineActions().catch(error => {
+        console.error('[ChorusActionsAPI] Failed to sync offline actions on initialization:', error);
+      });
+    }
+  }
 }

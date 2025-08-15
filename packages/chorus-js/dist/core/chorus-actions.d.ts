@@ -36,6 +36,7 @@ export declare class ChorusActionsAPI {
     private chorusCore;
     constructor(baseURL?: string, axiosConfig?: any, chorusCore?: ChorusCore);
     private setupCSRFHandling;
+    private setupOfflineSync;
     /**
      * Set the ChorusCore instance for database integration
      */
