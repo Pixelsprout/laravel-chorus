@@ -24,11 +24,9 @@ final class DeleteMessageAction extends ChorusAction
             throw new \Exception('User must be authenticated');
         }
 
-        $data = $request->all();
-
         // Delete the message using the action collector
-        $actions->messages->delete([
-            'id' => $data['id'],
+        $actions->messages->delete(fn($messageData) => [
+            'id' => $messageData->id,
         ]);
 
         // Update user's last activity timestamp

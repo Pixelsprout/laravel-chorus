@@ -34,12 +34,14 @@ final class SimpleCreateMessageAction extends ChorusAction
         $data = $request->all();
 
         // Create the message using the action collector (UUID auto-generated on client)
-        $actions->messages->create([
-            'id' => $data['id'], // UUID provided by client
-            'body' => $data['body'],
-            'platform_id' => $data['platform_id'],
-            'user_id' => $user->id,
-            'tenant_id' => $user->tenant_id,
-        ]);
+        $actions->messages->create(function ($messageData) use ($user) {
+            return [
+                'id' => $messageData->id,
+                'body' => $messageData->body,
+                'platform_id' => $messageData->platform_id,
+                'user_id' => $user->id,
+                'tenant_id' => $user->tenant_id,
+            ];
+        });
     }
 }

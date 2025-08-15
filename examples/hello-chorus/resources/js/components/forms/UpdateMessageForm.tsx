@@ -9,6 +9,8 @@ import { EditIcon } from 'lucide-react';
 import { useForm } from '@tanstack/react-form';
 import type { AnyFieldApi } from '@tanstack/react-form';
 import { useEffect, useState } from 'react';
+import { usePage } from '@inertiajs/react';
+import type { SharedData } from '@/types';
 
 function FieldInfo({ field }: { field: AnyFieldApi }) {
     return (
@@ -34,6 +36,7 @@ export default function UpdateMessageForm({
 }: UpdateMessageFormProps) {
     const [editingMessage, setEditingMessage] = useState<Message | null>(null);
     const [isOpen, setIsOpen] = useState(false);
+    const { auth } = usePage<SharedData>().props;
 
     // Edit message form
     const editMessageForm = useForm({
@@ -52,6 +55,11 @@ export default function UpdateMessageForm({
                         body: value.message,
                         platform_id: value.platformId,
                     });
+
+                    writes.users.update({
+                        id: auth.user.id,
+                        last_activity_at: new Date().toISOString(),
+                    })
                 });
 
                 if (result.success) {

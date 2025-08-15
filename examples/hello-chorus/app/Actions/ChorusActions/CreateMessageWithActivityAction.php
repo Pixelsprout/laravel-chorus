@@ -16,31 +16,25 @@ final class CreateMessageWithActivityAction extends ChorusAction {
         }
 
         // Create the message using the new closure-based API
-        $actions->messages->create(function ($operation) use ($user) {
-            return [
-                'id' => $operation->id,
-                'body' => $operation->body,
-                'platform_id' => $operation->platform_id,
-                'user_id' => $user->id,
-                'tenant_id' => $user->tenant_id,
-            ];
-        });
+        $actions->messages->create(fn($messageData) => [
+            'id' => $messageData->id,
+            'body' => $messageData->body,
+            'platform_id' => $messageData->platform_id,
+            'user_id' => $user->id,
+            'tenant_id' => $user->tenant_id,
+        ]);
 
         // Update the user's last activity timestamp
-        $actions->users->update(function ($operation) {
-            return [
-                'id' => $operation->id,
-                'last_activity_at' => now(),
-            ];
-        });
+        $actions->users->update([
+            'id' => $user->id,
+            'last_activity_at' => now(),
+        ]);
 
         // Update platform metrics
-        $actions->platforms->update(function ($operation) {
-            return [
-                'id' => $operation->id,
-                'last_message_at' => now(),
-            ];
-        });
+        $actions->platforms->update(fn($platformData) => [
+            'id' => $platformData->id,
+            'last_message_at' => now(),
+        ]);
     }
 
     public function rules(): array {

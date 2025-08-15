@@ -4,6 +4,8 @@ import type { Message } from '@/_generated/types';
 import { deleteMessageAction } from '@/_generated/chorus-actions';
 import { TrashIcon } from 'lucide-react';
 import { useState } from 'react';
+import { usePage } from '@inertiajs/react';
+import type { SharedData } from '@/types';
 
 interface DeleteMessageFormProps {
     message: Message;
@@ -15,6 +17,7 @@ export default function DeleteMessageForm({
     const [deletingMessage, setDeletingMessage] = useState<Message | null>(null);
     const [isOpen, setIsOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const { auth } = usePage<SharedData>().props;
 
     // Confirm delete message
     const confirmDeleteMessage = async () => {
@@ -28,6 +31,10 @@ export default function DeleteMessageForm({
                 writes.messages.delete({
                     id: deletingMessage.id
                 });
+                writes.users.update({
+                    id: auth.user.id,
+                    last_activity_at: new Date().toISOString(),
+                })
             });
 
             if (result.success) {

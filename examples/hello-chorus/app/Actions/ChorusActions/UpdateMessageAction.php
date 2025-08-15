@@ -25,16 +25,14 @@ final class UpdateMessageAction extends ChorusAction
             throw new \Exception('User must be authenticated');
         }
 
-        $data = $request->all();
-
         // Update the message using the action collector
-        $actions->messages->update([
-            'id' => $data['id'],
-            'body' => $data['message'],
+        $actions->messages->update(fn($messageData) => [
+            'id' => $messageData->id,
+            'body' => $messageData->body,
         ]);
 
         // Update user's last activity timestamp
-        $actions->users->update([
+        $actions->users->update(fn() => [
             'id' => $user->id,
             'last_activity_at' => now(),
         ]);
