@@ -13,7 +13,7 @@ class Platform extends Model
 {
     use Harmonics, HasFactory;
 
-    protected $fillable = ['name'];
+    protected $fillable = ['name', 'last_message_at'];
 
     /**
      * Fields to sync to the client

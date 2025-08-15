@@ -51,13 +51,25 @@ function DashboardContent() {
         data: users,
     } = useTable<User>('users');
 
+    const currentUser = users?.find((user) => auth.user.id.toString() === user.id);
+
     return (
         <>
             <Head title={`${String(tenantName)}: Messages Dashboard`} />
             <OfflineBanner className="bg-orange-100 border-b border-orange-200 text-orange-800 p-3 text-center" />
             <div className="p-6">
                 <div className="mb-6 flex flex-wrap gap-y-2 items-center justify-between">
-                    <h1 className="text-2xl font-bold">Hi {auth.user.name}</h1>
+                    <div className="flex flex-wrap gap-2 flex-col">
+                        <h1 className="text-2xl font-bold">Hi {auth.user.name}</h1>
+                        {
+                            currentUser?.last_activity_at && (
+                                <div className="text-muted-foreground flex items-center text-sm">
+                                    <ClockIcon className="mr-1 h-3 w-3" />
+                                    Last activity: {new Date(currentUser.last_activity_at).toLocaleString()}
+                                </div>
+                            )
+                        }
+                    </div>
                     <div className="flex flex-wrap flex-col gap-y-1.5">
                         <h2 className="text-xl font-semibold">{String(tenantName)}</h2>
                         {/* Sync status */}
@@ -76,6 +88,34 @@ function DashboardContent() {
                         </div>
                     </div>
                 </div>
+
+                {/* Platform Statistics Section */}
+                {platforms && platforms.length > 0 && (
+                    <div className="mb-6">
+                        <h3 className="text-lg font-semibold mb-3">Platform Activity</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {platforms.map((platform) => (
+                                <div key={platform.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="font-medium text-gray-900">{platform.name}</h4>
+                                        <span className="text-xs text-gray-500">Platform</span>
+                                    </div>
+                                    {platform.last_message_at && (
+                                        <div className="mt-2 text-sm text-gray-600 flex items-center">
+                                            <ClockIcon className="mr-1 h-3 w-3" />
+                                            Last message: {new Date(platform.last_message_at).toLocaleString()}
+                                        </div>
+                                    )}
+                                    {!platform.last_message_at && (
+                                        <div className="mt-2 text-sm text-gray-400">
+                                            No messages yet
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Rejected Operations Section */}
                 <RejectedMessages />

@@ -34,6 +34,7 @@ class User extends Authenticatable
         'id' => JSType::String,
         'name' => JSType::String,
         'email' => JSType::String,
+        'last_activity_at' => JSType::String,
     ];
 
     /**

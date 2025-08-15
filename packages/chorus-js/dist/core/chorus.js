@@ -163,7 +163,7 @@ export class ChorusCore {
                     if (newDatabaseVersion) {
                         localStorage.setItem(`chorus_database_version_${this.userId}`, newDatabaseVersion.toString());
                     }
-                    yield this.initializeWithSchema(schema, newDatabaseVersion, newSchemaVersion);
+                    yield this.initializeWithSchema(schema, newDatabaseVersion, newSchemaVersion, true);
                     // After rebuilding, we need to do a full resync for all tables
                     // This ensures we have all the data before processing any harmonics
                     this.log("Database rebuilt, performing full resync...");
@@ -181,7 +181,7 @@ export class ChorusCore {
                     if (newDatabaseVersion) {
                         localStorage.setItem(`chorus_database_version_${this.userId}`, newDatabaseVersion.toString());
                     }
-                    yield this.initializeWithSchema(schema, newDatabaseVersion, newSchemaVersion);
+                    yield this.initializeWithSchema(schema, newDatabaseVersion, newSchemaVersion, false);
                 }
                 return this.schema;
             }
@@ -276,8 +276,8 @@ export class ChorusCore {
     /**
      * Initialize database with the provided schema
      */
-    initializeWithSchema(schema, databaseVersion, schemaVersion) {
-        return __awaiter(this, void 0, void 0, function* () {
+    initializeWithSchema(schema_1, databaseVersion_1, schemaVersion_1) {
+        return __awaiter(this, arguments, void 0, function* (schema, databaseVersion, schemaVersion, isRebuild = false) {
             if (!this.db) {
                 throw new Error("Database not initialized. Call setup() first.");
             }
@@ -290,9 +290,10 @@ export class ChorusCore {
                     error: null,
                 };
             });
-            // Calculate a version number based on database version and schema version
+            // Only force a specific version if we're rebuilding due to server-side changes
+            // This allows the client-side incremental versioning to work for schema additions
             let forceVersion;
-            if (databaseVersion || schemaVersion) {
+            if (isRebuild && (databaseVersion || schemaVersion)) {
                 // Create a combined version hash from database and schema versions
                 const versionString = `${databaseVersion || 'v1'}_${schemaVersion || '1'}`;
                 let hash = 0;
@@ -303,7 +304,10 @@ export class ChorusCore {
                 }
                 // Ensure version is positive and reasonable (between 1 and 999999)
                 forceVersion = Math.abs(hash) % 999999 + 1;
-                this.log(`Calculated IndexedDB version ${forceVersion} from database version ${databaseVersion} and schema version ${schemaVersion}`);
+                this.log(`Forcing IndexedDB version ${forceVersion} due to server-side database/schema changes`);
+            }
+            else {
+                this.log(`Using client-side incremental versioning for schema changes`);
             }
             yield this.db.initializeSchema(schema, forceVersion);
             this.isInitialized = true;

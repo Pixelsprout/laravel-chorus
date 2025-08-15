@@ -1,11 +1,24 @@
 // Auto-generated implementation for Chorus Actions
-// Generated on 2025-08-13 22:21:17
+// Generated on 2025-08-14 21:26:28
 
 import { ChorusActionsAPI } from '@pixelsprout/chorus-js/core';
 import type { ChorusActionResponse, WritesProxy, ModelProxy } from './actions';
 
 // Create the global ChorusActionsAPI instance
 const chorusAPI = new ChorusActionsAPI('/api');
+
+export async function simpleCreateMessageAction(
+  callback: (writes: WritesProxy) => void
+): Promise<ChorusActionResponse> {
+  return await chorusAPI.executeActionWithCallback(
+    'simple-create-message',
+    callback,
+    {
+      optimistic: true,
+      offline: true,
+    }
+  );
+}
 
 export async function deleteMessageAction(
   callback: (writes: WritesProxy) => void

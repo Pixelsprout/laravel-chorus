@@ -48,7 +48,28 @@ export class ChorusDatabase extends Dexie {
         return __awaiter(this, void 0, void 0, function* () {
             const newSchemaHash = this.generateSchemaHash(tables);
             const storedDbVersion = localStorage.getItem(`chorus_db_version_${this.userId}`);
-            const calculatedVersion = forceVersion || parseInt(newSchemaHash.slice(-8), 16) % 1000000 + 1;
+            // Use forceVersion if provided, otherwise calculate incrementally
+            let calculatedVersion;
+            if (forceVersion) {
+                calculatedVersion = forceVersion;
+                console.log(`[Chorus] Using forced version: ${calculatedVersion}`);
+            }
+            else {
+                // Get the current version from localStorage, default to 1
+                const currentVersion = storedDbVersion ? parseInt(storedDbVersion, 10) : 1;
+                // If schema has changed, increment the version
+                const hashMatches = this.currentSchemaHash === newSchemaHash;
+                if (!hashMatches && this.schemaInitialized) {
+                    calculatedVersion = currentVersion + 1;
+                    console.log(`[Chorus] Schema changed - incrementing version from ${currentVersion} to ${calculatedVersion}`);
+                    console.log(`[Chorus] Old schema hash: ${this.currentSchemaHash}`);
+                    console.log(`[Chorus] New schema hash: ${newSchemaHash}`);
+                }
+                else {
+                    calculatedVersion = currentVersion;
+                    console.log(`[Chorus] Schema unchanged - using version: ${calculatedVersion}`);
+                }
+            }
             const hashMatches = this.currentSchemaHash === newSchemaHash;
             const versionChanged = storedDbVersion && calculatedVersion.toString() !== storedDbVersion;
             const schemaUnchanged = this.schemaInitialized && hashMatches && !versionChanged;
@@ -73,6 +94,10 @@ export class ChorusDatabase extends Dexie {
                         throw error;
                     }
                 }
+                // Ensure version is stored even when schema is unchanged
+                if (this.userId && !storedDbVersion) {
+                    localStorage.setItem(`chorus_db_version_${this.userId}`, calculatedVersion.toString());
+                }
                 return;
             }
             if (this.isOpen()) {
@@ -86,7 +111,7 @@ export class ChorusDatabase extends Dexie {
                 this.schemaInitialized = true;
                 this.currentSchemaHash = newSchemaHash;
                 // Store the calculated version and schema hash in localStorage for future comparison
-                // Use a separate key to avoid conflicts with chorus.ts
+                // Always update the version to ensure it's stored properly
                 if (this.userId) {
                     localStorage.setItem(`chorus_db_version_${this.userId}`, calculatedVersion.toString());
                     localStorage.setItem(`chorus_schema_hash_${this.userId}`, newSchemaHash);

@@ -1,15 +1,17 @@
 // Auto-generated TypeScript interfaces for Chorus models
-// Generated on 2025-08-13 22:21:17
+// Generated on 2025-08-14 21:26:28
 
 export interface User {
   id: string;
   name: string;
   email: string;
+  last_activity_at: string;
 }
 
 export interface Platform {
   id: string;
   name: string;
+  last_message_at: string;
 }
 
 export interface Message {
