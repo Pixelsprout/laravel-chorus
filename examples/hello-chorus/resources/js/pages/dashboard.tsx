@@ -11,6 +11,7 @@ import CreateMessageForm from '@/components/forms/CreateMessageForm';
 import RejectedMessages from '@/components/RejectedMessages';
 import MessagesFilter from '@/components/MessagesFilter';
 import MessagesList from '@/components/MessagesList';
+import { Card } from '@/components/ui/card';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -95,23 +96,23 @@ function DashboardContent() {
                         <h3 className="text-lg font-semibold mb-3">Platform Activity</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {platforms.map((platform) => (
-                                <div key={platform.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                                <Card key={platform.id} className="p-4">
                                     <div className="flex items-center justify-between">
-                                        <h4 className="font-medium text-gray-900">{platform.name}</h4>
-                                        <span className="text-xs text-gray-500">Platform</span>
+                                        <h4 className="font-medium text-card-foreground">{platform.name}</h4>
+                                        <span className="text-xs">Platform</span>
                                     </div>
                                     {platform.last_message_at && (
-                                        <div className="mt-2 text-sm text-gray-600 flex items-center">
+                                        <div className="mt-2 text-sm flex items-center">
                                             <ClockIcon className="mr-1 h-3 w-3" />
                                             Last message: {new Date(platform.last_message_at).toLocaleString()}
                                         </div>
                                     )}
                                     {!platform.last_message_at && (
-                                        <div className="mt-2 text-sm text-gray-400">
+                                        <div className="mt-2 text-sm">
                                             No messages yet
                                         </div>
                                     )}
-                                </div>
+                                </Card>
                             ))}
                         </div>
                     </div>
