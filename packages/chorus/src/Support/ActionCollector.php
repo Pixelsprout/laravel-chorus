@@ -175,12 +175,12 @@ final class ModelActionProxy
         }
 
         // Find the next unconsumed matching operation from client operations
-        $operationKey = $this->tableName . '.' . $operationType;
+        $operationKey = $this->tableName.'.'.$operationType;
         $consumedCount = $this->consumedOperations[$operationKey] ?? 0;
-        
+
         $matchingOperation = null;
         $currentCount = 0;
-        
+
         foreach ($this->clientOperations as $index => $operation) {
             if ($operation['table'] === $this->tableName && $operation['operation'] === $operationType) {
                 if ($currentCount === $consumedCount) {

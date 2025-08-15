@@ -43,153 +43,13 @@ abstract class ChorusAction implements ChorusActionInterface
 
         // Detect if we have multiple executions based on operation patterns
         $executionGroups = $this->detectMultipleExecutions($operations);
-        
+
         if (count($executionGroups) > 1) {
             return $this->processMultipleExecutionGroups($request, $executionGroups);
         }
 
         // Single execution (normal flow)
         return $this->processSingleExecution($operations);
-    }
-
-    /**
-     * Process a single execution
-     */
-    private function processSingleExecution(array $operations): array
-    {
-        // Create a clean request with only the operations array
-        $cleanRequest = new Request();
-        $cleanRequest->merge(['operations' => $operations]);
-
-        // Validate individual operations
-        $this->validateOperations($operations);
-
-        $collector = new ActionCollector();
-        $collector->startCollecting($operations);
-
-        try {
-            // Execute the user-defined action logic
-            $this->handle($cleanRequest, $collector);
-
-            // Get results of operations that were executed by the user's logic
-            $results = $collector->getOperationResults();
-
-            return [
-                'success' => true,
-                'operations' => $results,
-                'summary' => [
-                    'total' => count($results),
-                    'successful' => count(array_filter($results, fn ($r) => $r['success'])),
-                    'failed' => count(array_filter($results, fn ($r) => ! $r['success'])),
-                ],
-            ];
-        } finally {
-            $collector->stopCollecting();
-        }
-    }
-
-    /**
-     * Detect multiple executions by grouping operations
-     */
-    private function detectMultipleExecutions(array $operations): array
-    {
-        // Group operations by their table.operation combination
-        $operationCounts = [];
-        foreach ($operations as $operation) {
-            $key = $operation['table'] . '.' . $operation['operation'];
-            $operationCounts[$key] = ($operationCounts[$key] ?? 0) + 1;
-        }
-
-        // Find the maximum count - this determines the number of executions
-        $maxCount = max(array_values($operationCounts));
-        
-        if ($maxCount <= 1) {
-            return [$operations]; // Single execution
-        }
-
-        // Group operations into separate executions
-        $executionGroups = array_fill(0, $maxCount, []);
-        $operationCounters = array_fill_keys(array_keys($operationCounts), 0);
-
-        foreach ($operations as $operation) {
-            $key = $operation['table'] . '.' . $operation['operation'];
-            $executionIndex = $operationCounters[$key];
-            
-            $executionGroups[$executionIndex][] = $operation;
-            $operationCounters[$key]++;
-        }
-
-        return $executionGroups;
-    }
-
-    /**
-     * Process multiple action execution groups
-     */
-    private function processMultipleExecutionGroups(Request $request, array $executionGroups): array
-    {
-        $allResults = [];
-        $totalSuccess = 0;
-        $totalFailed = 0;
-
-        foreach ($executionGroups as $executionIndex => $operations) {
-            try {
-                // Validate operations for this execution
-                $this->validateOperations($operations);
-
-                // Create a clean request for this execution
-                $executionRequest = new Request();
-                $executionRequest->merge(['operations' => $operations]);
-
-                $collector = new ActionCollector();
-                $collector->startCollecting($operations);
-
-                try {
-                    // Execute the user-defined action logic for this execution
-                    $this->handle($executionRequest, $collector);
-
-                    // Get results of operations for this execution
-                    $executionResults = $collector->getOperationResults();
-                    
-                    // Add execution results to the overall results
-                    foreach ($executionResults as $result) {
-                        $allResults[] = $result;
-                        if ($result['success']) {
-                            $totalSuccess++;
-                        } else {
-                            $totalFailed++;
-                        }
-                    }
-                } finally {
-                    $collector->stopCollecting();
-                }
-            } catch (Exception $e) {
-                // If an execution fails, mark all its operations as failed
-                foreach ($operations as $opIndex => $operation) {
-                    $allResults[] = [
-                        'success' => false,
-                        'index' => count($allResults),
-                        'operation' => [
-                            'table' => $operation['table'] ?? 'unknown',
-                            'operation' => $operation['operation'] ?? 'unknown',
-                            'data' => $operation['data'] ?? [],
-                        ],
-                        'error' => "Execution #{$executionIndex} failed: " . $e->getMessage(),
-                    ];
-                    $totalFailed++;
-                }
-            }
-        }
-
-        return [
-            'success' => $totalFailed === 0,
-            'operations' => $allResults,
-            'summary' => [
-                'total' => count($allResults),
-                'successful' => $totalSuccess,
-                'failed' => $totalFailed,
-            ],
-            'executions_processed' => count($executionGroups),
-        ];
     }
 
     /**
@@ -290,6 +150,146 @@ abstract class ChorusAction implements ChorusActionInterface
                 }
             }
         }
+    }
+
+    /**
+     * Process a single execution
+     */
+    private function processSingleExecution(array $operations): array
+    {
+        // Create a clean request with only the operations array
+        $cleanRequest = new Request();
+        $cleanRequest->merge(['operations' => $operations]);
+
+        // Validate individual operations
+        $this->validateOperations($operations);
+
+        $collector = new ActionCollector();
+        $collector->startCollecting($operations);
+
+        try {
+            // Execute the user-defined action logic
+            $this->handle($cleanRequest, $collector);
+
+            // Get results of operations that were executed by the user's logic
+            $results = $collector->getOperationResults();
+
+            return [
+                'success' => true,
+                'operations' => $results,
+                'summary' => [
+                    'total' => count($results),
+                    'successful' => count(array_filter($results, fn ($r) => $r['success'])),
+                    'failed' => count(array_filter($results, fn ($r) => ! $r['success'])),
+                ],
+            ];
+        } finally {
+            $collector->stopCollecting();
+        }
+    }
+
+    /**
+     * Detect multiple executions by grouping operations
+     */
+    private function detectMultipleExecutions(array $operations): array
+    {
+        // Group operations by their table.operation combination
+        $operationCounts = [];
+        foreach ($operations as $operation) {
+            $key = $operation['table'].'.'.$operation['operation'];
+            $operationCounts[$key] = ($operationCounts[$key] ?? 0) + 1;
+        }
+
+        // Find the maximum count - this determines the number of executions
+        $maxCount = max(array_values($operationCounts));
+
+        if ($maxCount <= 1) {
+            return [$operations]; // Single execution
+        }
+
+        // Group operations into separate executions
+        $executionGroups = array_fill(0, $maxCount, []);
+        $operationCounters = array_fill_keys(array_keys($operationCounts), 0);
+
+        foreach ($operations as $operation) {
+            $key = $operation['table'].'.'.$operation['operation'];
+            $executionIndex = $operationCounters[$key];
+
+            $executionGroups[$executionIndex][] = $operation;
+            $operationCounters[$key]++;
+        }
+
+        return $executionGroups;
+    }
+
+    /**
+     * Process multiple action execution groups
+     */
+    private function processMultipleExecutionGroups(Request $request, array $executionGroups): array
+    {
+        $allResults = [];
+        $totalSuccess = 0;
+        $totalFailed = 0;
+
+        foreach ($executionGroups as $executionIndex => $operations) {
+            try {
+                // Validate operations for this execution
+                $this->validateOperations($operations);
+
+                // Create a clean request for this execution
+                $executionRequest = new Request();
+                $executionRequest->merge(['operations' => $operations]);
+
+                $collector = new ActionCollector();
+                $collector->startCollecting($operations);
+
+                try {
+                    // Execute the user-defined action logic for this execution
+                    $this->handle($executionRequest, $collector);
+
+                    // Get results of operations for this execution
+                    $executionResults = $collector->getOperationResults();
+
+                    // Add execution results to the overall results
+                    foreach ($executionResults as $result) {
+                        $allResults[] = $result;
+                        if ($result['success']) {
+                            $totalSuccess++;
+                        } else {
+                            $totalFailed++;
+                        }
+                    }
+                } finally {
+                    $collector->stopCollecting();
+                }
+            } catch (Exception $e) {
+                // If an execution fails, mark all its operations as failed
+                foreach ($operations as $opIndex => $operation) {
+                    $allResults[] = [
+                        'success' => false,
+                        'index' => count($allResults),
+                        'operation' => [
+                            'table' => $operation['table'] ?? 'unknown',
+                            'operation' => $operation['operation'] ?? 'unknown',
+                            'data' => $operation['data'] ?? [],
+                        ],
+                        'error' => "Execution #{$executionIndex} failed: ".$e->getMessage(),
+                    ];
+                    $totalFailed++;
+                }
+            }
+        }
+
+        return [
+            'success' => $totalFailed === 0,
+            'operations' => $allResults,
+            'summary' => [
+                'total' => count($allResults),
+                'successful' => $totalSuccess,
+                'failed' => $totalFailed,
+            ],
+            'executions_processed' => count($executionGroups),
+        ];
     }
 
     /**
