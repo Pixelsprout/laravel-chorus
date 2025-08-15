@@ -4,17 +4,33 @@ declare(strict_types=1);
 
 namespace Pixelsprout\LaravelChorus\Support;
 
+use Closure;
 use Exception;
 use Illuminate\Database\Eloquent\Model;
-use Pixelsprout\LaravelChorus\Support\ModelsThat;
 use Pixelsprout\LaravelChorus\Traits\Harmonics;
 
 final class ActionCollector
 {
     private array $operations = [];
+
     private array $modelProxies = [];
+
     private bool $collecting = false;
+
     private array $clientOperations = [];
+
+    public function __get(string $tableName): ModelActionProxy
+    {
+        if (! $this->collecting) {
+            throw new Exception('ActionCollector is not currently collecting operations');
+        }
+
+        if (! isset($this->modelProxies[$tableName])) {
+            $this->modelProxies[$tableName] = new ModelActionProxy($this, $tableName, $this->clientOperations);
+        }
+
+        return $this->modelProxies[$tableName];
+    }
 
     public function startCollecting(array $clientOperations = []): void
     {
@@ -39,22 +55,9 @@ final class ActionCollector
         return $this->operations;
     }
 
-    public function __get(string $tableName): ModelActionProxy
-    {
-        if (!$this->collecting) {
-            throw new Exception('ActionCollector is not currently collecting operations');
-        }
-
-        if (!isset($this->modelProxies[$tableName])) {
-            $this->modelProxies[$tableName] = new ModelActionProxy($this, $tableName, $this->clientOperations);
-        }
-
-        return $this->modelProxies[$tableName];
-    }
-
     public function addOperation(string $tableName, string $operation, array $data, mixed $result = null): void
     {
-        if (!$this->collecting) {
+        if (! $this->collecting) {
             throw new Exception('ActionCollector is not currently collecting operations');
         }
 
@@ -94,79 +97,79 @@ final class ActionCollector
 final class ModelActionProxy
 {
     private string $modelClass;
-    
+
     public function __construct(
         private ActionCollector $collector,
         private string $tableName,
         private array $clientOperations = []
     ) {
         $this->modelClass = $this->findModelClassForTable($tableName);
-        
-        if (!$this->modelClass) {
+
+        if (! $this->modelClass) {
             throw new Exception("No model found for table: {$tableName}");
         }
     }
 
-    public function create(array|\Closure $data): Model
+    public function create(array|Closure $data): Model
     {
         $actualData = $this->resolveOperationData('create', $data);
-        
+
         $model = new $this->modelClass();
         $result = $model->create($actualData);
-        
+
         $this->collector->addOperation($this->tableName, 'create', $actualData, $result);
-        
+
         return $result;
     }
 
-    public function update(array|\Closure $data): Model
+    public function update(array|Closure $data): Model
     {
         $actualData = $this->resolveOperationData('update', $data);
-        
-        if (!isset($actualData['id'])) {
+
+        if (! isset($actualData['id'])) {
             throw new Exception('Update operation requires an id field');
         }
-        
+
         $model = new $this->modelClass();
         $instance = $model->findOrFail($actualData['id']);
         $instance->update($actualData);
         $result = $instance->fresh();
-        
+
         $this->collector->addOperation($this->tableName, 'update', $actualData, $result);
-        
+
         return $result;
     }
 
     public function delete(mixed $id): bool
     {
-        if ($id instanceof \Closure) {
+        if ($id instanceof Closure) {
             $actualData = $this->resolveOperationData('delete', $id);
             $actualId = $actualData['id'] ?? null;
         } else {
             // Handle both array with id or direct id
             $actualId = is_array($id) ? $id['id'] : $id;
         }
-        
-        if (!$actualId) {
+
+        if (! $actualId) {
             throw new Exception('Delete operation requires an id');
         }
-        
+
         $model = new $this->modelClass();
         $instance = $model->findOrFail($actualId);
         $result = $instance->delete();
-        
+
         $this->collector->addOperation($this->tableName, 'delete', ['id' => $actualId], $result);
-        
+
         return $result;
     }
-    
-    private function resolveOperationData(string $operationType, array|\Closure $data): array
+
+    private function resolveOperationData(string $operationType, array|Closure $data): array
     {
         if (is_array($data)) {
             // Backwards compatibility - just return the array as-is
             return $data;
         }
-        
+
         // Find the matching operation from client operations
         $matchingOperation = null;
         foreach ($this->clientOperations as $operation) {
@@ -175,24 +178,24 @@ final class ModelActionProxy
                 break;
             }
         }
-        
-        if (!$matchingOperation) {
+
+        if (! $matchingOperation) {
             throw new Exception("No {$operationType} operation found for table {$this->tableName}");
         }
-        
+
         // Create an object from the operation data
         $operationData = (object) $matchingOperation['data'];
-        
+
         // Call the closure with the operation data
         $result = $data($operationData);
-        
-        if (!is_array($result)) {
-            throw new Exception("Closure must return an array of data");
+
+        if (! is_array($result)) {
+            throw new Exception('Closure must return an array of data');
         }
-        
+
         return $result;
     }
-    
+
     private function findModelClassForTable(string $tableName): ?string
     {
         // This could be optimized with caching
