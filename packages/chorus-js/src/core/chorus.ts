@@ -490,8 +490,8 @@ export class ChorusCore {
       const operations = [];
 
       if (creates.length) {
-        this.log(`Batch adding ${creates.length} records to ${tableName}`);
-        operations.push(this.db!.table(tableName).bulkAdd(creates));
+        this.log(`Batch adding/updating ${creates.length} records in ${tableName}`);
+        operations.push(this.db!.table(tableName).bulkPut(creates));
       }
 
       if (updates.length) {

@@ -74,9 +74,12 @@ export declare class ChorusActionsAPI {
     private handleOptimisticUpdate;
     private handleOptimisticUpdates;
     private writeOptimisticOperation;
+    private handleOfflineActionWithDelta;
     private handleOfflineActionWithOperations;
     private handleOfflineAction;
     private handleOfflineBatch;
+    private markDeltasAsSynced;
+    private markDeltasAsFailed;
     private storeOfflineAction;
     private storeOfflineActionWithOperations;
     private cacheResponse;
@@ -88,9 +91,17 @@ export declare class ChorusActionsAPI {
     rollbackOptimisticUpdates(operations: WriteOperation[]): Promise<void>;
     private rollbackOptimisticOperation;
     /**
-     * Sync offline actions when coming back online
+     * Sync offline actions when coming back online using delta tables
      */
     syncOfflineActions(): Promise<void>;
+    /**
+     * Sync offline actions from delta tables (new delta-based approach)
+     */
+    syncOfflineActionsFromDeltas(): Promise<void>;
+    /**
+     * Legacy localStorage-based sync for backwards compatibility
+     */
+    syncOfflineActionsFromLocalStorage(): Promise<void>;
 }
 /**
  * Get or create the global ChorusActionsAPI instance

@@ -54,6 +54,8 @@ export default function CreateMessageForm({
                         platform_id: value.platformId,
                         user_id: auth.user.id,
                         tenant_id: auth.user.tenant_id,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
                     });
 
                     // Update user's last activity (handled automatically by the action)
@@ -202,6 +204,8 @@ export default function CreateMessageForm({
                                                 platform_id: 'invalid-platform-id', // This will also fail
                                                 user_id: auth.user.id,
                                                 tenant_id: auth.user.tenant_id,
+                                                created_at: new Date().toISOString(),
+                                                updated_at: new Date().toISOString(),
                                             });
                                         });
 

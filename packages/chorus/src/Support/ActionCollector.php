@@ -19,6 +19,8 @@ final class ActionCollector
 
     private array $clientOperations = [];
 
+    private array $consumedOperations = [];
+
     public function __get(string $tableName): ModelActionProxy
     {
         if (! $this->collecting) {
@@ -26,7 +28,7 @@ final class ActionCollector
         }
 
         if (! isset($this->modelProxies[$tableName])) {
-            $this->modelProxies[$tableName] = new ModelActionProxy($this, $tableName, $this->clientOperations);
+            $this->modelProxies[$tableName] = new ModelActionProxy($this, $tableName, $this->clientOperations, $this->consumedOperations);
         }
 
         return $this->modelProxies[$tableName];
@@ -38,6 +40,7 @@ final class ActionCollector
         $this->operations = [];
         $this->modelProxies = [];
         $this->clientOperations = $clientOperations;
+        $this->consumedOperations = [];
     }
 
     public function stopCollecting(): void
@@ -101,7 +104,8 @@ final class ModelActionProxy
     public function __construct(
         private ActionCollector $collector,
         private string $tableName,
-        private array $clientOperations = []
+        private array $clientOperations = [],
+        private array &$consumedOperations = []
     ) {
         $this->modelClass = $this->findModelClassForTable($tableName);
 
@@ -170,17 +174,27 @@ final class ModelActionProxy
             return $data;
         }
 
-        // Find the matching operation from client operations
+        // Find the next unconsumed matching operation from client operations
+        $operationKey = $this->tableName . '.' . $operationType;
+        $consumedCount = $this->consumedOperations[$operationKey] ?? 0;
+        
         $matchingOperation = null;
-        foreach ($this->clientOperations as $operation) {
+        $currentCount = 0;
+        
+        foreach ($this->clientOperations as $index => $operation) {
             if ($operation['table'] === $this->tableName && $operation['operation'] === $operationType) {
-                $matchingOperation = $operation;
-                break;
+                if ($currentCount === $consumedCount) {
+                    $matchingOperation = $operation;
+                    // Mark this operation as consumed
+                    $this->consumedOperations[$operationKey] = $consumedCount + 1;
+                    break;
+                }
+                $currentCount++;
             }
         }
 
         if (! $matchingOperation) {
-            throw new Exception("No {$operationType} operation found for table {$this->tableName}");
+            throw new Exception("No unconsumed {$operationType} operation found for table {$this->tableName}");
         }
 
         // Create an object from the operation data

@@ -77,7 +77,7 @@ export class ChorusDatabase extends Dexie {
         schemaWithDeltas[key] = tables[key];
         schemaWithDeltas[`${key}_shadow`] = tables[key];
         schemaWithDeltas[`${key}_deltas`] =
-            "++id, operation, data, sync_status, [operation+sync_status]";
+            "++id, operation, data, sync_status, action_name, timestamp, [operation+sync_status], [action_name+sync_status]";
       }
     }
 
