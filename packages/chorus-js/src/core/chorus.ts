@@ -490,8 +490,8 @@ export class ChorusCore {
       const operations = [];
 
       if (creates.length) {
-        this.log(`Batch adding/updating ${creates.length} records in ${tableName}`);
-        operations.push(this.db!.table(tableName).bulkPut(creates));
+        this.log(`Batch adding ${creates.length} records to ${tableName}`);
+        operations.push(this.db!.table(tableName).bulkAdd(creates));
       }
 
       if (updates.length) {
@@ -656,7 +656,7 @@ export class ChorusCore {
         }
 
         this.log(
-          `Syncing ${tableName}: ${isInitialSync ? "Initial sync" : "Incremental sync"}`,
+          `Syncing ${tableName}: ${isInitialSync ? "Initial sync" : "Incremental sync"} (after: ${latestHarmonicId || 'none'})`,
         );
 
         // Fetch data using offline-aware fetch
@@ -669,12 +669,16 @@ export class ChorusCore {
 
         const responseData = await response.json();
 
-        // Save latest harmonic ID - only update if it's newer than our current one
+        // Save latest harmonic ID - always update to the latest from server
         if (responseData.latest_harmonic_id) {
           const currentId = this.getLatestHarmonicId();
-          // Save if we don't have an ID yet or if the new one is greater
-          if (!currentId || responseData.latest_harmonic_id > currentId) {
-            this.saveLatestHarmonicId(responseData.latest_harmonic_id);
+          const newId = responseData.latest_harmonic_id;
+          
+          // Always save the latest ID from the server response
+          // The server should only send this if there were harmonics processed
+          if (newId) {
+            this.log(`Updating latest harmonic ID: ${currentId} -> ${newId}`);
+            this.saveLatestHarmonicId(newId);
           }
         }
 
@@ -688,8 +692,10 @@ export class ChorusCore {
           responseData.harmonics &&
           responseData.harmonics.length > 0
         ) {
+          const harmonicIds = responseData.harmonics.map((h: HarmonicEvent) => h.id);
           this.log(
             `Incremental sync: received ${responseData.harmonics.length} harmonics for ${tableName}`,
+            { harmonicIds: harmonicIds.slice(0, 5), totalCount: harmonicIds.length }
           );
           await this.processHarmonics(responseData.harmonics, tableName);
         } else {
