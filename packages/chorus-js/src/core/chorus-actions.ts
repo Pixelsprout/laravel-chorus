@@ -809,7 +809,14 @@ export class ChorusActionsAPI {
         }
       } catch (error: any) {
         console.error(`[ChorusActionsAPI] Failed to sync action: ${actionName}`, error);
-        await this.markDeltasAsFailed(actionName, error instanceof Error ? error.message : 'Unknown error');
+        
+        // Distinguish between network errors and server rejections
+        if (this.isNetworkError(error)) {
+          await this.markDeltasAsFailed(actionName, error instanceof Error ? error.message : 'Unknown error');
+        } else {
+          // Server rejection - rollback optimistic updates (marks as 'rejected')
+          await this.rollbackOptimisticUpdates(group.operations);
+        }
       }
     }
   }

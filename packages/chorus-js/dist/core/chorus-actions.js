@@ -663,7 +663,14 @@ export class ChorusActionsAPI {
                 }
                 catch (error) {
                     console.error(`[ChorusActionsAPI] Failed to sync action: ${actionName}`, error);
-                    yield this.markDeltasAsFailed(actionName, error instanceof Error ? error.message : 'Unknown error');
+                    // Distinguish between network errors and server rejections
+                    if (this.isNetworkError(error)) {
+                        yield this.markDeltasAsFailed(actionName, error instanceof Error ? error.message : 'Unknown error');
+                    }
+                    else {
+                        // Server rejection - rollback optimistic updates (marks as 'rejected')
+                        yield this.rollbackOptimisticUpdates(group.operations);
+                    }
                 }
             }
         });
