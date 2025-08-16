@@ -747,6 +747,7 @@ export class ChorusActionsAPI {
           .where('sync_status')
           .equals('pending')
           .and(delta => delta.action_name)
+          .orderBy('timestamp')
           .toArray();
 
         for (const delta of pendingDeltas) {
@@ -790,6 +791,9 @@ export class ChorusActionsAPI {
     // Sync each action with all its operations in one request
     for (const [actionName, group] of pendingActionGroups) {
       try {
+        // Sort operations by timestamp to preserve order
+        group.operations.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        
         // Send all operations for this action - let server determine execution grouping
         const requestData = {
           operations: group.operations,
