@@ -48,7 +48,7 @@ export declare class ChorusActionsAPI {
     /**
      * Execute a ChorusAction with callback-style writes collection
      */
-    executeActionWithCallback(actionName: string, callback: (writes: WritesProxy) => void, options?: {
+    executeActionWithCallback(actionName: string, callback: (writes: WritesProxy) => any, options?: {
         optimistic?: boolean;
         offline?: boolean;
     }): Promise<ChorusActionResponse>;

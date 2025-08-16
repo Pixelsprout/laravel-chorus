@@ -572,7 +572,7 @@ export class ChorusCore {
       }
 
       // Save the latest harmonic ID
-      // this.saveLatestHarmonicId(event.id);
+      this.saveLatestHarmonicId(event.id);
 
       // Update the table state
       this.updateTableState(tableName, {

@@ -8,7 +8,7 @@ import type { ChorusActionResponse, WritesProxy, ModelProxy } from './actions';
 const chorusAPI = getGlobalChorusActionsAPI();
 
 export async function simpleCreateMessageAction(
-  callback: (writes: WritesProxy) => void
+  callback: (writes: WritesProxy) => any
 ): Promise<ChorusActionResponse> {
   return await chorusAPI.executeActionWithCallback(
     'simple-create-message',
@@ -21,7 +21,7 @@ export async function simpleCreateMessageAction(
 }
 
 export async function deleteMessageAction(
-  callback: (writes: WritesProxy) => void
+  callback: (writes: WritesProxy) => any
 ): Promise<ChorusActionResponse> {
   return await chorusAPI.executeActionWithCallback(
     'delete-message',
@@ -34,7 +34,7 @@ export async function deleteMessageAction(
 }
 
 export async function createMessageWithActivityAction(
-  callback: (writes: WritesProxy) => void
+  callback: (writes: WritesProxy) => any
 ): Promise<ChorusActionResponse> {
   return await chorusAPI.executeActionWithCallback(
     'create-message-with-activity',
@@ -47,7 +47,7 @@ export async function createMessageWithActivityAction(
 }
 
 export async function updateMessageAction(
-  callback: (writes: WritesProxy) => void
+  callback: (writes: WritesProxy) => any
 ): Promise<ChorusActionResponse> {
   return await chorusAPI.executeActionWithCallback(
     'update-message',

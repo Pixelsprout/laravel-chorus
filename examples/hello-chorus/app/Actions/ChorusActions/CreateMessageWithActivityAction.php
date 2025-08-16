@@ -15,6 +15,12 @@ final class CreateMessageWithActivityAction extends ChorusAction {
             throw new \Exception('User must be authenticated');
         }
 
+        // Access any additional data sent from the client
+        $additionalData = $request->input('data', []);
+        if (!empty($additionalData)) {
+            \Log::info('Received additional data from client:', $additionalData);
+        }
+
         // Create the message using the new closure-based API
         $actions->messages->create(fn($messageData) => [
             'id' => $messageData->id,
@@ -55,6 +61,9 @@ final class CreateMessageWithActivityAction extends ChorusAction {
             'platforms.update' => [
                 'id' => 'required|string|uuid|exists:platforms,id',
                 'last_message_at' => 'nullable|date',
+            ],
+            'data' => [
+                'test_item' => 'required|string',
             ],
         ];
     }

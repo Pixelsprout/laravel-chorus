@@ -111,7 +111,7 @@ export class ChorusActionsAPI {
    */
   async executeActionWithCallback(
     actionName: string,
-    callback: (writes: WritesProxy) => void,
+    callback: (writes: WritesProxy) => any,
     options: {
       optimistic?: boolean;
       offline?: boolean;
@@ -120,10 +120,11 @@ export class ChorusActionsAPI {
     const collector = new ClientWritesCollector();
     const writesProxy = createWritesProxy(collector);
     
-    // Collect writes by executing the callback
+    // Collect writes by executing the callback and capture return value
     collector.startCollecting();
+    let callbackData: any = undefined;
     try {
-      callback(writesProxy);
+      callbackData = callback(writesProxy);
     } finally {
       collector.stopCollecting();
     }
@@ -133,7 +134,8 @@ export class ChorusActionsAPI {
     // Convert operations to the format expected by the server
     const requestData = {
       operations: operations,
-      // Include any additional metadata needed
+      // Include any additional data returned by the callback
+      ...(callbackData && typeof callbackData === 'object' ? { data: callbackData } : {})
     };
     
     const endpoint = `/actions/${actionName}`;
@@ -141,12 +143,12 @@ export class ChorusActionsAPI {
     try {
       // Handle offline mode
       if (options.offline && this.isOffline()) {
-        return this.handleOfflineActionWithDelta(actionName, operations);
+        return this.handleOfflineActionWithDelta(actionName, operations, callbackData);
       }
 
       // Handle optimistic updates for online requests
       if (options.optimistic) {
-        this.handleOptimisticUpdates(operations, actionName);
+        this.handleOptimisticUpdates(operations, actionName, callbackData);
       }
 
       const response = await this.axios.post(endpoint, requestData);
@@ -170,7 +172,7 @@ export class ChorusActionsAPI {
 
       // Handle network errors
       if (this.isNetworkError(error)) {
-        return this.handleOfflineActionWithDelta(actionName, operations);
+        return this.handleOfflineActionWithDelta(actionName, operations, callbackData);
       }
 
       // Handle validation errors
@@ -299,7 +301,8 @@ export class ChorusActionsAPI {
 
   private async handleOptimisticUpdates(
     operations: WriteOperation[], 
-    actionName?: string
+    actionName?: string,
+    actionData?: any
   ) {
     if (!this.chorusCore) {
       // Fallback to event emission if no ChorusCore is available
@@ -320,7 +323,7 @@ export class ChorusActionsAPI {
     // Process each operation and write to delta/shadow tables
     for (const operation of operations) {
       try {
-        await this.writeOptimisticOperation(db, operation, actionName);
+        await this.writeOptimisticOperation(db, operation, actionName, actionData);
       } catch (error) {
         console.error('[ChorusActionsAPI] Failed to write optimistic operation:', operation, error);
       }
@@ -330,7 +333,8 @@ export class ChorusActionsAPI {
   private async writeOptimisticOperation(
     db: ChorusDatabase, 
     operation: WriteOperation, 
-    actionName?: string
+    actionName?: string,
+    actionData?: any
   ) {
     const { table, operation: operationType, data } = operation;
     const deltaTableName = `${table}_deltas`;
@@ -343,6 +347,7 @@ export class ChorusActionsAPI {
       sync_status: 'pending',
       timestamp: operation.timestamp || Date.now(),
       action_name: actionName || null,
+      action_data: actionData ? JSON.stringify(actionData) : null,
     };
 
     await db.table(deltaTableName).add(deltaEntry);
@@ -387,11 +392,12 @@ export class ChorusActionsAPI {
 
   private async handleOfflineActionWithDelta(
     actionName: string,
-    operations: WriteOperation[]
+    operations: WriteOperation[],
+    actionData?: any
   ): Promise<ChorusActionResponse> {
     // Store optimistic updates in deltas with action metadata
     if (this.chorusCore) {
-      await this.handleOptimisticUpdates(operations, actionName);
+      await this.handleOptimisticUpdates(operations, actionName, actionData);
     }
     
     console.log(`[ChorusActionsAPI] Stored ${operations.length} operations offline for action: ${actionName}`);
@@ -730,7 +736,10 @@ export class ChorusActionsAPI {
     const deltaTableNames = tableNames.filter(name => name.endsWith('_deltas'));
 
     // Collect all pending deltas grouped by action name
-    const pendingActionGroups = new Map<string, WriteOperation[]>();
+    const pendingActionGroups = new Map<string, {
+      operations: WriteOperation[];
+      actionData?: any;
+    }>();
 
     for (const deltaTableName of deltaTableNames) {
       try {
@@ -745,15 +754,27 @@ export class ChorusActionsAPI {
           const actionName = delta.action_name;
           
           if (!pendingActionGroups.has(actionName)) {
-            pendingActionGroups.set(actionName, []);
+            pendingActionGroups.set(actionName, { operations: [], actionData: undefined });
           }
 
-          pendingActionGroups.get(actionName)!.push({
+          const group = pendingActionGroups.get(actionName)!;
+          
+          // Add the operation
+          group.operations.push({
             table: tableName,
             operation: delta.operation,
             data: delta.data,
             timestamp: delta.timestamp
           });
+
+          // Capture action data (should be the same for all deltas of the same action)
+          if (delta.action_data && !group.actionData) {
+            try {
+              group.actionData = JSON.parse(delta.action_data);
+            } catch (error) {
+              console.warn('[ChorusActionsAPI] Failed to parse action_data:', delta.action_data);
+            }
+          }
         }
       } catch (error) {
         console.error(`[ChorusActionsAPI] Failed to read pending deltas from ${deltaTableName}:`, error);
@@ -767,18 +788,20 @@ export class ChorusActionsAPI {
     console.log(`[ChorusActionsAPI] Syncing ${pendingActionGroups.size} action types from deltas...`);
 
     // Sync each action with all its operations in one request
-    for (const [actionName, operations] of pendingActionGroups) {
+    for (const [actionName, group] of pendingActionGroups) {
       try {
         // Send all operations for this action - let server determine execution grouping
         const requestData = {
-          operations: operations
+          operations: group.operations,
+          // Include action data if it exists
+          ...(group.actionData && { data: group.actionData })
         };
 
         const endpoint = `/actions/${actionName}`;
         const response = await this.axios.post(endpoint, requestData);
 
         if (response.data.success) {
-          console.log(`[ChorusActionsAPI] Successfully synced action: ${actionName} with ${operations.length} operations`);
+          console.log(`[ChorusActionsAPI] Successfully synced action: ${actionName} with ${group.operations.length} operations`);
           await this.markDeltasAsSynced(actionName);
         } else {
           console.error(`[ChorusActionsAPI] Failed to sync action: ${actionName}`, response.data.error);

@@ -74,29 +74,27 @@ export class ChorusActionsAPI {
             var _a;
             const collector = new ClientWritesCollector();
             const writesProxy = createWritesProxy(collector);
-            // Collect writes by executing the callback
+            // Collect writes by executing the callback and capture return value
             collector.startCollecting();
+            let callbackData = undefined;
             try {
-                callback(writesProxy);
+                callbackData = callback(writesProxy);
             }
             finally {
                 collector.stopCollecting();
             }
             const operations = collector.getOperations();
             // Convert operations to the format expected by the server
-            const requestData = {
-                operations: operations,
-                // Include any additional metadata needed
-            };
+            const requestData = Object.assign({ operations: operations }, (callbackData && typeof callbackData === 'object' ? { data: callbackData } : {}));
             const endpoint = `/actions/${actionName}`;
             try {
                 // Handle offline mode
                 if (options.offline && this.isOffline()) {
-                    return this.handleOfflineActionWithDelta(actionName, operations);
+                    return this.handleOfflineActionWithDelta(actionName, operations, callbackData);
                 }
                 // Handle optimistic updates for online requests
                 if (options.optimistic) {
-                    this.handleOptimisticUpdates(operations, actionName);
+                    this.handleOptimisticUpdates(operations, actionName, callbackData);
                 }
                 const response = yield this.axios.post(endpoint, requestData);
                 if (response.data.success) {
@@ -116,7 +114,7 @@ export class ChorusActionsAPI {
                 }
                 // Handle network errors
                 if (this.isNetworkError(error)) {
-                    return this.handleOfflineActionWithDelta(actionName, operations);
+                    return this.handleOfflineActionWithDelta(actionName, operations, callbackData);
                 }
                 // Handle validation errors
                 if (((_a = error.response) === null || _a === void 0 ? void 0 : _a.status) === 422) {
@@ -214,7 +212,7 @@ export class ChorusActionsAPI {
             detail: { actionName, params }
         }));
     }
-    handleOptimisticUpdates(operations, actionName) {
+    handleOptimisticUpdates(operations, actionName, actionData) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!this.chorusCore) {
                 // Fallback to event emission if no ChorusCore is available
@@ -233,7 +231,7 @@ export class ChorusActionsAPI {
             // Process each operation and write to delta/shadow tables
             for (const operation of operations) {
                 try {
-                    yield this.writeOptimisticOperation(db, operation, actionName);
+                    yield this.writeOptimisticOperation(db, operation, actionName, actionData);
                 }
                 catch (error) {
                     console.error('[ChorusActionsAPI] Failed to write optimistic operation:', operation, error);
@@ -241,7 +239,7 @@ export class ChorusActionsAPI {
             }
         });
     }
-    writeOptimisticOperation(db, operation, actionName) {
+    writeOptimisticOperation(db, operation, actionName, actionData) {
         return __awaiter(this, void 0, void 0, function* () {
             const { table, operation: operationType, data } = operation;
             const deltaTableName = `${table}_deltas`;
@@ -253,6 +251,7 @@ export class ChorusActionsAPI {
                 sync_status: 'pending',
                 timestamp: operation.timestamp || Date.now(),
                 action_name: actionName || null,
+                action_data: actionData ? JSON.stringify(actionData) : null,
             };
             yield db.table(deltaTableName).add(deltaEntry);
             // Handle optimistic updates to shadow table for immediate UI feedback
@@ -291,11 +290,11 @@ export class ChorusActionsAPI {
             console.log(`[ChorusActionsAPI] Optimistic ${operationType} written for ${table}:`, data);
         });
     }
-    handleOfflineActionWithDelta(actionName, operations) {
+    handleOfflineActionWithDelta(actionName, operations, actionData) {
         return __awaiter(this, void 0, void 0, function* () {
             // Store optimistic updates in deltas with action metadata
             if (this.chorusCore) {
-                yield this.handleOptimisticUpdates(operations, actionName);
+                yield this.handleOptimisticUpdates(operations, actionName, actionData);
             }
             console.log(`[ChorusActionsAPI] Stored ${operations.length} operations offline for action: ${actionName}`);
             // Return optimistic response
@@ -617,14 +616,25 @@ export class ChorusActionsAPI {
                         const tableName = deltaTableName.replace('_deltas', '');
                         const actionName = delta.action_name;
                         if (!pendingActionGroups.has(actionName)) {
-                            pendingActionGroups.set(actionName, []);
+                            pendingActionGroups.set(actionName, { operations: [], actionData: undefined });
                         }
-                        pendingActionGroups.get(actionName).push({
+                        const group = pendingActionGroups.get(actionName);
+                        // Add the operation
+                        group.operations.push({
                             table: tableName,
                             operation: delta.operation,
                             data: delta.data,
                             timestamp: delta.timestamp
                         });
+                        // Capture action data (should be the same for all deltas of the same action)
+                        if (delta.action_data && !group.actionData) {
+                            try {
+                                group.actionData = JSON.parse(delta.action_data);
+                            }
+                            catch (error) {
+                                console.warn('[ChorusActionsAPI] Failed to parse action_data:', delta.action_data);
+                            }
+                        }
                     }
                 }
                 catch (error) {
@@ -636,16 +646,14 @@ export class ChorusActionsAPI {
             }
             console.log(`[ChorusActionsAPI] Syncing ${pendingActionGroups.size} action types from deltas...`);
             // Sync each action with all its operations in one request
-            for (const [actionName, operations] of pendingActionGroups) {
+            for (const [actionName, group] of pendingActionGroups) {
                 try {
                     // Send all operations for this action - let server determine execution grouping
-                    const requestData = {
-                        operations: operations
-                    };
+                    const requestData = Object.assign({ operations: group.operations }, (group.actionData && { data: group.actionData }));
                     const endpoint = `/actions/${actionName}`;
                     const response = yield this.axios.post(endpoint, requestData);
                     if (response.data.success) {
-                        console.log(`[ChorusActionsAPI] Successfully synced action: ${actionName} with ${operations.length} operations`);
+                        console.log(`[ChorusActionsAPI] Successfully synced action: ${actionName} with ${group.operations.length} operations`);
                         yield this.markDeltasAsSynced(actionName);
                     }
                     else {

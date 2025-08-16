@@ -463,7 +463,7 @@ export class ChorusCore {
                         this.log(`Unknown operation type: ${event.operation}`);
                 }
                 // Save the latest harmonic ID
-                // this.saveLatestHarmonicId(event.id);
+                this.saveLatestHarmonicId(event.id);
                 // Update the table state
                 this.updateTableState(tableName, {
                     lastUpdate: new Date(),

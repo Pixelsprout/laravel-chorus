@@ -26,8 +26,9 @@ abstract class ChorusAction implements ChorusActionInterface
     abstract protected function handle(Request $request, ActionCollector $actions): void;
 
     /**
-     * Get validation rules for specific operations
-     * Returns array with 'table.operation' => ['field' => 'rules'] format
+     * Get validation rules for specific operations and data field
+     * Returns array with 'table.operation' => ['field' => 'rules'] format for operations
+     * and 'data' => ['field' => 'rules'] format for data field validation
      */
     abstract public function rules(): array;
 
@@ -49,7 +50,7 @@ abstract class ChorusAction implements ChorusActionInterface
         }
 
         // Single execution (normal flow)
-        return $this->processSingleExecution($operations);
+        return $this->processSingleExecution($request, $operations);
     }
 
     /**
@@ -155,14 +156,20 @@ abstract class ChorusAction implements ChorusActionInterface
     /**
      * Process a single execution
      */
-    private function processSingleExecution(array $operations): array
+    private function processSingleExecution(Request $request, array $operations): array
     {
-        // Create a clean request with only the operations array
+        // Create a clean request with operations and any additional data
         $cleanRequest = new Request();
-        $cleanRequest->merge(['operations' => $operations]);
+        $cleanRequest->merge([
+            'operations' => $operations,
+            'data' => $request->input('data', [])
+        ]);
 
         // Validate individual operations
         $this->validateOperations($operations);
+        
+        // Validate data field if present
+        $this->validateData($request->input('data', []));
 
         $collector = new ActionCollector();
         $collector->startCollecting($operations);
@@ -223,6 +230,43 @@ abstract class ChorusAction implements ChorusActionInterface
     }
 
     /**
+     * Validate data field using data-specific rules
+     */
+    protected function validateData(array $data): void
+    {
+        $allRules = $this->rules();
+        $dataRules = $allRules['data'] ?? [];
+
+        if (empty($dataRules)) {
+            return; // No data validation rules defined
+        }
+
+        $validator = Validator::make($data, $dataRules);
+
+        if ($validator->fails()) {
+            $errors = $validator->errors();
+
+            // Prefix error messages with data context
+            $contextualErrors = [];
+            foreach ($errors->messages() as $field => $messages) {
+                $contextualErrors["data.{$field}"] = array_map(
+                    fn ($message) => "Data validation failed: {$message}",
+                    $messages
+                );
+            }
+
+            $contextualValidator = Validator::make([], []);
+            foreach ($contextualErrors as $field => $messages) {
+                foreach ($messages as $message) {
+                    $contextualValidator->errors()->add($field, $message);
+                }
+            }
+
+            throw new ValidationException($contextualValidator);
+        }
+    }
+
+    /**
      * Process multiple action execution groups
      */
     private function processMultipleExecutionGroups(Request $request, array $executionGroups): array
@@ -235,10 +279,16 @@ abstract class ChorusAction implements ChorusActionInterface
             try {
                 // Validate operations for this execution
                 $this->validateOperations($operations);
+                
+                // Validate data field if present
+                $this->validateData($request->input('data', []));
 
                 // Create a clean request for this execution
                 $executionRequest = new Request();
-                $executionRequest->merge(['operations' => $operations]);
+                $executionRequest->merge([
+                    'operations' => $operations,
+                    'data' => $request->input('data', [])
+                ]);
 
                 $collector = new ActionCollector();
                 $collector->startCollecting($operations);
