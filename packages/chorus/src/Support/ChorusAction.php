@@ -154,6 +154,43 @@ abstract class ChorusAction implements ChorusActionInterface
     }
 
     /**
+     * Validate data field using data-specific rules
+     */
+    protected function validateData(array $data): void
+    {
+        $allRules = $this->rules();
+        $dataRules = $allRules['data'] ?? [];
+
+        if (empty($dataRules)) {
+            return; // No data validation rules defined
+        }
+
+        $validator = Validator::make($data, $dataRules);
+
+        if ($validator->fails()) {
+            $errors = $validator->errors();
+
+            // Prefix error messages with data context
+            $contextualErrors = [];
+            foreach ($errors->messages() as $field => $messages) {
+                $contextualErrors["data.{$field}"] = array_map(
+                    fn ($message) => "Data validation failed: {$message}",
+                    $messages
+                );
+            }
+
+            $contextualValidator = Validator::make([], []);
+            foreach ($contextualErrors as $field => $messages) {
+                foreach ($messages as $message) {
+                    $contextualValidator->errors()->add($field, $message);
+                }
+            }
+
+            throw new ValidationException($contextualValidator);
+        }
+    }
+
+    /**
      * Process a single execution
      */
     private function processSingleExecution(Request $request, array $operations): array
@@ -162,12 +199,12 @@ abstract class ChorusAction implements ChorusActionInterface
         $cleanRequest = new Request();
         $cleanRequest->merge([
             'operations' => $operations,
-            'data' => $request->input('data', [])
+            'data' => $request->input('data', []),
         ]);
 
         // Validate individual operations
         $this->validateOperations($operations);
-        
+
         // Validate data field if present
         $this->validateData($request->input('data', []));
 
@@ -230,43 +267,6 @@ abstract class ChorusAction implements ChorusActionInterface
     }
 
     /**
-     * Validate data field using data-specific rules
-     */
-    protected function validateData(array $data): void
-    {
-        $allRules = $this->rules();
-        $dataRules = $allRules['data'] ?? [];
-
-        if (empty($dataRules)) {
-            return; // No data validation rules defined
-        }
-
-        $validator = Validator::make($data, $dataRules);
-
-        if ($validator->fails()) {
-            $errors = $validator->errors();
-
-            // Prefix error messages with data context
-            $contextualErrors = [];
-            foreach ($errors->messages() as $field => $messages) {
-                $contextualErrors["data.{$field}"] = array_map(
-                    fn ($message) => "Data validation failed: {$message}",
-                    $messages
-                );
-            }
-
-            $contextualValidator = Validator::make([], []);
-            foreach ($contextualErrors as $field => $messages) {
-                foreach ($messages as $message) {
-                    $contextualValidator->errors()->add($field, $message);
-                }
-            }
-
-            throw new ValidationException($contextualValidator);
-        }
-    }
-
-    /**
      * Process multiple action execution groups
      */
     private function processMultipleExecutionGroups(Request $request, array $executionGroups): array
@@ -279,7 +279,7 @@ abstract class ChorusAction implements ChorusActionInterface
             try {
                 // Validate operations for this execution
                 $this->validateOperations($operations);
-                
+
                 // Validate data field if present
                 $this->validateData($request->input('data', []));
 
@@ -287,7 +287,7 @@ abstract class ChorusAction implements ChorusActionInterface
                 $executionRequest = new Request();
                 $executionRequest->merge([
                     'operations' => $operations,
-                    'data' => $request->input('data', [])
+                    'data' => $request->input('data', []),
                 ]);
 
                 $collector = new ActionCollector();
