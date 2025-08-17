@@ -3,6 +3,18 @@ import { ClientWritesCollector, createWritesProxy, WriteOperation, ModelProxy, W
 import { ChorusCore } from './chorus';
 import { ChorusDatabase } from './db';
 
+export interface ValidationError {
+  field: string;
+  message: string;
+  rule: string;
+  value?: any;
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  errors: ValidationError[];
+}
+
 export interface ChorusActionResponse {
   success: boolean;
   operations?: {
@@ -22,6 +34,7 @@ export interface ChorusActionResponse {
     failed: number;
   };
   error?: string;
+  validation_errors?: ValidationError[];
 }
 
 export interface ChorusActionConfig {
@@ -115,6 +128,8 @@ export class ChorusActionsAPI {
     options: {
       optimistic?: boolean;
       offline?: boolean;
+      validate?: boolean;
+      validationSchema?: any;
     } = {}
   ): Promise<ChorusActionResponse> {
     const collector = new ClientWritesCollector();
@@ -130,6 +145,18 @@ export class ChorusActionsAPI {
     }
     
     const operations = collector.getOperations();
+    
+    // Client-side validation if enabled and schema provided
+    if (options.validate && options.validationSchema) {
+      const validationResult = this.validateOperations(operations, callbackData, options.validationSchema);
+      if (!validationResult.valid) {
+        return {
+          success: false,
+          error: 'Client-side validation failed',
+          validation_errors: validationResult.errors,
+        };
+      }
+    }
     
     // Convert operations to the format expected by the server
     const requestData = {
@@ -747,8 +774,10 @@ export class ChorusActionsAPI {
           .where('sync_status')
           .equals('pending')
           .and(delta => delta.action_name)
-          .orderBy('timestamp')
           .toArray();
+        
+        // Sort by timestamp after retrieval
+        pendingDeltas.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
         for (const delta of pendingDeltas) {
           const tableName = deltaTableName.replace('_deltas', '');
@@ -823,6 +852,165 @@ export class ChorusActionsAPI {
         }
       }
     }
+  }
+
+  /**
+   * Validate operations and data against a validation schema
+   */
+  private validateOperations(operations: WriteOperation[], callbackData: any, validationSchema: any): ValidationResult {
+    const errors: ValidationError[] = [];
+
+    // Validate each operation
+    for (const operation of operations) {
+      const operationKey = `${operation.table}.${operation.operation}`;
+      const schema = validationSchema[operationKey];
+      
+      if (schema) {
+        const operationErrors = this.validateData(operation.data, schema, operationKey);
+        errors.push(...operationErrors);
+      }
+    }
+
+    // Validate callback data if provided and schema exists
+    if (callbackData && validationSchema['data']) {
+      const dataErrors = this.validateData(callbackData, validationSchema['data'], 'data');
+      errors.push(...dataErrors);
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors
+    };
+  }
+
+  /**
+   * Validate data object against field constraints
+   */
+  private validateData(data: Record<string, any>, schema: Record<string, any>, prefix: string = ''): ValidationError[] {
+    const errors: ValidationError[] = [];
+
+    for (const [fieldName, constraints] of Object.entries(schema)) {
+      const value = data[fieldName];
+      const fullFieldName = prefix ? `${prefix}.${fieldName}` : fieldName;
+      
+      // Required check
+      if (constraints.required && (value === null || value === undefined || value === '')) {
+        errors.push({
+          field: fullFieldName,
+          message: `${fieldName} is required`,
+          rule: 'required',
+          value
+        });
+        continue; // Stop further validation if required field is missing
+      }
+
+      // Skip other validations if value is empty and not required
+      if (!constraints.required && (value === null || value === undefined || value === '')) {
+        continue;
+      }
+
+      // Type validation
+      if (constraints.type) {
+        if (constraints.type === 'string' && typeof value !== 'string') {
+          errors.push({
+            field: fullFieldName,
+            message: `${fieldName} must be a string`,
+            rule: 'string',
+            value
+          });
+        } else if (constraints.type === 'number' && typeof value !== 'number') {
+          errors.push({
+            field: fullFieldName,
+            message: `${fieldName} must be a number`,
+            rule: 'number',
+            value
+          });
+        } else if (constraints.type === 'boolean' && typeof value !== 'boolean') {
+          errors.push({
+            field: fullFieldName,
+            message: `${fieldName} must be a boolean`,
+            rule: 'boolean',
+            value
+          });
+        }
+      }
+
+      // String-specific validations
+      if (typeof value === 'string') {
+        if (constraints.min !== undefined && value.length < constraints.min) {
+          errors.push({
+            field: fullFieldName,
+            message: `${fieldName} must be at least ${constraints.min} characters`,
+            rule: 'min',
+            value
+          });
+        }
+        if (constraints.max !== undefined && value.length > constraints.max) {
+          errors.push({
+            field: fullFieldName,
+            message: `${fieldName} may not be greater than ${constraints.max} characters`,
+            rule: 'max',
+            value
+          });
+        }
+        if (constraints.uuid && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
+          errors.push({
+            field: fullFieldName,
+            message: `${fieldName} must be a valid UUID`,
+            rule: 'uuid',
+            value
+          });
+        }
+        if (constraints.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          errors.push({
+            field: fullFieldName,
+            message: `${fieldName} must be a valid email address`,
+            rule: 'email',
+            value
+          });
+        }
+        if (constraints.url && !/^https?:\/\/.+/.test(value)) {
+          errors.push({
+            field: fullFieldName,
+            message: `${fieldName} must be a valid URL`,
+            rule: 'url',
+            value
+          });
+        }
+      }
+
+      // Number-specific validations
+      if (typeof value === 'number') {
+        if (constraints.min !== undefined && value < constraints.min) {
+          errors.push({
+            field: fullFieldName,
+            message: `${fieldName} must be at least ${constraints.min}`,
+            rule: 'min',
+            value
+          });
+        }
+        if (constraints.max !== undefined && value > constraints.max) {
+          errors.push({
+            field: fullFieldName,
+            message: `${fieldName} may not be greater than ${constraints.max}`,
+            rule: 'max',
+            value
+          });
+        }
+      }
+
+      // In validation
+      if (constraints.in && constraints.in.length > 0 && !constraints.in.includes(value)) {
+        errors.push({
+          field: fullFieldName,
+          message: `${fieldName} must be one of: ${constraints.in.join(', ')}`,
+          rule: 'in',
+          value
+        });
+      }
+    }
+
+    return errors;
   }
 
   /**

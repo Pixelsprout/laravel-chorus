@@ -28,8 +28,6 @@ final class CreateMessageWithActivityAction extends ChorusAction {
             'platform_id' => $messageData->platform_id,
             'user_id' => $user->id,
             'tenant_id' => $user->tenant_id,
-            'created_at' => now(),
-            'updated_at' => now(),
         ]);
 
         // Update the user's last activity timestamp

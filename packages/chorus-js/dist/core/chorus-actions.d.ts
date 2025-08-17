@@ -1,5 +1,15 @@
 import { WriteOperation, WritesProxy } from './writes-collector';
 import { ChorusCore } from './chorus';
+export interface ValidationError {
+    field: string;
+    message: string;
+    rule: string;
+    value?: any;
+}
+export interface ValidationResult {
+    valid: boolean;
+    errors: ValidationError[];
+}
 export interface ChorusActionResponse {
     success: boolean;
     operations?: {
@@ -19,6 +29,7 @@ export interface ChorusActionResponse {
         failed: number;
     };
     error?: string;
+    validation_errors?: ValidationError[];
 }
 export interface ChorusActionConfig {
     allowOfflineWrites: boolean;
@@ -51,6 +62,8 @@ export declare class ChorusActionsAPI {
     executeActionWithCallback(actionName: string, callback: (writes: WritesProxy) => any, options?: {
         optimistic?: boolean;
         offline?: boolean;
+        validate?: boolean;
+        validationSchema?: any;
     }): Promise<ChorusActionResponse>;
     /**
      * Execute a ChorusAction (legacy method)
@@ -98,6 +111,14 @@ export declare class ChorusActionsAPI {
      * Sync offline actions from delta tables (new delta-based approach)
      */
     syncOfflineActionsFromDeltas(): Promise<void>;
+    /**
+     * Validate operations and data against a validation schema
+     */
+    private validateOperations;
+    /**
+     * Validate data object against field constraints
+     */
+    private validateData;
     /**
      * Legacy localStorage-based sync for backwards compatibility
      */

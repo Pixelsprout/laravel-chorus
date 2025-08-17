@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import type { Platform } from '@/_generated/types';
 import { createMessageWithActivityAction } from '@/_generated/chorus-actions';
+import type { ChorusActionResponse } from '@/_generated/actions';
 
 import { usePage } from '@inertiajs/react';
 import { type SharedData } from '@/types';
@@ -45,45 +46,44 @@ export default function CreateMessageForm({
             message: '',
         },
         onSubmit: async ({ value, formApi }) => {
-            try {
-                // Execute the new ChorusAction with callback-style API
-                const result = await createMessageWithActivityAction((writes) => {
-                    // Create the message (UUID auto-generated)
-                    writes.messages.create({
-                        body: value.message,
-                        platform_id: value.platformId,
-                        user_id: auth.user.id,
-                        tenant_id: auth.user.tenant_id,
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString(),
-                    });
-
-                    // Update user's last activity (handled automatically by the action)
-                    writes.users.update({
-                        id: auth.user.id,
-                        last_activity_at: new Date().toISOString(),
-                    });
-
-                    // Update platform metrics (handled automatically by the action)
-                    writes.platforms.update({
-                        id: value.platformId,
-                        last_message_at: new Date().toISOString(),
-                    });
-
-                    return {
-                        test_item: 'test message',
-                    }
+            // Execute the new ChorusAction with callback-style API
+            const result = await createMessageWithActivityAction((writes) => {
+                // Create the message (UUID auto-generated)
+                writes.messages.create({
+                    body: value.message,
+                    platform_id: value.platformId,
+                    user_id: auth.user.id,
+                    tenant_id: parseInt(auth.user.tenant_id), // Ensure it's a number
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
                 });
 
-                if (result.success) {
-                    // Clear form on success
-                    formApi.reset();
-                    console.log('Message created successfully:', result);
-                } else {
-                    console.error('Message creation failed:', result.error);
+                // Update user's last activity (handled automatically by the action)
+                writes.users.update({
+                    id: auth.user.id,
+                    last_activity_at: new Date().toISOString(),
+                });
+
+                // Update platform metrics (handled automatically by the action)
+                writes.platforms.update({
+                    id: value.platformId,
+                    last_message_at: new Date().toISOString(),
+                });
+
+                return {
+                    test_item: 'test message',
                 }
-            } catch (err) {
-                console.error('Error creating message:', err);
+            });
+
+            if (result.success) {
+                // Clear form on success
+                formApi.reset();
+                console.log('Message created successfully:', result);
+            } else {
+                console.error('Message creation failed:', result.error);
+                if (result.validation_errors) {
+                    console.error('Validation errors:', result.validation_errors);
+                }
             }
         },
     });
@@ -199,29 +199,36 @@ export default function CreateMessageForm({
                                 type="button"
                                 variant="outline"
                                 onClick={async () => {
-                                    // Test rejected harmonic by sending invalid data
+                                    // Test client-side validation with invalid data
                                     try {
-                                        // Execute the ChorusAction with invalid data to test rejection
+                                        // Execute the ChorusAction with invalid data to test client-side validation
                                         const result = await createMessageWithActivityAction((writes) => {
                                             writes.messages.create({
                                                 body: '', // This will fail validation (empty message)
-                                                platform_id: 'invalid-platform-id', // This will also fail
+                                                platform_id: 'invalid-platform-id', // This will fail UUID validation
                                                 user_id: auth.user.id,
-                                                tenant_id: auth.user.tenant_id,
+                                                tenant_id: 'invalid-tenant', // This should be a number, not string
                                                 created_at: new Date().toISOString(),
                                                 updated_at: new Date().toISOString(),
                                             });
+
+                                            return {
+                                                // Missing test_item to trigger data validation failure
+                                            };
                                         });
 
-                                        console.log('Test rejection result:', result);
+                                        console.log('Client-side validation SDtest result:', result);
+                                        if (!result.success && result.validation_errors) {
+                                            console.log('Validation errors caught:', result.validation_errors);
+                                        }
                                     } catch (err) {
-                                        console.error('Test rejection error:', err);
+                                        console.error('Test validation error:', err);
                                     }
                                 }}
                                 className="text-xs"
                                 disabled={isSubmitting}
                             >
-                                Test Rejection
+                                Test Validation
                             </Button>
                         </>
                     )}
