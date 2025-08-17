@@ -357,11 +357,11 @@ final class ChorusGenerate extends Command
         foreach ($rules as $field => $rule) {
             $ruleArray = is_array($rule) ? $rule : explode('|', $rule);
             $ruleString = is_array($rule) ? implode('|', $rule) : $rule;
-            
+
             $constraints = $this->extractValidationConstraints($ruleArray);
-            
+
             $isOptional = $constraints['nullable'] || $constraints['sometimes'] || str_contains($ruleString, 'nullable') || str_contains($ruleString, 'sometimes');
-            $isRequired = !$isOptional && ($constraints['required'] || str_contains($ruleString, 'required'));
+            $isRequired = ! $isOptional && ($constraints['required'] || str_contains($ruleString, 'required'));
 
             // Determine TypeScript type
             $type = $this->determineTypeScriptType($constraints, $ruleString);
@@ -407,47 +407,53 @@ final class ChorusGenerate extends Command
         ];
 
         foreach ($rules as $rule) {
-            $rule = trim($rule);
-            
+            $rule = mb_trim($rule);
+
             // Basic type rules
-            if ($rule === 'required') $constraints['required'] = true;
-            elseif ($rule === 'nullable') $constraints['nullable'] = true;
-            elseif ($rule === 'sometimes') $constraints['sometimes'] = true;
-            elseif ($rule === 'string') $constraints['string'] = true;
-            elseif ($rule === 'integer') $constraints['integer'] = true;
-            elseif ($rule === 'numeric') $constraints['numeric'] = true;
-            elseif ($rule === 'boolean') $constraints['boolean'] = true;
-            elseif ($rule === 'array') $constraints['array'] = true;
-            elseif ($rule === 'uuid') $constraints['uuid'] = true;
-            elseif ($rule === 'email') $constraints['email'] = true;
-            elseif ($rule === 'url') $constraints['url'] = true;
-            elseif ($rule === 'date') $constraints['date'] = true;
-            
+            if ($rule === 'required') {
+                $constraints['required'] = true;
+            } elseif ($rule === 'nullable') {
+                $constraints['nullable'] = true;
+            } elseif ($rule === 'sometimes') {
+                $constraints['sometimes'] = true;
+            } elseif ($rule === 'string') {
+                $constraints['string'] = true;
+            } elseif ($rule === 'integer') {
+                $constraints['integer'] = true;
+            } elseif ($rule === 'numeric') {
+                $constraints['numeric'] = true;
+            } elseif ($rule === 'boolean') {
+                $constraints['boolean'] = true;
+            } elseif ($rule === 'array') {
+                $constraints['array'] = true;
+            } elseif ($rule === 'uuid') {
+                $constraints['uuid'] = true;
+            } elseif ($rule === 'email') {
+                $constraints['email'] = true;
+            } elseif ($rule === 'url') {
+                $constraints['url'] = true;
+            } elseif ($rule === 'date') {
+                $constraints['date'] = true;
+            }
+
             // Parameterized rules
             elseif (str_starts_with($rule, 'min:')) {
-                $constraints['min'] = (int) substr($rule, 4);
-            }
-            elseif (str_starts_with($rule, 'max:')) {
-                $constraints['max'] = (int) substr($rule, 4);
-            }
-            elseif (str_starts_with($rule, 'min_digits:')) {
-                $constraints['min_digits'] = (int) substr($rule, 11);
-            }
-            elseif (str_starts_with($rule, 'max_digits:')) {
-                $constraints['max_digits'] = (int) substr($rule, 11);
-            }
-            elseif (str_starts_with($rule, 'regex:')) {
-                $constraints['regex'] = substr($rule, 6);
-            }
-            elseif (str_starts_with($rule, 'in:')) {
-                $values = explode(',', substr($rule, 3));
+                $constraints['min'] = (int) mb_substr($rule, 4);
+            } elseif (str_starts_with($rule, 'max:')) {
+                $constraints['max'] = (int) mb_substr($rule, 4);
+            } elseif (str_starts_with($rule, 'min_digits:')) {
+                $constraints['min_digits'] = (int) mb_substr($rule, 11);
+            } elseif (str_starts_with($rule, 'max_digits:')) {
+                $constraints['max_digits'] = (int) mb_substr($rule, 11);
+            } elseif (str_starts_with($rule, 'regex:')) {
+                $constraints['regex'] = mb_substr($rule, 6);
+            } elseif (str_starts_with($rule, 'in:')) {
+                $values = explode(',', mb_substr($rule, 3));
                 $constraints['in'] = array_map('trim', $values);
-            }
-            elseif (str_starts_with($rule, 'exists:')) {
-                $constraints['exists'] = substr($rule, 7);
-            }
-            elseif (str_starts_with($rule, 'unique:')) {
-                $constraints['unique'] = substr($rule, 7);
+            } elseif (str_starts_with($rule, 'exists:')) {
+                $constraints['exists'] = mb_substr($rule, 7);
+            } elseif (str_starts_with($rule, 'unique:')) {
+                $constraints['unique'] = mb_substr($rule, 7);
             }
         }
 
@@ -460,20 +466,31 @@ final class ChorusGenerate extends Command
     protected function determineTypeScriptType(array $constraints, string $ruleString): string
     {
         // Handle union types for 'in' constraints
-        if (!empty($constraints['in'])) {
-            $values = array_map(function($value) {
+        if (! empty($constraints['in'])) {
+            $values = array_map(function ($value) {
                 return is_numeric($value) ? $value : "'{$value}'";
             }, $constraints['in']);
+
             return implode(' | ', $values);
         }
 
         // Primary type determination
-        if ($constraints['boolean']) return 'boolean';
-        if ($constraints['array']) return 'any[]';
-        if ($constraints['integer'] || $constraints['numeric']) return 'number';
-        if ($constraints['string'] || $constraints['uuid'] || $constraints['email'] || $constraints['url']) return 'string';
-        if ($constraints['date']) return 'string'; // ISO date string
-        
+        if ($constraints['boolean']) {
+            return 'boolean';
+        }
+        if ($constraints['array']) {
+            return 'any[]';
+        }
+        if ($constraints['integer'] || $constraints['numeric']) {
+            return 'number';
+        }
+        if ($constraints['string'] || $constraints['uuid'] || $constraints['email'] || $constraints['url']) {
+            return 'string';
+        }
+        if ($constraints['date']) {
+            return 'string';
+        } // ISO date string
+
         // Default fallback
         return 'any';
     }
@@ -502,8 +519,8 @@ final class ChorusGenerate extends Command
             foreach ($actionData['parameters'] as $field => $paramData) {
                 $optional = $paramData['optional'] ? '?' : '';
                 // Quote field names that contain dots or special characters
-                $fieldName = str_contains($field, '.') || str_contains($field, '-') || !ctype_alnum(str_replace('_', '', $field)) 
-                    ? "'{$field}'" 
+                $fieldName = str_contains($field, '.') || str_contains($field, '-') || ! ctype_alnum(str_replace('_', '', $field))
+                    ? "'{$field}'"
                     : $field;
                 $content .= "  {$fieldName}{$optional}: {$paramData['type']};\n";
             }
@@ -584,15 +601,15 @@ final class ChorusGenerate extends Command
         $implContent .= '// Generated on '.now()->toDateTimeString()."\n\n";
         $implContent .= "import { getGlobalChorusActionsAPI } from '@pixelsprout/chorus-js/core';\n";
         $implContent .= "import type { ChorusActionResponse, WritesProxy, ModelProxy, ValidationUtils, ValidationResult } from './actions';\n";
-        $implContent .= "import { ";
-        
+        $implContent .= 'import { ';
+
         // Import validation schemas as values (not types)
         $schemaImports = [];
         foreach ($actionInterfaces as $actionName => $actionData) {
             $schemaImports[] = "{$actionName}ValidationSchema";
         }
         $implContent .= implode(', ', $schemaImports);
-        
+
         $implContent .= " } from './actions';\n\n";
 
         $implContent .= "// Use the global ChorusActionsAPI instance for optimistic updates integration\n";
@@ -631,118 +648,118 @@ final class ChorusGenerate extends Command
      */
     protected function generateValidationUtilities(): string
     {
-        return "// Validation utilities\n" .
-               "export interface ValidationError {\n" .
-               "  field: string;\n" .
-               "  message: string;\n" .
-               "  rule: string;\n" .
-               "  value?: any;\n" .
-               "}\n\n" .
-               
-               "export interface ValidationResult {\n" .
-               "  valid: boolean;\n" .
-               "  errors: ValidationError[];\n" .
-               "}\n\n" .
-               
-               "export interface FieldConstraints {\n" .
-               "  required?: boolean;\n" .
-               "  type?: string;\n" .
-               "  min?: number;\n" .
-               "  max?: number;\n" .
-               "  minDigits?: number;\n" .
-               "  maxDigits?: number;\n" .
-               "  regex?: string;\n" .
-               "  in?: any[];\n" .
-               "  uuid?: boolean;\n" .
-               "  email?: boolean;\n" .
-               "  url?: boolean;\n" .
-               "  date?: boolean;\n" .
-               "}\n\n" .
-               
-               "export interface ValidationSchema {\n" .
-               "  [field: string]: FieldConstraints;\n" .
-               "}\n\n" .
-               
-               "// Core validation functions\n" .
-               "export const ValidationUtils = {\n" .
-               "  validateField(value: any, constraints: FieldConstraints, fieldName: string): ValidationError[] {\n" .
-               "    const errors: ValidationError[] = [];\n\n" .
-               
-               "    // Required check\n" .
-               "    if (constraints.required && (value === null || value === undefined || value === '')) {\n" .
-               "      errors.push({ field: fieldName, message: `\${fieldName} is required`, rule: 'required', value });\n" .
-               "      return errors; // Stop further validation if required field is missing\n" .
-               "    }\n\n" .
-               
-               "    // Skip other validations if value is empty and not required\n" .
-               "    if (!constraints.required && (value === null || value === undefined || value === '')) {\n" .
-               "      return errors;\n" .
-               "    }\n\n" .
-               
-               "    // Type validation\n" .
-               "    if (constraints.type) {\n" .
-               "      if (constraints.type === 'string' && typeof value !== 'string') {\n" .
-               "        errors.push({ field: fieldName, message: `\${fieldName} must be a string`, rule: 'string', value });\n" .
-               "      } else if (constraints.type === 'number' && typeof value !== 'number') {\n" .
-               "        errors.push({ field: fieldName, message: `\${fieldName} must be a number`, rule: 'number', value });\n" .
-               "      } else if (constraints.type === 'boolean' && typeof value !== 'boolean') {\n" .
-               "        errors.push({ field: fieldName, message: `\${fieldName} must be a boolean`, rule: 'boolean', value });\n" .
-               "      }\n" .
-               "    }\n\n" .
-               
-               "    // String-specific validations\n" .
-               "    if (typeof value === 'string') {\n" .
-               "      if (constraints.min !== undefined && value.length < constraints.min) {\n" .
-               "        errors.push({ field: fieldName, message: `\${fieldName} must be at least \${constraints.min} characters`, rule: 'min', value });\n" .
-               "      }\n" .
-               "      if (constraints.max !== undefined && value.length > constraints.max) {\n" .
-               "        errors.push({ field: fieldName, message: `\${fieldName} may not be greater than \${constraints.max} characters`, rule: 'max', value });\n" .
-               "      }\n" .
-               "      if (constraints.regex && !new RegExp(constraints.regex).test(value)) {\n" .
-               "        errors.push({ field: fieldName, message: `\${fieldName} format is invalid`, rule: 'regex', value });\n" .
-               "      }\n" .
-               "      if (constraints.uuid && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {\n" .
-               "        errors.push({ field: fieldName, message: `\${fieldName} must be a valid UUID`, rule: 'uuid', value });\n" .
-               "      }\n" .
-               "      if (constraints.email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value)) {\n" .
-               "        errors.push({ field: fieldName, message: `\${fieldName} must be a valid email address`, rule: 'email', value });\n" .
-               "      }\n" .
-               "      if (constraints.url && !/^https?:\\/\\/.+/.test(value)) {\n" .
-               "        errors.push({ field: fieldName, message: `\${fieldName} must be a valid URL`, rule: 'url', value });\n" .
-               "      }\n" .
-               "    }\n\n" .
-               
-               "    // Number-specific validations\n" .
-               "    if (typeof value === 'number') {\n" .
-               "      if (constraints.min !== undefined && value < constraints.min) {\n" .
-               "        errors.push({ field: fieldName, message: `\${fieldName} must be at least \${constraints.min}`, rule: 'min', value });\n" .
-               "      }\n" .
-               "      if (constraints.max !== undefined && value > constraints.max) {\n" .
-               "        errors.push({ field: fieldName, message: `\${fieldName} may not be greater than \${constraints.max}`, rule: 'max', value });\n" .
-               "      }\n" .
-               "    }\n\n" .
-               
-               "    // In validation\n" .
-               "    if (constraints.in && constraints.in.length > 0 && !constraints.in.includes(value)) {\n" .
-               "      errors.push({ field: fieldName, message: `\${fieldName} must be one of: \${constraints.in.join(', ')}`, rule: 'in', value });\n" .
-               "    }\n\n" .
-               
-               "    return errors;\n" .
-               "  },\n\n" .
-               
-               "  validateObject(data: Record<string, any>, schema: ValidationSchema): ValidationResult {\n" .
-               "    const errors: ValidationError[] = [];\n\n" .
-               
-               "    for (const [fieldName, constraints] of Object.entries(schema)) {\n" .
-               "      const fieldErrors = this.validateField(data[fieldName], constraints, fieldName);\n" .
-               "      errors.push(...fieldErrors);\n" .
-               "    }\n\n" .
-               
-               "    return {\n" .
-               "      valid: errors.length === 0,\n" .
-               "      errors\n" .
-               "    };\n" .
-               "  }\n" .
+        return "// Validation utilities\n".
+               "export interface ValidationError {\n".
+               "  field: string;\n".
+               "  message: string;\n".
+               "  rule: string;\n".
+               "  value?: any;\n".
+               "}\n\n".
+
+               "export interface ValidationResult {\n".
+               "  valid: boolean;\n".
+               "  errors: ValidationError[];\n".
+               "}\n\n".
+
+               "export interface FieldConstraints {\n".
+               "  required?: boolean;\n".
+               "  type?: string;\n".
+               "  min?: number;\n".
+               "  max?: number;\n".
+               "  minDigits?: number;\n".
+               "  maxDigits?: number;\n".
+               "  regex?: string;\n".
+               "  in?: any[];\n".
+               "  uuid?: boolean;\n".
+               "  email?: boolean;\n".
+               "  url?: boolean;\n".
+               "  date?: boolean;\n".
+               "}\n\n".
+
+               "export interface ValidationSchema {\n".
+               "  [field: string]: FieldConstraints;\n".
+               "}\n\n".
+
+               "// Core validation functions\n".
+               "export const ValidationUtils = {\n".
+               "  validateField(value: any, constraints: FieldConstraints, fieldName: string): ValidationError[] {\n".
+               "    const errors: ValidationError[] = [];\n\n".
+
+               "    // Required check\n".
+               "    if (constraints.required && (value === null || value === undefined || value === '')) {\n".
+               "      errors.push({ field: fieldName, message: `\${fieldName} is required`, rule: 'required', value });\n".
+               "      return errors; // Stop further validation if required field is missing\n".
+               "    }\n\n".
+
+               "    // Skip other validations if value is empty and not required\n".
+               "    if (!constraints.required && (value === null || value === undefined || value === '')) {\n".
+               "      return errors;\n".
+               "    }\n\n".
+
+               "    // Type validation\n".
+               "    if (constraints.type) {\n".
+               "      if (constraints.type === 'string' && typeof value !== 'string') {\n".
+               "        errors.push({ field: fieldName, message: `\${fieldName} must be a string`, rule: 'string', value });\n".
+               "      } else if (constraints.type === 'number' && typeof value !== 'number') {\n".
+               "        errors.push({ field: fieldName, message: `\${fieldName} must be a number`, rule: 'number', value });\n".
+               "      } else if (constraints.type === 'boolean' && typeof value !== 'boolean') {\n".
+               "        errors.push({ field: fieldName, message: `\${fieldName} must be a boolean`, rule: 'boolean', value });\n".
+               "      }\n".
+               "    }\n\n".
+
+               "    // String-specific validations\n".
+               "    if (typeof value === 'string') {\n".
+               "      if (constraints.min !== undefined && value.length < constraints.min) {\n".
+               "        errors.push({ field: fieldName, message: `\${fieldName} must be at least \${constraints.min} characters`, rule: 'min', value });\n".
+               "      }\n".
+               "      if (constraints.max !== undefined && value.length > constraints.max) {\n".
+               "        errors.push({ field: fieldName, message: `\${fieldName} may not be greater than \${constraints.max} characters`, rule: 'max', value });\n".
+               "      }\n".
+               "      if (constraints.regex && !new RegExp(constraints.regex).test(value)) {\n".
+               "        errors.push({ field: fieldName, message: `\${fieldName} format is invalid`, rule: 'regex', value });\n".
+               "      }\n".
+               "      if (constraints.uuid && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {\n".
+               "        errors.push({ field: fieldName, message: `\${fieldName} must be a valid UUID`, rule: 'uuid', value });\n".
+               "      }\n".
+               "      if (constraints.email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value)) {\n".
+               "        errors.push({ field: fieldName, message: `\${fieldName} must be a valid email address`, rule: 'email', value });\n".
+               "      }\n".
+               "      if (constraints.url && !/^https?:\\/\\/.+/.test(value)) {\n".
+               "        errors.push({ field: fieldName, message: `\${fieldName} must be a valid URL`, rule: 'url', value });\n".
+               "      }\n".
+               "    }\n\n".
+
+               "    // Number-specific validations\n".
+               "    if (typeof value === 'number') {\n".
+               "      if (constraints.min !== undefined && value < constraints.min) {\n".
+               "        errors.push({ field: fieldName, message: `\${fieldName} must be at least \${constraints.min}`, rule: 'min', value });\n".
+               "      }\n".
+               "      if (constraints.max !== undefined && value > constraints.max) {\n".
+               "        errors.push({ field: fieldName, message: `\${fieldName} may not be greater than \${constraints.max}`, rule: 'max', value });\n".
+               "      }\n".
+               "    }\n\n".
+
+               "    // In validation\n".
+               "    if (constraints.in && constraints.in.length > 0 && !constraints.in.includes(value)) {\n".
+               "      errors.push({ field: fieldName, message: `\${fieldName} must be one of: \${constraints.in.join(', ')}`, rule: 'in', value });\n".
+               "    }\n\n".
+
+               "    return errors;\n".
+               "  },\n\n".
+
+               "  validateObject(data: Record<string, any>, schema: ValidationSchema): ValidationResult {\n".
+               "    const errors: ValidationError[] = [];\n\n".
+
+               "    for (const [fieldName, constraints] of Object.entries(schema)) {\n".
+               "      const fieldErrors = this.validateField(data[fieldName], constraints, fieldName);\n".
+               "      errors.push(...fieldErrors);\n".
+               "    }\n\n".
+
+               "    return {\n".
+               "      valid: errors.length === 0,\n".
+               "      errors\n".
+               "    };\n".
+               "  }\n".
                "};\n\n";
     }
 
@@ -756,35 +773,61 @@ final class ChorusGenerate extends Command
 
         foreach ($actionData['rules'] as $operationKey => $rules) {
             // Skip the 'data' key as it's handled separately
-            if ($operationKey === 'data') continue;
+            if ($operationKey === 'data') {
+                continue;
+            }
 
             // Handle flat rules structure (legacy format)
-            if (!str_contains($operationKey, '.')) {
+            if (! str_contains($operationKey, '.')) {
                 // This is a flat rule structure, we need to create a virtual operation
                 $content .= "  'default': {\n";
-                
+
                 // Process each rule in the flat structure
                 foreach ($actionData['rules'] as $field => $rule) {
-                    if ($field === 'data') continue; // Skip data field
-                    
+                    if ($field === 'data') {
+                        continue;
+                    } // Skip data field
+
                     $ruleArray = is_array($rule) ? $rule : explode('|', $rule);
                     $constraints = $this->extractValidationConstraints($ruleArray);
-                    
+
                     $content .= "    '{$field}': {\n";
-                    
-                    if ($constraints['required']) $content .= "      required: true,\n";
-                    if ($constraints['string']) $content .= "      type: 'string',\n";
-                    if ($constraints['integer']) $content .= "      type: 'number',\n";
-                    if ($constraints['numeric']) $content .= "      type: 'number',\n";
-                    if ($constraints['boolean']) $content .= "      type: 'boolean',\n";
-                    if ($constraints['min'] !== null) $content .= "      min: {$constraints['min']},\n";
-                    if ($constraints['max'] !== null) $content .= "      max: {$constraints['max']},\n";
-                    if ($constraints['uuid']) $content .= "      uuid: true,\n";
-                    if ($constraints['email']) $content .= "      email: true,\n";
-                    if ($constraints['url']) $content .= "      url: true,\n";
-                    if ($constraints['date']) $content .= "      date: true,\n";
-                    if (!empty($constraints['in'])) {
-                        $inValues = implode(', ', array_map(function($val) {
+
+                    if ($constraints['required']) {
+                        $content .= "      required: true,\n";
+                    }
+                    if ($constraints['string']) {
+                        $content .= "      type: 'string',\n";
+                    }
+                    if ($constraints['integer']) {
+                        $content .= "      type: 'number',\n";
+                    }
+                    if ($constraints['numeric']) {
+                        $content .= "      type: 'number',\n";
+                    }
+                    if ($constraints['boolean']) {
+                        $content .= "      type: 'boolean',\n";
+                    }
+                    if ($constraints['min'] !== null) {
+                        $content .= "      min: {$constraints['min']},\n";
+                    }
+                    if ($constraints['max'] !== null) {
+                        $content .= "      max: {$constraints['max']},\n";
+                    }
+                    if ($constraints['uuid']) {
+                        $content .= "      uuid: true,\n";
+                    }
+                    if ($constraints['email']) {
+                        $content .= "      email: true,\n";
+                    }
+                    if ($constraints['url']) {
+                        $content .= "      url: true,\n";
+                    }
+                    if ($constraints['date']) {
+                        $content .= "      date: true,\n";
+                    }
+                    if (! empty($constraints['in'])) {
+                        $inValues = implode(', ', array_map(function ($val) {
                             return is_numeric($val) ? $val : "'{$val}'";
                         }, $constraints['in']));
                         $content .= "      in: [{$inValues}],\n";
@@ -793,10 +836,10 @@ final class ChorusGenerate extends Command
                         $escapedRegex = addslashes($constraints['regex']);
                         $content .= "      regex: '{$escapedRegex}',\n";
                     }
-                    
+
                     $content .= "    },\n";
                 }
-                
+
                 $content .= "  },\n";
                 break; // Exit the loop since we've processed all flat rules
             }
@@ -804,26 +847,48 @@ final class ChorusGenerate extends Command
             // Handle nested rules structure (new format)
             if (is_array($rules)) {
                 $content .= "  '{$operationKey}': {\n";
-                
+
                 foreach ($rules as $field => $rule) {
                     $ruleArray = is_array($rule) ? $rule : explode('|', $rule);
                     $constraints = $this->extractValidationConstraints($ruleArray);
-                    
+
                     $content .= "    '{$field}': {\n";
-                    
-                    if ($constraints['required']) $content .= "      required: true,\n";
-                    if ($constraints['string']) $content .= "      type: 'string',\n";
-                    if ($constraints['integer']) $content .= "      type: 'number',\n";
-                    if ($constraints['numeric']) $content .= "      type: 'number',\n";
-                    if ($constraints['boolean']) $content .= "      type: 'boolean',\n";
-                    if ($constraints['min'] !== null) $content .= "      min: {$constraints['min']},\n";
-                    if ($constraints['max'] !== null) $content .= "      max: {$constraints['max']},\n";
-                    if ($constraints['uuid']) $content .= "      uuid: true,\n";
-                    if ($constraints['email']) $content .= "      email: true,\n";
-                    if ($constraints['url']) $content .= "      url: true,\n";
-                    if ($constraints['date']) $content .= "      date: true,\n";
-                    if (!empty($constraints['in'])) {
-                        $inValues = implode(', ', array_map(function($val) {
+
+                    if ($constraints['required']) {
+                        $content .= "      required: true,\n";
+                    }
+                    if ($constraints['string']) {
+                        $content .= "      type: 'string',\n";
+                    }
+                    if ($constraints['integer']) {
+                        $content .= "      type: 'number',\n";
+                    }
+                    if ($constraints['numeric']) {
+                        $content .= "      type: 'number',\n";
+                    }
+                    if ($constraints['boolean']) {
+                        $content .= "      type: 'boolean',\n";
+                    }
+                    if ($constraints['min'] !== null) {
+                        $content .= "      min: {$constraints['min']},\n";
+                    }
+                    if ($constraints['max'] !== null) {
+                        $content .= "      max: {$constraints['max']},\n";
+                    }
+                    if ($constraints['uuid']) {
+                        $content .= "      uuid: true,\n";
+                    }
+                    if ($constraints['email']) {
+                        $content .= "      email: true,\n";
+                    }
+                    if ($constraints['url']) {
+                        $content .= "      url: true,\n";
+                    }
+                    if ($constraints['date']) {
+                        $content .= "      date: true,\n";
+                    }
+                    if (! empty($constraints['in'])) {
+                        $inValues = implode(', ', array_map(function ($val) {
                             return is_numeric($val) ? $val : "'{$val}'";
                         }, $constraints['in']));
                         $content .= "      in: [{$inValues}],\n";
@@ -832,10 +897,10 @@ final class ChorusGenerate extends Command
                         $escapedRegex = addslashes($constraints['regex']);
                         $content .= "      regex: '{$escapedRegex}',\n";
                     }
-                    
+
                     $content .= "    },\n";
                 }
-                
+
                 $content .= "  },\n";
             }
         }
@@ -843,27 +908,47 @@ final class ChorusGenerate extends Command
         // Add data validation schema if it exists
         if (isset($actionData['rules']['data'])) {
             $content .= "  'data': {\n";
-            
+
             foreach ($actionData['rules']['data'] as $field => $rule) {
                 $ruleArray = is_array($rule) ? $rule : explode('|', $rule);
                 $constraints = $this->extractValidationConstraints($ruleArray);
-                
+
                 $content .= "    '{$field}': {\n";
-                
-                if ($constraints['required']) $content .= "      required: true,\n";
-                if ($constraints['string']) $content .= "      type: 'string',\n";
-                if ($constraints['integer']) $content .= "      type: 'number',\n";
-                if ($constraints['numeric']) $content .= "      type: 'number',\n";
-                if ($constraints['boolean']) $content .= "      type: 'boolean',\n";
-                if ($constraints['min'] !== null) $content .= "      min: {$constraints['min']},\n";
-                if ($constraints['max'] !== null) $content .= "      max: {$constraints['max']},\n";
-                if ($constraints['uuid']) $content .= "      uuid: true,\n";
-                if ($constraints['email']) $content .= "      email: true,\n";
-                if ($constraints['url']) $content .= "      url: true,\n";
-                
+
+                if ($constraints['required']) {
+                    $content .= "      required: true,\n";
+                }
+                if ($constraints['string']) {
+                    $content .= "      type: 'string',\n";
+                }
+                if ($constraints['integer']) {
+                    $content .= "      type: 'number',\n";
+                }
+                if ($constraints['numeric']) {
+                    $content .= "      type: 'number',\n";
+                }
+                if ($constraints['boolean']) {
+                    $content .= "      type: 'boolean',\n";
+                }
+                if ($constraints['min'] !== null) {
+                    $content .= "      min: {$constraints['min']},\n";
+                }
+                if ($constraints['max'] !== null) {
+                    $content .= "      max: {$constraints['max']},\n";
+                }
+                if ($constraints['uuid']) {
+                    $content .= "      uuid: true,\n";
+                }
+                if ($constraints['email']) {
+                    $content .= "      email: true,\n";
+                }
+                if ($constraints['url']) {
+                    $content .= "      url: true,\n";
+                }
+
                 $content .= "    },\n";
             }
-            
+
             $content .= "  },\n";
         }
 
