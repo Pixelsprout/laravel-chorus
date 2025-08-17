@@ -2,6 +2,7 @@ import { useEcho } from "@laravel/echo-react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { ChorusCore, HarmonicEvent, TableState } from "../../core/chorus";
+import { connectChorusActionsAPI } from "../../core/chorus-actions";
 import type { ReactChorusProviderProps } from "../../shared/provider-types";
 
 import React from "react";
@@ -166,6 +167,9 @@ export function ChorusProvider({
         const fetchedSchema = await chorusCore.fetchAndInitializeSchema();
         
         await chorusCore.initializeTables();
+
+        // Connect ChorusActionsAPI with ChorusCore for optimistic updates
+        connectChorusActionsAPI(chorusCore);
 
         if (!isCancelled) {
           setSchema(fetchedSchema);

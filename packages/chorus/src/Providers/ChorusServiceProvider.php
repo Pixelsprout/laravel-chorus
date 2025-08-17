@@ -15,10 +15,10 @@ use Pixelsprout\LaravelChorus\Console\Commands\ChorusGenerate;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusInstall;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusIntro;
 use Pixelsprout\LaravelChorus\Console\Commands\ChorusPublish;
+use Pixelsprout\LaravelChorus\Console\Commands\MakeChorusActionCommand;
 use Pixelsprout\LaravelChorus\Console\Commands\MakePrefixResolverCommand;
 use Pixelsprout\LaravelChorus\Console\Commands\MakeWriteActionCommand;
 use Pixelsprout\LaravelChorus\Listeners\TrackChannelConnections;
-use Pixelsprout\LaravelChorus\Support\WriteActionRegistry;
 
 final class ChorusServiceProvider extends ServiceProvider
 {
@@ -42,12 +42,8 @@ final class ChorusServiceProvider extends ServiceProvider
                 ->middleware($routeConfig['middleware'])
                 ->group(__DIR__.'/../Routes/api.php');
 
-            // Register write action routes dynamically
-            Route::prefix($routeConfig['prefix'])
-                ->middleware($routeConfig['middleware'])
-                ->group(function () {
-                    WriteActionRegistry::registerRoutes();
-                });
+            // Note: ChorusActions now use explicit route binding in application routes
+            // No automatic route registration needed
         });
 
         // Register commands
@@ -58,6 +54,7 @@ final class ChorusServiceProvider extends ServiceProvider
                 ChorusPublish::class,
                 ChorusGenerate::class,
                 ChorusDebug::class,
+                MakeChorusActionCommand::class,
                 MakeWriteActionCommand::class,
                 MakePrefixResolverCommand::class,
             ]);

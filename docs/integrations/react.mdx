@@ -3,9 +3,7 @@ title: "React Integration"
 description: "Complete guide to integrating Laravel Chorus with React for real-time, offline-capable applications."
 ---
 
-Laravel Chorus provides powerful React hooks and components that make it effortless to build real-time, offline-capable applications. This guide covers everything from basic setup to advanced patterns.
-
-Here's the improved version:
+Laravel Chorus provides powerful React hooks and Chorus Actions that make it effortless to build real-time, offline-capable applications. This guide covers everything from basic setup to advanced patterns.
 
 ## Setup
 
@@ -29,46 +27,60 @@ export default function AppSidebarLayoutContent({ user }) {
 }
 ```
 
-### 2. Use Data in Components
+### 2. Use Data and Actions in Components
 
-Use Chorus hooks to access synchronized data:
+Use Chorus hooks for data access and generated action functions for writes:
 
 ```tsx
 // components/MessagesList.tsx
 import { useTable } from '@/chorus/react';
-import type { Message} from "@/types";
+import { createMessageWithActivityAction, deleteMessageAction } from '@/_generated/chorus-actions';
+import { uuidv7 } from 'uuidv7';
+import type { Message } from "@/types";
 
 export default function MessagesList() {
-
-    // Get data and actions from table hook
+    // Get synchronized data
     const { 
         data: messages, 
         isLoading,
-        error,
-        create,
-        update,
-        remove
+        error
     } = useTable<Message>('messages');
 
     const handleSendMessage = async (body: string) => {
-        const tempId = crypto.randomUUID();
+        const messageId = uuidv7();
         
-        await create(
-            // Optimistic data (immediate UI update)
-            {
-                id: tempId,
+        const result = await createMessageWithActivityAction((writes) => {
+            // Create the message
+            writes.messages.create({
+                id: messageId,
                 body,
                 user_id: user.id,
                 platform_id: currentPlatform.id,
-                created_at: new Date(),
-                updated_at: new Date(),
-            },
-            // Server data
-            {
-                body,
-                platform_id: currentPlatform.id,
-            }
-        );
+                tenant_id: user.tenant_id,
+            });
+            
+            // Update user activity (automatic)
+            writes.users.update({
+                id: user.id,
+                last_activity_at: new Date().toISOString(),
+            });
+            
+            // Update platform metrics (automatic)
+            writes.platforms.update({
+                id: currentPlatform.id,
+                last_message_at: new Date().toISOString(),
+            });
+        });
+        
+        if (result.success) {
+            console.log('Message created successfully');
+        }
+    };
+    
+    const handleDeleteMessage = async (messageId: string) => {
+        await deleteMessageAction((writes) => {
+            writes.messages.delete(messageId);
+        });
     };
 
     if (isLoading) return <div>Loading messages...</div>;
@@ -81,7 +93,7 @@ export default function MessagesList() {
                     <p>{message.body}</p>
                     <small>{new Date(message.created_at).toLocaleTimeString()}</small>
                     
-                    <button onClick={() => remove(message.id)}>
+                    <button onClick={() => handleDeleteMessage(message.id)}>
                         Delete
                     </button>
                 </div>
@@ -97,7 +109,7 @@ export default function MessagesList() {
 
 ### useTable Hook
 
-The primary hook that provides both data access and write actions for a table:
+The primary hook provides data access for synchronized tables:
 
 ```typescript
 const {
@@ -105,16 +117,16 @@ const {
     isLoading,      // Initial loading state
     error,          // Error state
     lastUpdate,     // Last synchronization timestamp
-    create,         // Create new records
-    update,         // Update existing records  
-    remove,         // Delete records
 } = useTable<T>('tableName');
 ```
 
-**Complete Example:**
+### Chorus Actions for Writes
+
+Use generated action functions for all write operations:
 
 ```tsx
 import { useTable, useOffline } from '@/chorus/react';
+import { updateUserStatusAction } from '@/_generated/chorus-actions';
 
 interface User {
     id: number;
@@ -128,20 +140,29 @@ export default function UserList() {
         data: users, 
         isLoading,
         error,
-        lastUpdate,
-        update
+        lastUpdate
     } = useTable<User>('users');
     
     const { isOffline } = useOffline();
 
     const toggleUserStatus = async (user: User) => {
-        await update(
-            user.id,
-            // Optimistic update
-            { ...user, is_active: !user.is_active },
-            // Server update
-            { is_active: !user.is_active }
-        );
+        await updateUserStatusAction((writes) => {
+            writes.users.update({
+                id: user.id,
+                is_active: !user.is_active,
+            });
+            
+            // Track admin activity
+            writes.admin_logs.create({
+                action: 'user_status_changed',
+                user_id: user.id,
+                performed_by: auth.user.id,
+                details: { 
+                    old_status: user.is_active,
+                    new_status: !user.is_active 
+                },
+            });
+        });
     };
 
     return (
@@ -222,13 +243,14 @@ export default function OfflineIndicator() {
 }
 ```
 
-### Optimistic Updates with Rollback
+### Error Handling and Optimistic Updates
 
-Handle complex optimistic updates with error recovery:
+Chorus Actions automatically handle optimistic updates with rollback:
 
 ```tsx
 import { useState } from 'react';
 import { useTable } from '@/chorus/react';
+import { updateMessageAction } from '@/_generated/chorus-actions';
 
 interface Message {
     id: string;
@@ -238,7 +260,7 @@ interface Message {
 }
 
 export default function MessageEditor({ messageId }: { messageId: string }) {
-    const { data: messages, update } = useTable<Message>('messages');
+    const { data: messages } = useTable<Message>('messages');
     const [isEditing, setIsEditing] = useState(false);
     const [editText, setEditText] = useState('');
     
@@ -247,30 +269,28 @@ export default function MessageEditor({ messageId }: { messageId: string }) {
     const handleSave = async () => {
         if (!message || !editText.trim()) return;
         
-        const originalText = message.body;
-        
         try {
-            await update(
-                messageId,
-                // Optimistic update
-                { 
-                    ...message, 
+            const result = await updateMessageAction((writes) => {
+                writes.messages.update({
+                    id: messageId,
                     body: editText,
-                    updated_at: new Date(),
-                    is_edited: true 
-                },
-                // Server update
-                { body: editText },
-                // Error callback - rollback on failure
-                (error) => {
-                    console.error('Update failed:', error);
-                    // The hook automatically handles rollback
-                    setEditText(originalText);
-                    alert('Failed to save changes. Please try again.');
-                }
-            );
+                    is_edited: true,
+                    edited_at: new Date().toISOString(),
+                });
+                
+                // Track edit activity
+                writes.users.update({
+                    id: auth.user.id,
+                    last_activity_at: new Date().toISOString(),
+                });
+            });
             
-            setIsEditing(false);
+            if (result.success) {
+                setIsEditing(false);
+            } else {
+                console.error('Update failed:', result.error);
+                alert('Failed to save changes. Please try again.');
+            }
         } catch (error) {
             console.error('Update error:', error);
         }
@@ -440,8 +460,8 @@ export default function RejectedOperations() {
 Learn about Vue.js integration (Coming Soon)
 </Card>
 
-<Card title="Write Actions" href="/concepts/write-path" icon="pen">
-Master server-side write operations
+<Card title="Chorus Actions" href="/concepts/write-path" icon="pen">
+Master server-side Chorus Actions
 </Card>
 
 <Card title="Concepts Deep Dive" href="/concepts/harmonics" icon="book">

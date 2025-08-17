@@ -4,11 +4,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import type { Message, Platform } from '@/_generated/types';
+import { updateMessageAction } from '@/_generated/chorus-actions';
 import { EditIcon } from 'lucide-react';
 import { useForm } from '@tanstack/react-form';
 import type { AnyFieldApi } from '@tanstack/react-form';
 import { useEffect, useState } from 'react';
-import { useTable } from '@pixelsprout/chorus-js';
+import { usePage } from '@inertiajs/react';
+import type { SharedData } from '@/types';
 
 function FieldInfo({ field }: { field: AnyFieldApi }) {
     return (
@@ -34,7 +36,7 @@ export default function UpdateMessageForm({
 }: UpdateMessageFormProps) {
     const [editingMessage, setEditingMessage] = useState<Message | null>(null);
     const [isOpen, setIsOpen] = useState(false);
-    const { update: updateMessage } = useTable<Message>('messages');
+    const { auth } = usePage<SharedData>().props;
 
     // Edit message form
     const editMessageForm = useForm({
@@ -46,30 +48,29 @@ export default function UpdateMessageForm({
             if (!editingMessage) return;
 
             try {
-                await updateMessage(
-                    {
-                        ...editingMessage,
+                // Use new ChorusAction API
+                const result = await updateMessageAction((writes) => {
+                    writes.messages.update({
+                        id: editingMessage.id,
                         body: value.message,
                         platform_id: value.platformId,
-                        updated_at: new Date(),
-                    },                     // Optimistic data for immediate UI update
-                    {                      // Server data
-                        id: editingMessage.id,
-                        message: value.message,
-                        platformId: value.platformId,
-                    },
-                    (result) => {          // Server response callback
-                        if (result.success) {
-                            // Reset form, clear editing message, and close modal
-                            setEditingMessage(null);
-                            formApi.reset();
-                            setIsOpen(false);
-                            console.log('Message updated successfully:', result.data);
-                        } else {
-                            console.error('Message update failed:', result.error);
-                        }
-                    }
-                );
+                    });
+
+                    writes.users.update({
+                        id: auth.user.id,
+                        last_activity_at: new Date().toISOString(),
+                    })
+                });
+
+                if (result.success) {
+                    // Reset form, clear editing message, and close modal
+                    setEditingMessage(null);
+                    formApi.reset();
+                    setIsOpen(false);
+                    console.log('Message updated successfully:', result);
+                } else {
+                    console.error('Message update failed:', result.error);
+                }
             } catch (err) {
                 console.error('Error updating message:', err);
             }

@@ -1,0 +1,30 @@
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Http\Request;
+use Pixelsprout\LaravelChorus\Support\ActionCollector;
+use Pixelsprout\LaravelChorus\Support\ChorusAction;
+
+final class {{ class }} extends ChorusAction
+{
+    public function rules(): array
+    {
+        return [
+            // Define your validation rules here
+            // 'tableName.operation' => [
+            //     'field' => 'required|string|max:255',
+            // ]
+        ];
+    }
+
+    protected function handle(Request $request, ActionCollector $actions): void
+    {
+        $data = $request->all();
+
+        // Implement your action logic here
+        // Example:
+        // $actions->tableName->create($data);
+        // $actions->anotherTable->update(['id' => 1, 'field' => 'value']);
+    }
+}

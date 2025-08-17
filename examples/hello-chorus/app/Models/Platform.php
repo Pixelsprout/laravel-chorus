@@ -13,7 +13,7 @@ class Platform extends Model
 {
     use Harmonics, HasFactory;
 
-    protected $fillable = ['name'];
+    protected $fillable = ['name', 'last_message_at'];
 
     /**
      * Fields to sync to the client
@@ -21,6 +21,7 @@ class Platform extends Model
     protected $syncFields = [
         'id' => JSType::String,
         'name' => JSType::String,
+        'last_message_at' => JSType::String,
     ];
 
     // Has many messages

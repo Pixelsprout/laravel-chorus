@@ -27,12 +27,14 @@ class User extends Authenticatable
         'email',
         'password',
         'tenant_id',
+        'last_activity_at'
     ];
 
     protected $syncFields = [
         'id' => JSType::String,
         'name' => JSType::String,
         'email' => JSType::String,
+        'last_activity_at' => JSType::String,
     ];
 
     /**

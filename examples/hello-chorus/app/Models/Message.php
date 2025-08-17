@@ -2,9 +2,6 @@
 
 namespace App\Models;
 
-use App\Actions\WriteActions\CreateMessageAction;
-use App\Actions\WriteActions\DeleteMessageAction;
-use App\Actions\WriteActions\UpdateMessageAction;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -41,14 +38,6 @@ class Message extends Model
         'updated_at' => JSType::String,
     ];
 
-    /**
-     * Define write actions for this model
-     */
-    protected $writeActions = [
-        'create' => CreateMessageAction::class,
-        'update' => UpdateMessageAction::class,
-        'delete' => DeleteMessageAction::class,
-    ];
 
     /**
      * Filter messages to only sync those belonging to the current user

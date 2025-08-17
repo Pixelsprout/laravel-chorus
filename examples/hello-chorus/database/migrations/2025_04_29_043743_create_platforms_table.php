@@ -12,6 +12,7 @@ return new class extends Migration {
         Schema::create('platforms', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->text('name');
+            $table->dateTime('last_message_at')->nullable();
             $table->timestamps();
         });
     }

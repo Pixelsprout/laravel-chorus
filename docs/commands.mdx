@@ -63,14 +63,14 @@ This command shows:
 
 ## Code Generation
 
-### `chorus:make-write-action`
-Create a new WriteAction class for handling write operations.
+### `chorus:make-action`
+Create a new ChorusAction class for handling multi-table write operations.
 
 ```bash
-php artisan chorus:make-write-action CreatePostAction
+php artisan chorus:make-action CreatePostWithActivityAction
 ```
 
-Creates a WriteAction class in `App\Actions\WriteActions` namespace that extends the `WriteAction` base class.
+Creates a ChorusAction class in `App\Actions\ChorusActions` namespace that extends the `ChorusAction` base class.
 
 ### `chorus:make-prefix-resolver`
 Create a new PrefixResolver class for channel prefixing.

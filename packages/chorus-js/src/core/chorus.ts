@@ -220,7 +220,7 @@ export class ChorusCore {
           localStorage.setItem(`chorus_database_version_${this.userId}`, newDatabaseVersion.toString());
         }
         
-        await this.initializeWithSchema(schema, newDatabaseVersion, newSchemaVersion);
+        await this.initializeWithSchema(schema, newDatabaseVersion, newSchemaVersion, true);
         
         // After rebuilding, we need to do a full resync for all tables
         // This ensures we have all the data before processing any harmonics
@@ -241,7 +241,7 @@ export class ChorusCore {
           localStorage.setItem(`chorus_database_version_${this.userId}`, newDatabaseVersion.toString());
         }
         
-        await this.initializeWithSchema(schema, newDatabaseVersion, newSchemaVersion);
+        await this.initializeWithSchema(schema, newDatabaseVersion, newSchemaVersion, false);
       }
       
       return this.schema;
@@ -357,7 +357,8 @@ export class ChorusCore {
   private async initializeWithSchema(
     schema: Record<string, any>, 
     databaseVersion?: string,
-    schemaVersion?: string | number
+    schemaVersion?: string | number,
+    isRebuild: boolean = false
   ): Promise<void> {
     if (!this.db) {
       throw new Error("Database not initialized. Call setup() first.");
@@ -374,9 +375,10 @@ export class ChorusCore {
       };
     });
 
-    // Calculate a version number based on database version and schema version
+    // Only force a specific version if we're rebuilding due to server-side changes
+    // This allows the client-side incremental versioning to work for schema additions
     let forceVersion: number | undefined;
-    if (databaseVersion || schemaVersion) {
+    if (isRebuild && (databaseVersion || schemaVersion)) {
       // Create a combined version hash from database and schema versions
       const versionString = `${databaseVersion || 'v1'}_${schemaVersion || '1'}`;
       let hash = 0;
@@ -387,7 +389,9 @@ export class ChorusCore {
       }
       // Ensure version is positive and reasonable (between 1 and 999999)
       forceVersion = Math.abs(hash) % 999999 + 1;
-      this.log(`Calculated IndexedDB version ${forceVersion} from database version ${databaseVersion} and schema version ${schemaVersion}`);
+      this.log(`Forcing IndexedDB version ${forceVersion} due to server-side database/schema changes`);
+    } else {
+      this.log(`Using client-side incremental versioning for schema changes`);
     }
 
     await this.db.initializeSchema(schema, forceVersion);
@@ -568,7 +572,7 @@ export class ChorusCore {
       }
 
       // Save the latest harmonic ID
-      // this.saveLatestHarmonicId(event.id);
+      this.saveLatestHarmonicId(event.id);
 
       // Update the table state
       this.updateTableState(tableName, {
@@ -652,7 +656,7 @@ export class ChorusCore {
         }
 
         this.log(
-          `Syncing ${tableName}: ${isInitialSync ? "Initial sync" : "Incremental sync"}`,
+          `Syncing ${tableName}: ${isInitialSync ? "Initial sync" : "Incremental sync"} (after: ${latestHarmonicId || 'none'})`,
         );
 
         // Fetch data using offline-aware fetch
@@ -665,12 +669,16 @@ export class ChorusCore {
 
         const responseData = await response.json();
 
-        // Save latest harmonic ID - only update if it's newer than our current one
+        // Save latest harmonic ID - always update to the latest from server
         if (responseData.latest_harmonic_id) {
           const currentId = this.getLatestHarmonicId();
-          // Save if we don't have an ID yet or if the new one is greater
-          if (!currentId || responseData.latest_harmonic_id > currentId) {
-            this.saveLatestHarmonicId(responseData.latest_harmonic_id);
+          const newId = responseData.latest_harmonic_id;
+          
+          // Always save the latest ID from the server response
+          // The server should only send this if there were harmonics processed
+          if (newId) {
+            this.log(`Updating latest harmonic ID: ${currentId} -> ${newId}`);
+            this.saveLatestHarmonicId(newId);
           }
         }
 
@@ -684,8 +692,10 @@ export class ChorusCore {
           responseData.harmonics &&
           responseData.harmonics.length > 0
         ) {
+          const harmonicIds = responseData.harmonics.map((h: HarmonicEvent) => h.id);
           this.log(
             `Incremental sync: received ${responseData.harmonics.length} harmonics for ${tableName}`,
+            { harmonicIds: harmonicIds.slice(0, 5), totalCount: harmonicIds.length }
           );
           await this.processHarmonics(responseData.harmonics, tableName);
         } else {

@@ -15,64 +15,88 @@ graph TD
     B --> C[Local IndexedDB]
     A --> D[Server Request]
     D --> E{Online?}
-    E -->|Yes| F[Write Action]
+    E -->|Yes| F[Chorus Action]
     E -->|No| G[Offline Queue]
     F --> H{Validation}
-    H -->|Pass| I[Database Update]
+    H -->|Pass| I[Database Updates]
     H -->|Fail| J[Rejected Harmonic]
-    I --> K[Create Harmonic]
+    I --> K[Create Harmonics]
     K --> L[Broadcast to Clients]
     L --> M[Client Confirmation]
     J --> N[Client Rollback]
     G --> O[Sync When Online]
 ```
 
-## Write Actions
+## Chorus Actions
 
-Write Actions are server-side classes that handle client write operations with validation, authorization, and business logic.
+Chorus Actions are server-side classes that handle client write operations with validation, authorization, and business logic. They can execute multiple database operations in a single transaction.
 
-### Basic Write Action
+### Basic Chorus Action
 
 ```php
 <?php
 
-namespace App\Actions\WriteActions;
+namespace App\Actions\ChorusActions;
 
 use App\Models\Message;
+use App\Models\User;
+use App\Models\Platform;
 use Illuminate\Http\Request;
-use Pixelsprout\LaravelChorus\Support\WriteAction;
+use Pixelsprout\LaravelChorus\Support\ChorusAction;
+use Pixelsprout\LaravelChorus\Support\ActionCollector;
 
-class CreateMessageAction extends WriteAction
+final class CreateMessageWithActivityAction extends ChorusAction
 {
-    protected array $config = [
-        'allowOfflineWrites' => true,
-        'supportsBatch' => false,
-    ];
-
-    public function handle(Request $request, array $data): Message
+    public function rules(): array
     {
-        // Validate user permissions
+        return [
+            'messages.create' => [
+                'id' => 'nullable|uuid',
+                'body' => 'required|string|max:1000',
+                'platform_id' => 'required|uuid|exists:platforms,id',
+                'user_id' => 'required|uuid|exists:users,id',
+                'tenant_id' => 'required|uuid',
+            ],
+            'users.update' => [
+                'id' => 'required|uuid|exists:users,id',
+                'last_activity_at' => 'required|date',
+            ],
+            'platforms.update' => [
+                'id' => 'required|uuid|exists:platforms,id',
+                'last_message_at' => 'nullable|date',
+                'message_count' => 'nullable|numeric',
+            ],
+        ];
+    }
+
+    protected function handle(Request $request, ActionCollector $actions): void
+    {
+        // Authorization check
         $this->authorize('create', Message::class);
 
-        // Process the data
-        $message = Message::create([
-            'id' => $data['id'] ?? Str::uuid(),
+        $data = $request->all();
+
+        // Execute multiple operations atomically (UUID auto-generated on client)
+        $actions->messages->create([
+            'id' => $data['id'], // UUID provided by client
             'body' => $data['body'],
             'user_id' => auth()->id(),
             'platform_id' => $data['platform_id'],
             'tenant_id' => auth()->user()->tenant_id,
         ]);
 
-        return $message;
-    }
+        // Update user activity
+        $actions->users->update([
+            'id' => auth()->id(),
+            'last_activity_at' => now(),
+        ]);
 
-    public function rules(): array
-    {
-        return [
-            'body' => 'required|string|max:1000',
-            'platform_id' => 'required|uuid|exists:platforms,id',
-            'id' => 'nullable|uuid',
-        ];
+        // Update platform metrics
+        $actions->platforms->update([
+            'id' => $data['platform_id'],
+            'last_message_at' => now(),
+            'message_count' => \DB::raw('message_count + 1'),
+        ]);
     }
     
     protected function authorize(string $ability, $model): void
@@ -84,27 +108,40 @@ class CreateMessageAction extends WriteAction
 }
 ```
 
-### Update Write Action
+### Simple Update Action
 
 ```php
 <?php
 
-namespace App\Actions\WriteActions;
+namespace App\Actions\ChorusActions;
 
 use App\Models\Message;
 use Illuminate\Http\Request;
-use Pixelsprout\LaravelChorus\Support\WriteAction;
+use Pixelsprout\LaravelChorus\Support\ChorusAction;
+use Pixelsprout\LaravelChorus\Support\ActionCollector;
 
-class UpdateMessageAction extends WriteAction
+final class UpdateMessageAction extends ChorusAction
 {
-    protected array $config = [
-        'allowOfflineWrites' => true,
-        'supportsBatch' => false,
-    ];
-
-    public function handle(Request $request, array $data): Message
+    public function rules(): array
     {
-        $message = Message::findOrFail($data['id']);
+        return [
+            'messages.update' => [
+                'id' => 'required|uuid|exists:messages,id',
+                'body' => 'required|string|max:1000',
+                'updated_at' => 'nullable|date',
+            ],
+            'users.update' => [
+                'id' => 'required|uuid|exists:users,id',
+                'last_activity_at' => 'required|date',
+            ],
+        ];
+    }
+
+    protected function handle(Request $request, ActionCollector $actions): void
+    {
+        $data = $request->all();
+        $messageId = $data['id'];
+        $message = Message::findOrFail($messageId);
         
         // Authorization check
         $this->authorize('update', $message);
@@ -117,23 +154,19 @@ class UpdateMessageAction extends WriteAction
             }
         }
         
-        // Update only allowed fields
-        $message->update([
+        // Update the message
+        $actions->messages->update([
+            'id' => $messageId,
             'body' => $data['body'],
             'is_edited' => true,
             'edited_at' => now(),
         ]);
         
-        return $message->fresh();
-    }
-
-    public function rules(): array
-    {
-        return [
-            'id' => 'required|uuid|exists:messages,id',
-            'body' => 'required|string|max:1000',
-            'updated_at' => 'nullable|date',
-        ];
+        // Update user activity
+        $actions->users->update([
+            'id' => auth()->id(),
+            'last_activity_at' => now(),
+        ]);
     }
     
     protected function authorize(string $ability, $model): void
@@ -145,48 +178,47 @@ class UpdateMessageAction extends WriteAction
 }
 ```
 
-### Delete Write Action
+### Delete Action
 
 ```php
 <?php
 
-namespace App\Actions\WriteActions;
+namespace App\Actions\ChorusActions;
 
 use App\Models\Message;
 use Illuminate\Http\Request;
-use Pixelsprout\LaravelChorus\Support\WriteAction;
+use Pixelsprout\LaravelChorus\Support\ChorusAction;
+use Pixelsprout\LaravelChorus\Support\ActionCollector;
 
-class DeleteMessageAction extends WriteAction
+final class DeleteMessageAction extends ChorusAction
 {
-    protected array $config = [
-        'allowOfflineWrites' => true,
-        'supportsBatch' => true,
-    ];
-
-    public function handle(Request $request, array $data): ?Message
-    {
-        $message = Message::findOrFail($data['id']);
-        
-        // Authorization check
-        $this->authorize('delete', $message);
-        
-        // Soft delete with audit trail
-        $message->update([
-            'deleted_by' => auth()->id(),
-            'deleted_at' => now(),
-        ]);
-        
-        // Or hard delete
-        // $message->delete();
-        
-        return null; // Indicate record was deleted
-    }
-
     public function rules(): array
     {
         return [
-            'id' => 'required|uuid|exists:messages,id',
+            'id' => 'required|string|uuid',
         ];
+    }
+
+    protected function handle(Request $request, ActionCollector $actions): void
+    {
+        $user = auth()->user();
+
+        if (!$user) {
+            throw new \Exception('User must be authenticated');
+        }
+
+        $data = $request->all();
+        
+        // Delete the message using the action collector
+        $actions->messages->delete([
+            'id' => $data['id'],
+        ]);
+
+        // Update user's last activity timestamp
+        $actions->users->update([
+            'id' => $user->id,
+            'last_activity_at' => now(),
+        ]);
     }
     
     protected function authorize(string $ability, $model): void
@@ -198,111 +230,153 @@ class DeleteMessageAction extends WriteAction
 }
 ```
 
-## Write Action Configuration
+## Chorus Action Configuration
 
 ### Action Registration
 
-Register write actions in your model:
+Register Chorus Actions in your routes:
 
 ```php
-class Message extends Model
+// routes/chorus.php
+use App\Actions\ChorusActions\CreateMessageWithActivityAction;
+use App\Actions\ChorusActions\UpdateMessageAction;
+use App\Actions\ChorusActions\DeleteMessageAction;
+
+Route::chorus('create-message-with-activity', CreateMessageWithActivityAction::class);
+Route::chorus('update-message', UpdateMessageAction::class);
+Route::chorus('delete-message', DeleteMessageAction::class);
+```
+
+### Automatic Features
+
+All Chorus Actions automatically support:
+- **Offline writes** - Operations are queued when offline and synced when reconnected
+- **Batch operations** - Multiple items can be processed in a single request
+- **Optimistic updates** - UI updates immediately while server processes in background
+
+## Single Operation Shorthand
+
+For actions with only one operation rule, you can use a simplified data format:
+
+```php
+// Single operation action
+final class SimpleCreateMessageAction extends ChorusAction
 {
-    use Harmonics;
-    
-    protected $syncFields = [
-        'id', 'body', 'user_id', 'platform_id', 'created_at', 'updated_at'
-    ];
-    
-    protected $writeActions = [
-        'create' => CreateMessageAction::class,
-        'update' => UpdateMessageAction::class,
-        'delete' => DeleteMessageAction::class,
-    ];
+    public function rules(): array
+    {
+        return [
+            'messages.create' => [
+                'body' => 'required|string|max:1000',
+                'platform_id' => 'required|uuid|exists:platforms,id',
+            ],
+        ];
+    }
+
+    protected function handle(Request $request, ActionCollector $actions): void
+    {
+        $data = $request->all();
+        
+        // UUID auto-generated on client, just use the provided data
+        $actions->messages->create([
+            'id' => $data['id'], // UUID provided by client
+            'body' => $data['body'],
+            'platform_id' => $data['platform_id'],
+            'user_id' => auth()->id(),
+        ]);
+    }
 }
 ```
 
-### Configuration Options
+**Client-side usage:**
 
-```php
-protected array $config = [
-    // Allow writes when client is offline
-    'allowOfflineWrites' => true,
-    
-    // Support batch operations
-    'supportsBatch' => false,
-];
+```typescript
+// Full format (always works) - UUID auto-generated
+await createMessageAction((writes) => {
+    writes.messages.create({
+        body: "Hello world",
+        platform_id: "abc-123"
+    });
+});
+
+// Shorthand format (single operation only) - UUID auto-generated
+await createMessageAction({
+    body: "Hello world", 
+    platform_id: "abc-123"
+});
 ```
 
-## Client-Side Write Operations
+## Client-Side Chorus Actions
 
-### Basic Write Operations
+### Using Generated Action Functions
 
-Using the React `useTable` hook:
+Chorus generates TypeScript functions for each registered action:
 
 ```tsx
-import { useTable } from '@/chorus/react';
-import { types, Message } from '@/stores/types';
+import { createMessageWithActivityAction, updateMessageAction, deleteMessageAction } from '@/_generated/chorus-actions';
+import { uuidv7 } from 'uuidv7';
 
 export default function MessageForm() {
-    const { create, update, delete: remove } = useTable<Message>('messages', types);
-    
-    const handleCreate = async (body: string) => {
-        const tempId = crypto.randomUUID();
+    const handleCreate = async (body: string, platformId: string) => {
+        const messageId = uuidv7();
         
-        await create(
-            // Optimistic data (immediate UI update)
-            {
-                id: tempId,
+        const result = await createMessageWithActivityAction((writes) => {
+            // Create the message
+            writes.messages.create({
+                id: messageId,
                 body,
+                platform_id: platformId,
                 user_id: user.id,
-                platform_id: currentPlatform.id,
-                created_at: new Date(),
-                updated_at: new Date(),
-            },
-            // Server data (sent to write action)
-            {
-                body,
-                platform_id: currentPlatform.id,
-            },
-            // Success/Rejected callback
-            (serverData) => {
-                console.log('Message created successfully:', serverData);
-            },
-        );
+                tenant_id: user.tenant_id,
+            });
+            
+            // Update user activity (handled automatically)
+            writes.users.update({
+                id: user.id,
+                last_activity_at: new Date().toISOString(),
+            });
+            
+            // Update platform metrics (handled automatically)
+            writes.platforms.update({
+                id: platformId,
+                last_message_at: new Date().toISOString(),
+            });
+        });
+        
+        if (result.success) {
+            console.log('Message created successfully:', result);
+        } else {
+            console.error('Message creation failed:', result.error);
+        }
     };
     
-    const handleUpdate = async (message: Message, newBody: string) => {
-        await update(
-            message.id,
-            // Optimistic update
-            {
-                ...message,
+    const handleUpdate = async (messageId: string, newBody: string) => {
+        await updateMessageAction((writes) => {
+            writes.messages.update({
+                id: messageId,
                 body: newBody,
-                is_edited: true,
-                updated_at: new Date(),
-            },
-            // Server update
-            {
-                id: message.id,
-                body: newBody,
-                updated_at: message.updated_at, // For optimistic locking
-            }
-        );
+            });
+        });
     };
     
-    const handleDelete = async (message: Message) => {
+    const handleDelete = async (messageId: string) => {
         if (!confirm('Delete this message?')) return;
         
-        await remove(message.id);
+        await deleteMessageAction((writes) => {
+            writes.messages.delete(messageId);
+        });
     };
     
     return (
         <form onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
-            handleCreate(formData.get('body'));
+            handleCreate(formData.get('body'), formData.get('platform_id'));
         }}>
             <textarea name="body" required />
+            <select name="platform_id" required>
+                <option value="">Select Platform</option>
+                {/* Platform options */}
+            </select>
             <button type="submit">Send Message</button>
         </form>
     );
@@ -354,10 +428,10 @@ Explore advanced configuration and multi-tenancy
 </Card>
 
 <Card title="React Integration" href="/integrations/react" icon="react">
-Use write actions in your React components
+Use Chorus Actions in your React components
 </Card>
 </CardGroup>
 
 ---
 
-The write path is where Laravel Chorus shines, providing robust offline support, conflict resolution, and validation while maintaining instant user experiences through optimistic updates.
+The write path is where Laravel Chorus shines, providing robust offline support, conflict resolution, and validation while maintaining instant user experiences through optimistic updates. With Chorus Actions, you can execute multiple operations atomically in a single transaction.
