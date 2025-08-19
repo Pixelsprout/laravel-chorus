@@ -17,7 +17,7 @@ final class UpdateMessageAction extends ChorusAction
         ];
     }
 
-    protected function handle(Request $request, ActionCollector $actions): void
+    public function handle(Request $request): void
     {
         $user = auth()->user();
 
