@@ -24,7 +24,7 @@ abstract class ChorusAction implements ChorusActionInterface
      * Handle the action logic with access to the request data
      * Override this method for simplified API usage
      */
-    abstract function handle(Request $request): void;
+    abstract public function handle(Request $request): void;
 
     /**
      * Get validation rules for specific operations and data field
@@ -246,19 +246,19 @@ abstract class ChorusAction implements ChorusActionInterface
     private function organizeOperationsByType(array $operations): array
     {
         $organized = [];
-        
+
         foreach ($operations as $operation) {
             $table = $operation['table'];
             $operationType = $operation['operation'];
             $key = "{$table}.{$operationType}";
-            
-            if (!isset($organized[$key])) {
+
+            if (! isset($organized[$key])) {
                 $organized[$key] = [];
             }
-            
+
             $organized[$key][] = $operation['data'];
         }
-        
+
         return $organized;
     }
 
