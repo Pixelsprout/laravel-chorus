@@ -22,3 +22,17 @@ export declare class ClientWritesCollector {
     addOperation(tableName: string, operation: 'create' | 'update' | 'delete', data: Record<string, any>): void;
 }
 export declare function createWritesProxy(collector: ClientWritesCollector): WritesProxy;
+/**
+ * Enhanced ActionContext-like interface for client-side operations
+ */
+export interface ActionContextLike {
+    create(table: string, data: Record<string, any>): void;
+    update(table: string, data: Record<string, any>): void;
+    delete(table: string, data: Record<string, any>): void;
+}
+/**
+ * Create an ActionContext-like object that works with the callback API
+ * This provides the same simplified API as the server-side ActionContext
+ * Supports both property access and destructured access patterns
+ */
+export declare function createActionContext(collector: ClientWritesCollector): ActionContextLike;

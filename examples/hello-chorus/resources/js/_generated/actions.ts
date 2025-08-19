@@ -283,6 +283,12 @@ export interface WritesProxy {
   [tableName: string]: ModelProxy;
 }
 
+export interface ActionContextLike {
+  create(table: string, data: Record<string, any>): void;
+  update(table: string, data: Record<string, any>): void;  
+  delete(table: string, data: Record<string, any>): void;
+}
+
 export declare function simpleCreateMessageAction(
   callback: (writes: WritesProxy) => void
 ): Promise<ChorusActionResponse>;

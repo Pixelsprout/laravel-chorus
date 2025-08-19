@@ -20,13 +20,17 @@ export {
   ChorusActionResponse,
   ChorusActionConfig,
   ChorusActionMeta,
+  getGlobalChorusActionsAPI,
+  connectChorusActionsAPI,
 } from "./core/chorus-actions";
 export {
   ClientWritesCollector,
   createWritesProxy,
+  createActionContext,
   WriteOperation,
   ModelProxy,
   WritesProxy,
+  ActionContextLike,
 } from "./core/writes-collector";
 // CSRF tokens are handled automatically by axios when configured in Laravel
 export { 

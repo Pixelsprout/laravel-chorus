@@ -67,3 +67,22 @@ export function createWritesProxy(collector) {
         }
     });
 }
+/**
+ * Create an ActionContext-like object that works with the callback API
+ * This provides the same simplified API as the server-side ActionContext
+ * Supports both property access and destructured access patterns
+ */
+export function createActionContext(collector) {
+    const context = {
+        create(table, data) {
+            collector.getTableProxy(table).create(data);
+        },
+        update(table, data) {
+            collector.getTableProxy(table).update(data);
+        },
+        delete(table, data) {
+            collector.getTableProxy(table).delete(data);
+        }
+    };
+    return context;
+}

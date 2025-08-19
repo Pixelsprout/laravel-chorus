@@ -1,8 +1,8 @@
 // Auto-generated implementation for Chorus Actions
 // Generated on 2025-08-16 09:14:51
 
-import { getGlobalChorusActionsAPI } from '@pixelsprout/chorus-js/core';
-import type { ChorusActionResponse, WritesProxy, ModelProxy, ValidationUtils, ValidationResult } from './actions';
+import { getGlobalChorusActionsAPI } from '@pixelsprout/chorus-js';
+import type { ChorusActionResponse, WritesProxy, ModelProxy, ValidationUtils, ValidationResult, ActionContextLike } from './actions';
 import { SimpleCreateMessageValidationSchema, DeleteMessageValidationSchema, CreateMessageWithActivityValidationSchema, UpdateMessageValidationSchema } from './actions';
 
 // Use the global ChorusActionsAPI instance for optimistic updates integration
@@ -41,10 +41,10 @@ export async function deleteMessageAction(
 }
 
 export async function createMessageWithActivityAction(
-  callback: (writes: WritesProxy) => any,
+  callback: (context: ActionContextLike) => any,
   options: { validate?: boolean } = { validate: true }
 ): Promise<ChorusActionResponse> {
-  return await chorusAPI.executeActionWithCallback(
+  return await chorusAPI.executeActionWithContext(
     'create-message-with-activity',
     callback,
     {
