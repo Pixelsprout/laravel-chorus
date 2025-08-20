@@ -60,6 +60,7 @@ export class ChorusCore {
   private debugMode: boolean = false;
   private readyPromise: Promise<void> | null = null;
   private resolveReady!: () => void;
+  private isSetup: boolean = false;
 
   constructor(options: { debugMode: boolean } = { debugMode: false }) {
     this.debugMode = options.debugMode ?? false;
@@ -146,16 +147,55 @@ export class ChorusCore {
     onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void,
     onTableStatesChange?: (tableStates: Record<string, TableState>) => void
   ): void {
+    // Prevent multiple setup calls with the same userId
+    if (this.isSetup && this.userId === userId) {
+      this.log("ChorusCore already setup for this userId, skipping");
+      return;
+    }
+    
+    // If setup is being called with a different userId, we need to clean up first
+    if (this.isSetup && this.userId !== userId) {
+      this.log(`ChorusCore userId changing from ${this.userId} to ${userId}, cleaning up`);
+      this.cleanup();
+    }
+    
     this.userId = userId;
     this.onRejectedHarmonic = onRejectedHarmonic;
     this.onSchemaVersionChange = onSchemaVersionChange;
     this.onDatabaseVersionChange = onDatabaseVersionChange;
     this.onTableStatesChange = onTableStatesChange;
+    
     const dbName = `chorus_db_${userId || "guest"}`;
     this.db = createChorusDb(dbName);
+    this.isSetup = true;
     
     // Don't initialize schema here - it will be fetched from server
     this.log("Setting up ChorusCore with userId", userId);
+  }
+
+  /**
+   * Clean up ChorusCore resources
+   */
+  public cleanup(): void {
+    this.log("Cleaning up ChorusCore resources");
+    
+    // Close database connection if it exists
+    if (this.db && this.db.isOpen()) {
+      this.db.close();
+    }
+    
+    // Reset state
+    this.db = null;
+    this.isSetup = false;
+    this.isInitialized = false;
+    this.schema = {};
+    this.tableStates = {};
+    this.processedRejectedHarmonics.clear();
+    
+    // Reset ready promise
+    this.readyPromise = new Promise<void>((resolve) => {
+      this.resolveReady = resolve;
+    });
   }
 
   /**
@@ -508,6 +548,8 @@ export class ChorusCore {
         await Promise.all(operations);
       }
 
+      // Only save the latest harmonic ID if all operations succeeded
+      // If we get here, all harmonics were processed successfully
       this.saveLatestHarmonicId(harmonics[harmonics.length - 1].id);
 
       if (errors.length) {
@@ -517,6 +559,26 @@ export class ChorusCore {
       return true;
     } catch (err) {
       console.error(`Error during batch processing for ${tableName}:`, err);
+      
+      // Check if this is a duplicate key error from bulkAdd
+      // This indicates localStorage harmonic ID is out of sync
+      if (err && typeof err === 'object' && 'name' in err && err.name === 'BulkError') {
+        const bulkError = err as any;
+        if (bulkError.failures && bulkError.failures.some((f: any) => 
+          f.name === 'ConstraintError' && f.message && f.message.includes('Key already exists'))) {
+          
+          this.log(`Detected duplicate key error - localStorage harmonic ID is out of sync. Clearing stored ID to force full resync.`);
+          
+          // Clear the stored harmonic ID to force a full resync on next reload
+          localStorage.removeItem(getLatestHarmonicIdKey(this.userId?.toString()));
+          
+          // Also trigger a database rebuild to ensure clean state
+          this.log(`Triggering database rebuild due to sync inconsistency`);
+          await this.rebuildDatabase();
+          return true; // Don't throw error, let the rebuild handle it
+        }
+      }
+      
       throw new SyncError(
         `Failed to process harmonics batch for ${tableName}`,
         err instanceof Error ? err : new Error(String(err)),

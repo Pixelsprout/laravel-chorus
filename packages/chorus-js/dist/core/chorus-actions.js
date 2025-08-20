@@ -8,7 +8,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 import axios from 'axios';
-import { ClientWritesCollector, createWritesProxy, createActionContext } from './writes-collector';
+import { ClientWritesCollector, createActionContext } from './writes-collector';
 export class ChorusActionsAPI {
     constructor(baseURL = '/api', axiosConfig, chorusCore) {
         this.cache = new Map();
@@ -73,12 +73,12 @@ export class ChorusActionsAPI {
         return __awaiter(this, arguments, void 0, function* (actionName, callback, options = {}) {
             var _a;
             const collector = new ClientWritesCollector();
-            const writesProxy = createWritesProxy(collector);
+            const actionContext = createActionContext(collector);
             // Collect writes by executing the callback and capture return value
             collector.startCollecting();
             let callbackData = undefined;
             try {
-                callbackData = callback(writesProxy);
+                callbackData = callback(actionContext);
             }
             finally {
                 collector.stopCollecting();

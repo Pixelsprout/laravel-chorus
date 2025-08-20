@@ -124,7 +124,7 @@ export class ChorusActionsAPI {
    */
   async executeActionWithCallback(
     actionName: string,
-    callback: (writes: WritesProxy) => any,
+    callback: (actionContext: ActionContextLike) => any,
     options: {
       optimistic?: boolean;
       offline?: boolean;
@@ -133,13 +133,13 @@ export class ChorusActionsAPI {
     } = {}
   ): Promise<ChorusActionResponse> {
     const collector = new ClientWritesCollector();
-    const writesProxy = createWritesProxy(collector);
+    const actionContext = createActionContext(collector);
     
     // Collect writes by executing the callback and capture return value
     collector.startCollecting();
     let callbackData: any = undefined;
     try {
-      callbackData = callback(writesProxy);
+      callbackData = callback(actionContext);
     } finally {
       collector.stopCollecting();
     }

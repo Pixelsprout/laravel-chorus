@@ -40,6 +40,7 @@ export declare class ChorusCore {
     private debugMode;
     private readyPromise;
     private resolveReady;
+    private isSetup;
     constructor(options?: {
         debugMode: boolean;
     });
@@ -62,6 +63,10 @@ export declare class ChorusCore {
      * Set up the ChorusCore with a userId and optional fallback schema
      */
     setup(userId: string | number, onRejectedHarmonic?: (harmonic: HarmonicEvent) => void, onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void, onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void, onTableStatesChange?: (tableStates: Record<string, TableState>) => void): void;
+    /**
+     * Clean up ChorusCore resources
+     */
+    cleanup(): void;
     /**
      * Fetch schema from server and initialize database
      */

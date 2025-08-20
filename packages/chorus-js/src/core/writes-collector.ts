@@ -107,7 +107,7 @@ export function createWritesProxy(collector: ClientWritesCollector): WritesProxy
 export interface ActionContextLike {
   create(table: string, data: Record<string, any>): void;
   update(table: string, data: Record<string, any>): void;  
-  delete(table: string, data: Record<string, any>): void;
+  remove(table: string, data: Record<string, any>): void;
 }
 
 /**
@@ -125,7 +125,7 @@ export function createActionContext(collector: ClientWritesCollector): ActionCon
       collector.getTableProxy(table).update(data);
     },
 
-    delete(table: string, data: Record<string, any>): void {
+    remove(table: string, data: Record<string, any>): void {
       collector.getTableProxy(table).delete(data);
     }
   };

@@ -13,6 +13,10 @@ use Pixelsprout\LaravelChorus\Contracts\ChorusActionInterface;
 abstract class ChorusAction implements ChorusActionInterface
 {
     /**
+     * Organized operations data for access by getOperations method
+     */
+    protected array $operations = [];
+    /**
      * Make the action invokable for direct route usage
      */
     public function __invoke(Request $request): mixed
@@ -32,6 +36,15 @@ abstract class ChorusAction implements ChorusActionInterface
      * and 'data' => ['field' => 'rules'] format for data field validation
      */
     abstract public function rules(): array;
+
+    /**
+     * Get all operations for an entity and operation type
+     */
+    protected function getOperations(string $entity, string $operation): array
+    {
+        $key = "{$entity}.{$operation}";
+        return $this->operations[$key] ?? [];
+    }
 
     /**
      * Process an RPC-style action with multiple write operations
@@ -199,6 +212,10 @@ abstract class ChorusAction implements ChorusActionInterface
         // Create a clean request with operations organized by table.operation and any additional data
         $cleanRequest = new Request();
         $organizedOperations = $this->organizeOperationsByType($operations);
+        
+        // Store organized operations in class property for getOperations method access
+        $this->operations = $organizedOperations;
+        
         $cleanRequest->merge([
             'operations' => $organizedOperations,
             'data' => $request->input('data', []),
@@ -316,6 +333,10 @@ abstract class ChorusAction implements ChorusActionInterface
                 // Create a clean request for this execution
                 $executionRequest = new Request();
                 $organizedOperations = $this->organizeOperationsByType($operations);
+                
+                // Store organized operations in class property for getOperations method access
+                $this->operations = $organizedOperations;
+                
                 $executionRequest->merge([
                     'operations' => $organizedOperations,
                     'data' => $request->input('data', []),

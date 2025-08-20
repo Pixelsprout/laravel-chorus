@@ -1,4 +1,4 @@
-import { TableState } from "../../core/chorus";
+import { ChorusCore, TableState } from "../../core/chorus";
 import type { ReactChorusProviderProps } from "../../shared/provider-types";
 import React from "react";
 import { Collection, Table } from "dexie";
@@ -6,6 +6,7 @@ interface ChorusContextState {
     isInitialized: boolean;
     tables: Record<string, TableState>;
     schema: Record<string, any>;
+    chorusCore: ChorusCore | null;
 }
 export declare function ChorusProvider({ children, userId, channelPrefix, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange, debugMode, }: ReactChorusProviderProps): React.JSX.Element;
 export declare function useChorus(): ChorusContextState;

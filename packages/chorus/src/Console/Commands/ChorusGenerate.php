@@ -558,7 +558,7 @@ final class ChorusGenerate extends Command
         $content .= "export interface ModelProxy {\n";
         $content .= "  create(data: Record<string, any>): void;\n";
         $content .= "  update(data: Record<string, any>): void;\n";
-        $content .= "  delete(data: Record<string, any>): void;\n";
+        $content .= "  remove(data: Record<string, any>): void;\n";
         $content .= "}\n\n";
 
         $content .= "export interface WritesProxy {\n";

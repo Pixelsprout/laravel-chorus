@@ -80,7 +80,7 @@ export function createActionContext(collector) {
         update(table, data) {
             collector.getTableProxy(table).update(data);
         },
-        delete(table, data) {
+        remove(table, data) {
             collector.getTableProxy(table).delete(data);
         }
     };

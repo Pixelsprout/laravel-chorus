@@ -28,7 +28,7 @@ export declare function createWritesProxy(collector: ClientWritesCollector): Wri
 export interface ActionContextLike {
     create(table: string, data: Record<string, any>): void;
     update(table: string, data: Record<string, any>): void;
-    delete(table: string, data: Record<string, any>): void;
+    remove(table: string, data: Record<string, any>): void;
 }
 /**
  * Create an ActionContext-like object that works with the callback API
