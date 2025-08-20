@@ -1,5 +1,5 @@
 // Auto-generated TypeScript interfaces for Chorus Actions
-// Generated on 2025-08-16 09:14:51
+// Generated on 2025-08-19 20:30:58
 
 // Validation utilities
 export interface ValidationError {
@@ -115,51 +115,36 @@ export const ValidationUtils = {
   }
 };
 
-export interface SimpleCreateMessageParams {
-  'messages.create'?: any;
+export interface DeleteMessageParams {
+  'messages.delete': any;
+  'users.update': any;
+  data: any;
 }
 
-// Validation schema for SimpleCreateMessage
-export const SimpleCreateMessageValidationSchema: Record<string, ValidationSchema> = {
-  'messages.create': {
+// Validation schema for DeleteMessage
+export const DeleteMessageValidationSchema: Record<string, ValidationSchema> = {
+  'messages.delete': {
     'id': {
-      type: 'string',
-      uuid: true,
-    },
-    'body': {
-      required: true,
-      type: 'string',
-      max: 1000,
-    },
-    'platform_id': {
-      required: true,
-      type: 'string',
-      uuid: true,
-    },
-    'user_id': {
-      required: true,
-      type: 'string',
-      uuid: true,
-    },
-    'tenant_id': {
       required: true,
       type: 'string',
       uuid: true,
     },
   },
-};
-
-export interface DeleteMessageParams {
-  id: string;
-}
-
-// Validation schema for DeleteMessage
-export const DeleteMessageValidationSchema: Record<string, ValidationSchema> = {
-  'default': {
+  'users.update': {
     'id': {
       required: true,
       type: 'string',
       uuid: true,
+    },
+    'last_activity_at': {
+      required: true,
+      date: true,
+    },
+  },
+  'data': {
+    'test_item': {
+      required: true,
+      type: 'string',
     },
   },
 };
@@ -228,22 +213,40 @@ export const CreateMessageWithActivityValidationSchema: Record<string, Validatio
 };
 
 export interface UpdateMessageParams {
-  id: string;
-  message: string;
+  'messages.update': any;
+  'users.update': any;
+  data: any;
 }
 
 // Validation schema for UpdateMessage
 export const UpdateMessageValidationSchema: Record<string, ValidationSchema> = {
-  'default': {
+  'messages.update': {
     'id': {
       required: true,
       type: 'string',
       uuid: true,
     },
-    'message': {
+    'body': {
       required: true,
       type: 'string',
-      max: 255,
+      max: 1000,
+    },
+  },
+  'users.update': {
+    'id': {
+      required: true,
+      type: 'string',
+      uuid: true,
+    },
+    'last_activity_at': {
+      required: true,
+      date: true,
+    },
+  },
+  'data': {
+    'test_item': {
+      required: true,
+      type: 'string',
     },
   },
 };
@@ -273,7 +276,7 @@ export interface ChorusActionResponse {
 export interface ModelProxy {
   create(data: Record<string, any>): void;
   update(data: Record<string, any>): void;
-  delete(data: Record<string, any>): void;
+  remove(data: Record<string, any>): void;
 }
 
 export interface WritesProxy {
@@ -282,16 +285,6 @@ export interface WritesProxy {
   platforms: ModelProxy;
   [tableName: string]: ModelProxy;
 }
-
-export interface ActionContextLike {
-  create(table: string, data: Record<string, any>): void;
-  update(table: string, data: Record<string, any>): void;  
-  delete(table: string, data: Record<string, any>): void;
-}
-
-export declare function simpleCreateMessageAction(
-  callback: (writes: WritesProxy) => void
-): Promise<ChorusActionResponse>;
 
 export declare function deleteMessageAction(
   callback: (writes: WritesProxy) => void
@@ -306,18 +299,12 @@ export declare function updateMessageAction(
 ): Promise<ChorusActionResponse>;
 
 export interface ChorusActions {
-  SimpleCreateMessage(params: SimpleCreateMessageParams): Promise<ChorusActionResponse>;
   DeleteMessage(params: DeleteMessageParams): Promise<ChorusActionResponse>;
   CreateMessageWithActivity(params: CreateMessageWithActivityParams): Promise<ChorusActionResponse>;
   UpdateMessage(params: UpdateMessageParams): Promise<ChorusActionResponse>;
 }
 
 export const chorusActionMeta = {
-  SimpleCreateMessage: {
-    className: 'App\\Actions\\ChorusActions\\SimpleCreateMessageAction',
-    allowOfflineWrites: true,
-    supportsBatch: true,
-  },
   DeleteMessage: {
     className: 'App\\Actions\\ChorusActions\\DeleteMessageAction',
     allowOfflineWrites: true,

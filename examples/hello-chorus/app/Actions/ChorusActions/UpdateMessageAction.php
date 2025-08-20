@@ -2,22 +2,31 @@
 
 namespace App\Actions\ChorusActions;
 
+use App\Models\Message;
+use App\Models\User;
 use Illuminate\Http\Request;
-use Pixelsprout\LaravelChorus\Support\ActionCollector;
 use Pixelsprout\LaravelChorus\Support\ChorusAction;
 
 final class UpdateMessageAction extends ChorusAction
 {
-
     public function rules(): array
     {
         return [
-            'id' => 'required|string|uuid',
-            'message' => 'required|string|max:255',
+            'messages.update' => [
+                'id' => 'required|string|exists:messages,id',
+                'body' => 'required|string|max:1000',
+            ],
+            'users.update' => [
+                'id' => 'required|string|exists:users,id',
+                'last_activity_at' => 'required|date',
+            ],
+            'data' => [
+                'test_item' => 'required|string',
+            ],
         ];
     }
 
-    protected function handle(Request $request, ActionCollector $actions): void
+    public function handle(Request $request): void
     {
         $user = auth()->user();
 
@@ -25,15 +34,29 @@ final class UpdateMessageAction extends ChorusAction
             throw new \Exception('User must be authenticated');
         }
 
-        // Update the message using the action collector
-        $actions->messages->update(fn($messageData) => [
-            'id' => $messageData->id,
-            'body' => $messageData->body,
+        // Update the message using request data
+        $messageData = $request->input('operations')['messages.update'][0] ?? null;
+        
+        if (!$messageData) {
+            throw new \Exception('No message data found in request');
+        }
+
+        // Verify the message belongs to the user's tenant
+        $message = Message::where('id', $messageData['id'])
+            ->where('tenant_id', $user->tenant_id)
+            ->first();
+
+        if (!$message) {
+            throw new \Exception('Message not found or unauthorized');
+        }
+
+        // Update the message
+        $message->update([
+            'body' => $messageData['body'],
         ]);
 
-        // Update user's last activity timestamp
-        $actions->users->update(fn() => [
-            'id' => $user->id,
+        // Update user's last activity
+        User::where('id', $user->id)->update([
             'last_activity_at' => now(),
         ]);
     }

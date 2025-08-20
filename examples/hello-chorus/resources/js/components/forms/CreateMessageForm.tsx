@@ -68,7 +68,7 @@ export default function CreateMessageForm({
                 update('platforms', {
                     id: value.platformId,
                     last_message_at: new Date().toISOString(),
-                });
+            });
 
                 return {
                     test_item: 'test message',
