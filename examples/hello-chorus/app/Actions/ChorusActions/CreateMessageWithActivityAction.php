@@ -10,7 +10,7 @@ use Pixelsprout\LaravelChorus\Support\ChorusAction;
 
 final class CreateMessageWithActivityAction extends ChorusAction
 {
-    public function handle(Request $request): void
+    protected function handle(Request $request): void
     {
         $user = auth()->user();
 
