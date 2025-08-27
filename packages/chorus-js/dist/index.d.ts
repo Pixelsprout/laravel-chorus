@@ -3,8 +3,8 @@ export { ChorusCore, HarmonicEvent, TableState, SyncError, } from "./core/chorus
 export { OfflineManager, OfflineRequest, OfflineState, offlineManager, } from "./core/offline";
 export { offlineFetch, OfflineFetchOptions } from "./core/fetch";
 export { InertiaOfflineWrapper, createOfflineRouter, InertiaOfflineOptions } from "./core/inertia-offline";
-export { ChorusActionsAPI, ChorusActionResponse, ChorusActionConfig, ChorusActionMeta, } from "./core/chorus-actions";
-export { ClientWritesCollector, createWritesProxy, WriteOperation, ModelProxy, WritesProxy, } from "./core/writes-collector";
+export { ChorusActionsAPI, ChorusActionResponse, ChorusActionConfig, ChorusActionMeta, getGlobalChorusActionsAPI, connectChorusActionsAPI, } from "./core/chorus-actions";
+export { ClientWritesCollector, createWritesProxy, createActionContext, WriteOperation, ModelProxy, WritesProxy, ActionContextLike, } from "./core/writes-collector";
 export { WriteActionsAPI, writeActions, writeActionsAPI, TableWriteActions, EnhancedWriteActionsAPI, WriteActionConfig, WriteActionResponse, BatchWriteResponse } from "./core/write-actions";
 export { ChorusProvider, useHarmonics, useHarmonicsQuery, useChorus, } from "./react/providers/ChorusProvider";
 export { useOffline } from "./react/hooks/useOffline";

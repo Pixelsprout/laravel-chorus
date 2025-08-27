@@ -17,6 +17,7 @@
         "laravel/wayfinder": "^0.1.6",
         "lorisleiva/laravel-actions": "^2.9",
         "pixelsprout/laravel-chorus": "dev-main",
+        "spatie/laravel-data": "*",
         "tightenco/ziggy": "^2.4"
     },
     "require-dev": {
@@ -27,7 +28,8 @@
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
         "pestphp/pest": "^3.8",
-        "pestphp/pest-plugin-laravel": "^3.2"
+        "pestphp/pest-plugin-laravel": "^3.2",
+        "spatie/laravel-typescript-transformer": "^2.5"
     },
     "autoload": {
         "psr-4": {

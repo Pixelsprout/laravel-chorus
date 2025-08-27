@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { ClientWritesCollector, createWritesProxy, WriteOperation, ModelProxy, WritesProxy } from './writes-collector';
+import { ClientWritesCollector, createWritesProxy, createActionContext, WriteOperation, ModelProxy, WritesProxy, ActionContextLike } from './writes-collector';
 import { ChorusCore } from './chorus';
 import { ChorusDatabase } from './db';
 
@@ -124,7 +124,7 @@ export class ChorusActionsAPI {
    */
   async executeActionWithCallback(
     actionName: string,
-    callback: (writes: WritesProxy) => any,
+    callback: (actionContext: ActionContextLike) => any,
     options: {
       optimistic?: boolean;
       offline?: boolean;
@@ -133,13 +133,13 @@ export class ChorusActionsAPI {
     } = {}
   ): Promise<ChorusActionResponse> {
     const collector = new ClientWritesCollector();
-    const writesProxy = createWritesProxy(collector);
+    const actionContext = createActionContext(collector);
     
     // Collect writes by executing the callback and capture return value
     collector.startCollecting();
     let callbackData: any = undefined;
     try {
-      callbackData = callback(writesProxy);
+      callbackData = callback(actionContext);
     } finally {
       collector.stopCollecting();
     }
@@ -256,6 +256,85 @@ export class ChorusActionsAPI {
       }
 
       // Handle validation errors
+      if (error.response?.status === 422) {
+        return {
+          success: false,
+          error: 'Validation failed',
+          // @ts-ignore
+          validation_errors: error.response.data.validation_errors,
+        };
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Execute a ChorusAction with simplified ActionContext-style API
+   * This provides the same API as the server-side ActionContext
+   */
+  async executeActionWithContext(
+    actionName: string,
+    callback: (context: ActionContextLike) => any,
+    options: {
+      optimistic?: boolean;
+      offline?: boolean;
+      validate?: boolean;
+      validationSchema?: any;
+    } = {}
+  ): Promise<ChorusActionResponse> {
+    const collector = new ClientWritesCollector();
+    const actionContext = createActionContext(collector);
+    
+    // Collect writes by executing the callback and capture return value
+    collector.startCollecting();
+    let callbackData: any = undefined;
+    try {
+      callbackData = callback(actionContext);
+    } finally {
+      collector.stopCollecting();
+    }
+    
+    const operations = collector.getOperations();
+    
+    // Client-side validation if enabled and schema provided
+    if (options.validate && options.validationSchema) {
+      const validationResult = this.validateOperations(operations, callbackData, options.validationSchema);
+      if (!validationResult.valid) {
+        return {
+          success: false,
+          error: 'Client-side validation failed',
+          validation_errors: validationResult.errors,
+        };
+      }
+    }
+    
+    // Convert operations to the format expected by the server
+    const requestData = {
+      operations: operations,
+      // Include any additional data returned by the callback
+      ...(callbackData && typeof callbackData === 'object' ? { data: callbackData } : {})
+    };
+    
+    const endpoint = `/actions/${actionName}`;
+    
+    try {
+      if (options.optimistic && this.chorusCore) {
+        await this.handleOptimisticUpdates(operations, actionName, callbackData);
+      }
+
+      const response = await this.axios.post(endpoint, requestData);
+
+      this.cache.set(actionName, response.data);
+
+      return response.data;
+    } catch (error: any) {
+      // Handle network errors
+      if (this.isNetworkError(error)) {
+        return this.handleOfflineActionWithOperations(actionName, operations);
+      }
+
+      // Handle validation errors  
       if (error.response?.status === 422) {
         return {
           success: false,
@@ -818,7 +897,7 @@ export class ChorusActionsAPI {
     console.log(`[ChorusActionsAPI] Syncing ${pendingActionGroups.size} action types from deltas...`);
 
     // Sync each action with all its operations in one request
-    for (const [actionName, group] of pendingActionGroups) {
+    for (const [actionName, group] of Array.from(pendingActionGroups.entries())) {
       try {
         // Sort operations by timestamp to preserve order
         group.operations.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));

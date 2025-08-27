@@ -8,7 +8,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 import axios from 'axios';
-import { ClientWritesCollector, createWritesProxy } from './writes-collector';
+import { ClientWritesCollector, createActionContext } from './writes-collector';
 export class ChorusActionsAPI {
     constructor(baseURL = '/api', axiosConfig, chorusCore) {
         this.cache = new Map();
@@ -73,12 +73,12 @@ export class ChorusActionsAPI {
         return __awaiter(this, arguments, void 0, function* (actionName, callback, options = {}) {
             var _a;
             const collector = new ClientWritesCollector();
-            const writesProxy = createWritesProxy(collector);
+            const actionContext = createActionContext(collector);
             // Collect writes by executing the callback and capture return value
             collector.startCollecting();
             let callbackData = undefined;
             try {
-                callbackData = callback(writesProxy);
+                callbackData = callback(actionContext);
             }
             finally {
                 collector.stopCollecting();
@@ -169,6 +169,65 @@ export class ChorusActionsAPI {
                     return this.handleOfflineAction(actionName, params, options);
                 }
                 // Handle validation errors
+                if (((_a = error.response) === null || _a === void 0 ? void 0 : _a.status) === 422) {
+                    return {
+                        success: false,
+                        error: 'Validation failed',
+                        // @ts-ignore
+                        validation_errors: error.response.data.validation_errors,
+                    };
+                }
+                throw error;
+            }
+        });
+    }
+    /**
+     * Execute a ChorusAction with simplified ActionContext-style API
+     * This provides the same API as the server-side ActionContext
+     */
+    executeActionWithContext(actionName_1, callback_1) {
+        return __awaiter(this, arguments, void 0, function* (actionName, callback, options = {}) {
+            var _a;
+            const collector = new ClientWritesCollector();
+            const actionContext = createActionContext(collector);
+            // Collect writes by executing the callback and capture return value
+            collector.startCollecting();
+            let callbackData = undefined;
+            try {
+                callbackData = callback(actionContext);
+            }
+            finally {
+                collector.stopCollecting();
+            }
+            const operations = collector.getOperations();
+            // Client-side validation if enabled and schema provided
+            if (options.validate && options.validationSchema) {
+                const validationResult = this.validateOperations(operations, callbackData, options.validationSchema);
+                if (!validationResult.valid) {
+                    return {
+                        success: false,
+                        error: 'Client-side validation failed',
+                        validation_errors: validationResult.errors,
+                    };
+                }
+            }
+            // Convert operations to the format expected by the server
+            const requestData = Object.assign({ operations: operations }, (callbackData && typeof callbackData === 'object' ? { data: callbackData } : {}));
+            const endpoint = `/actions/${actionName}`;
+            try {
+                if (options.optimistic && this.chorusCore) {
+                    yield this.handleOptimisticUpdates(operations, actionName, callbackData);
+                }
+                const response = yield this.axios.post(endpoint, requestData);
+                this.cache.set(actionName, response.data);
+                return response.data;
+            }
+            catch (error) {
+                // Handle network errors
+                if (this.isNetworkError(error)) {
+                    return this.handleOfflineActionWithOperations(actionName, operations);
+                }
+                // Handle validation errors  
                 if (((_a = error.response) === null || _a === void 0 ? void 0 : _a.status) === 422) {
                     return {
                         success: false,
@@ -659,7 +718,7 @@ export class ChorusActionsAPI {
             }
             console.log(`[ChorusActionsAPI] Syncing ${pendingActionGroups.size} action types from deltas...`);
             // Sync each action with all its operations in one request
-            for (const [actionName, group] of pendingActionGroups) {
+            for (const [actionName, group] of Array.from(pendingActionGroups.entries())) {
                 try {
                     // Sort operations by timestamp to preserve order
                     group.operations.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));

@@ -13,6 +13,11 @@ use Pixelsprout\LaravelChorus\Contracts\ChorusActionInterface;
 abstract class ChorusAction implements ChorusActionInterface
 {
     /**
+     * Organized operations data for access by getOperations method
+     */
+    protected array $operations = [];
+
+    /**
      * Make the action invokable for direct route usage
      */
     public function __invoke(Request $request): mixed
@@ -21,9 +26,10 @@ abstract class ChorusAction implements ChorusActionInterface
     }
 
     /**
-     * Handle the action logic with access to the action collector
+     * Handle the action logic with access to the request data
+     * Override this method for simplified API usage
      */
-    abstract protected function handle(Request $request, ActionCollector $actions): void;
+    abstract public function handle(Request $request): void;
 
     /**
      * Get validation rules for specific operations and data field
@@ -97,6 +103,16 @@ abstract class ChorusAction implements ChorusActionInterface
                 'failed' => count($errors),
             ],
         ];
+    }
+
+    /**
+     * Get all operations for an entity and operation type
+     */
+    protected function getOperations(string $entity, string $operation): array
+    {
+        $key = "{$entity}.{$operation}";
+
+        return $this->operations[$key] ?? [];
     }
 
     /**
@@ -195,10 +211,15 @@ abstract class ChorusAction implements ChorusActionInterface
      */
     private function processSingleExecution(Request $request, array $operations): array
     {
-        // Create a clean request with operations and any additional data
+        // Create a clean request with operations organized by table.operation and any additional data
         $cleanRequest = new Request();
+        $organizedOperations = $this->organizeOperationsByType($operations);
+
+        // Store organized operations in class property for getOperations method access
+        $this->operations = $organizedOperations;
+
         $cleanRequest->merge([
-            'operations' => $operations,
+            'operations' => $organizedOperations,
             'data' => $request->input('data', []),
         ]);
 
@@ -208,28 +229,56 @@ abstract class ChorusAction implements ChorusActionInterface
         // Validate data field if present
         $this->validateData($request->input('data', []));
 
-        $collector = new ActionCollector();
-        $collector->startCollecting($operations);
+        // Execute the user-defined action logic
+        $actionResult = $this->handle($cleanRequest);
 
-        try {
-            // Execute the user-defined action logic
-            $this->handle($cleanRequest, $collector);
-
-            // Get results of operations that were executed by the user's logic
-            $results = $collector->getOperationResults();
-
-            return [
+        // Convert operations to results format expected by client
+        $results = [];
+        foreach ($operations as $index => $operation) {
+            $results[] = [
                 'success' => true,
-                'operations' => $results,
-                'summary' => [
-                    'total' => count($results),
-                    'successful' => count(array_filter($results, fn ($r) => $r['success'])),
-                    'failed' => count(array_filter($results, fn ($r) => ! $r['success'])),
+                'index' => $index,
+                'operation' => [
+                    'table' => $operation['table'],
+                    'operation' => $operation['operation'],
+                    'data' => $operation['data'],
                 ],
+                'data' => $actionResult, // Include any data returned by the action
             ];
-        } finally {
-            $collector->stopCollecting();
         }
+
+        return [
+            'success' => true,
+            'operations' => $results,
+            'summary' => [
+                'total' => count($results),
+                'successful' => count($results),
+                'failed' => 0,
+            ],
+        ];
+    }
+
+    /**
+     * Organize operations by table.operation type for easy access
+     * Returns structure: ['table.operation' => [operation_data, ...]]
+     */
+    private function organizeOperationsByType(array $operations): array
+    {
+        $organized = [];
+
+        foreach ($operations as $operation) {
+            $table = $operation['table'];
+            $operationType = $operation['operation'];
+            $key = "{$table}.{$operationType}";
+
+            if (! isset($organized[$key])) {
+                $organized[$key] = [];
+            }
+
+            $organized[$key][] = $operation['data'];
+        }
+
+        return $organized;
     }
 
     /**
@@ -285,32 +334,32 @@ abstract class ChorusAction implements ChorusActionInterface
 
                 // Create a clean request for this execution
                 $executionRequest = new Request();
+                $organizedOperations = $this->organizeOperationsByType($operations);
+
+                // Store organized operations in class property for getOperations method access
+                $this->operations = $organizedOperations;
+
                 $executionRequest->merge([
-                    'operations' => $operations,
+                    'operations' => $organizedOperations,
                     'data' => $request->input('data', []),
                 ]);
 
-                $collector = new ActionCollector();
-                $collector->startCollecting($operations);
+                // Execute the user-defined action logic for this execution
+                $actionResult = $this->handle($executionRequest);
 
-                try {
-                    // Execute the user-defined action logic for this execution
-                    $this->handle($executionRequest, $collector);
-
-                    // Get results of operations for this execution
-                    $executionResults = $collector->getOperationResults();
-
-                    // Add execution results to the overall results
-                    foreach ($executionResults as $result) {
-                        $allResults[] = $result;
-                        if ($result['success']) {
-                            $totalSuccess++;
-                        } else {
-                            $totalFailed++;
-                        }
-                    }
-                } finally {
-                    $collector->stopCollecting();
+                // Convert operations to results format for this execution
+                foreach ($operations as $operation) {
+                    $allResults[] = [
+                        'success' => true,
+                        'index' => count($allResults),
+                        'operation' => [
+                            'table' => $operation['table'],
+                            'operation' => $operation['operation'],
+                            'data' => $operation['data'],
+                        ],
+                        'data' => $actionResult,
+                    ];
+                    $totalSuccess++;
                 }
             } catch (Exception $e) {
                 // If an execution fails, mark all its operations as failed

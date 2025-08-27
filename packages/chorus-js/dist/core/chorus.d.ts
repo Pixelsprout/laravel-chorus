@@ -40,6 +40,7 @@ export declare class ChorusCore {
     private debugMode;
     private readyPromise;
     private resolveReady;
+    private isSetup;
     constructor(options?: {
         debugMode: boolean;
     });
@@ -63,6 +64,10 @@ export declare class ChorusCore {
      */
     setup(userId: string | number, onRejectedHarmonic?: (harmonic: HarmonicEvent) => void, onSchemaVersionChange?: (oldVersion: string | null, newVersion: string) => void, onDatabaseVersionChange?: (oldVersion: string | null, newVersion: string) => void, onTableStatesChange?: (tableStates: Record<string, TableState>) => void): void;
     /**
+     * Clean up ChorusCore resources
+     */
+    cleanup(): void;
+    /**
      * Fetch schema from server and initialize database
      */
     fetchAndInitializeSchema(): Promise<Record<string, any>>;
@@ -70,6 +75,10 @@ export declare class ChorusCore {
      * Get the current schema
      */
     getSchema(): Record<string, any>;
+    /**
+     * Generate a hash of the schema to detect changes
+     */
+    private generateSchemaHash;
     /**
      * Rebuild the database by deleting it and clearing stored harmonic IDs
      */

@@ -8,14 +8,15 @@ import type { ReactChorusProviderProps } from "../../shared/provider-types";
 import React from "react";
 import {Collection, Table} from "dexie";
 
-// Create a new ChorusCore instance
-const chorusCore = new ChorusCore();
+// Create a new ChorusCore instance per provider instance
+// This prevents shared state issues across component remounts
 
 // Define the context state structure
 interface ChorusContextState {
   isInitialized: boolean;
   tables: Record<string, TableState>;
   schema: Record<string, any>;
+  chorusCore: ChorusCore | null;
 }
 
 // Create the context with default values
@@ -23,6 +24,7 @@ const ChorusContext = createContext<ChorusContextState>({
   isInitialized: false,
   tables: {},
   schema: {},
+  chorusCore: null,
 });
 
 const HarmonicListener: React.FC<{
@@ -44,12 +46,14 @@ export function ChorusProvider({
   onDatabaseVersionChange,
   debugMode,
 }: ReactChorusProviderProps) {
+  // Create a new ChorusCore instance for this component instance
+  // This prevents shared state issues across component remounts
+  const [chorusCore] = useState(() => new ChorusCore({ debugMode: debugMode ?? false }));
+  
   const [isInitialized, setIsInitialized] = useState(false);
   const [tables, setTables] = useState<Record<string, TableState>>({});
   const [schema, setSchema] = useState<Record<string, any>>({});
   const [initializationError, setInitializationError] = useState<string | null>(null);
-
-  if (debugMode) chorusCore.setDebugMode(debugMode);
 
   const handleHarmonicEvent = async (event: HarmonicEvent) => {
     // if (!chorusCore.getIsInitialized()) return;
@@ -201,6 +205,14 @@ export function ChorusProvider({
     initialize();
     return () => {
       isCancelled = true;
+      // Cleanup ChorusCore when component unmounts
+      try {
+        if (chorusCore && typeof chorusCore.cleanup === 'function') {
+          chorusCore.cleanup();
+        }
+      } catch (err) {
+        console.error("[Chorus] Error during cleanup:", err);
+      }
     };
   }, [userId, channelPrefix, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange]);
 
@@ -208,7 +220,8 @@ export function ChorusProvider({
     isInitialized,
     tables,
     schema,
-  }), [isInitialized, tables, schema]);
+    chorusCore,
+  }), [isInitialized, tables, schema, chorusCore]);
 
   // Show initialization error if there is one
   if (initializationError) {
@@ -260,7 +273,11 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
     error: null,
   };
 
+  const { chorusCore } = useChorus();
+  
   const data = useLiveQuery<T[]>(async () => {
+    if (!chorusCore) return [];
+    
     await chorusCore.waitUntilReady(); // blocks until DB is initialized
 
     // Check if the specific table exists
@@ -317,7 +334,7 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
       }
     }
 
-    const deltaTable = chorusCore.getDb()?.table(deltaTableName);
+    const deltaTable = chorusCore?.getDb()?.table(deltaTableName);
     if (!deltaTable) return merged;
 
     const pendingDeletes = await deltaTable
@@ -334,7 +351,7 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
 
   const actions: HarmonicActions<T, TInput> = useMemo(() => ({
     create: async (data, sideEffect) => {
-      const db = chorusCore.getDb();
+      const db = chorusCore?.getDb();
       if (!db) return;
       const shadowTable = db.table(shadowTableName);
       const deltaTable = db.table(deltaTableName);
@@ -351,7 +368,7 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
       }
     },
     update: async (data, sideEffect) => {
-      const db = chorusCore.getDb();
+      const db = chorusCore?.getDb();
       if (!db) return;
       const shadowTable = db.table(shadowTableName);
       const deltaTable = db.table(deltaTableName);
@@ -368,7 +385,7 @@ export function useHarmonics<T extends { id: string | number}, TInput = never>(
       }
     },
     delete: async (data, sideEffect) => {
-      const db = chorusCore.getDb();
+      const db = chorusCore?.getDb();
       if (!db) return;
       const shadowTable = db.table(shadowTableName);
       const deltaTable = db.table(deltaTableName);

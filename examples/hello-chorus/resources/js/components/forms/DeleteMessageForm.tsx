@@ -26,15 +26,22 @@ export default function DeleteMessageForm({
         try {
             setIsDeleting(true);
 
-            // Use new ChorusAction API
-            const result = await deleteMessageAction((writes) => {
-                writes.messages.delete({
+            // Use new simplified ChorusAction API
+            const result = await deleteMessageAction(({ remove, update }) => {
+                // Delete the message
+                remove('messages', {
                     id: deletingMessage.id
                 });
-                writes.users.update({
-                    id: auth.user.id,
+
+                // Update user's last activity
+                update('users', {
+                    id: auth.user.id.toString(),
                     last_activity_at: new Date().toISOString(),
-                })
+                });
+
+                return {
+                    test_item: 'test message delete',
+                };
             });
 
             if (result.success) {

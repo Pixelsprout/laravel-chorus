@@ -48,18 +48,23 @@ export default function UpdateMessageForm({
             if (!editingMessage) return;
 
             try {
-                // Use new ChorusAction API
-                const result = await updateMessageAction((writes) => {
-                    writes.messages.update({
+                // Use new simplified ChorusAction API
+                const result = await updateMessageAction(({ update }) => {
+                    // Update the message
+                    update('messages', {
                         id: editingMessage.id,
                         body: value.message,
-                        platform_id: value.platformId,
                     });
 
-                    writes.users.update({
-                        id: auth.user.id,
+                    // Update user's last activity
+                    update('users', {
+                        id: auth.user.id.toString(),
                         last_activity_at: new Date().toISOString(),
-                    })
+                    });
+
+                    return {
+                        test_item: 'test message update',
+                    };
                 });
 
                 if (result.success) {
@@ -152,7 +157,13 @@ export default function UpdateMessageForm({
                                 name="message"
                                 validators={{
                                     onChange: ({ value }) =>
-                                        !value ? 'Message is required' : undefined,
+                                        !value 
+                                            ? 'Message is required' 
+                                            : value.length > 1000 
+                                                ? 'Message may not be greater than 1000 characters'
+                                                : value.length < 3
+                                                    ? 'Please enter a message longer than 3 characters'
+                                                    : undefined,
                                 }}
                                 children={(field) => (
                                     <>

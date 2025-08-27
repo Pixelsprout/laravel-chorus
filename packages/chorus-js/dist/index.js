@@ -5,8 +5,8 @@ export { OfflineManager, offlineManager, } from "./core/offline";
 export { offlineFetch } from "./core/fetch";
 export { InertiaOfflineWrapper, createOfflineRouter } from "./core/inertia-offline";
 // Export ChorusActionsAPI for modern callback-style actions
-export { ChorusActionsAPI, } from "./core/chorus-actions";
-export { ClientWritesCollector, createWritesProxy, } from "./core/writes-collector";
+export { ChorusActionsAPI, getGlobalChorusActionsAPI, connectChorusActionsAPI, } from "./core/chorus-actions";
+export { ClientWritesCollector, createWritesProxy, createActionContext, } from "./core/writes-collector";
 // CSRF tokens are handled automatically by axios when configured in Laravel
 export { WriteActionsAPI, writeActions, writeActionsAPI, TableWriteActions, EnhancedWriteActionsAPI } from "./core/write-actions";
 // The schema is imported directly from the application's _generated directory

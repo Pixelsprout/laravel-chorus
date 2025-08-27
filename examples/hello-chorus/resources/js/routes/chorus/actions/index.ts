@@ -1,7 +1,7 @@
 import { queryParams, type QueryParams } from './../../../wayfinder'
 /**
 * @see \App\Actions\ChorusActions\CreateMessageWithActivityAction::createMessageWithActivity
-* @see app/Actions/ChorusActions/CreateMessageWithActivityAction.php:20
+* @see app/Actions/ChorusActions/CreateMessageWithActivityAction.php:22
 * @route '/api/actions/create-message-with-activity'
 */
 export const createMessageWithActivity = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -19,7 +19,7 @@ createMessageWithActivity.definition = {
 
 /**
 * @see \App\Actions\ChorusActions\CreateMessageWithActivityAction::createMessageWithActivity
-* @see app/Actions/ChorusActions/CreateMessageWithActivityAction.php:20
+* @see app/Actions/ChorusActions/CreateMessageWithActivityAction.php:22
 * @route '/api/actions/create-message-with-activity'
 */
 createMessageWithActivity.url = (options?: { query?: QueryParams, mergeQuery?: QueryParams }) => {
@@ -28,7 +28,7 @@ createMessageWithActivity.url = (options?: { query?: QueryParams, mergeQuery?: Q
 
 /**
 * @see \App\Actions\ChorusActions\CreateMessageWithActivityAction::createMessageWithActivity
-* @see app/Actions/ChorusActions/CreateMessageWithActivityAction.php:20
+* @see app/Actions/ChorusActions/CreateMessageWithActivityAction.php:22
 * @route '/api/actions/create-message-with-activity'
 */
 createMessageWithActivity.post = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -41,7 +41,7 @@ createMessageWithActivity.post = (options?: { query?: QueryParams, mergeQuery?: 
 
 /**
 * @see \App\Actions\ChorusActions\UpdateMessageAction::updateMessage
-* @see app/Actions/ChorusActions/UpdateMessageAction.php:20
+* @see app/Actions/ChorusActions/UpdateMessageAction.php:22
 * @route '/api/actions/update-message'
 */
 export const updateMessage = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -59,7 +59,7 @@ updateMessage.definition = {
 
 /**
 * @see \App\Actions\ChorusActions\UpdateMessageAction::updateMessage
-* @see app/Actions/ChorusActions/UpdateMessageAction.php:20
+* @see app/Actions/ChorusActions/UpdateMessageAction.php:22
 * @route '/api/actions/update-message'
 */
 updateMessage.url = (options?: { query?: QueryParams, mergeQuery?: QueryParams }) => {
@@ -68,7 +68,7 @@ updateMessage.url = (options?: { query?: QueryParams, mergeQuery?: QueryParams }
 
 /**
 * @see \App\Actions\ChorusActions\UpdateMessageAction::updateMessage
-* @see app/Actions/ChorusActions/UpdateMessageAction.php:20
+* @see app/Actions/ChorusActions/UpdateMessageAction.php:22
 * @route '/api/actions/update-message'
 */
 updateMessage.post = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -81,7 +81,7 @@ updateMessage.post = (options?: { query?: QueryParams, mergeQuery?: QueryParams 
 
 /**
 * @see \App\Actions\ChorusActions\DeleteMessageAction::deleteMessage
-* @see app/Actions/ChorusActions/DeleteMessageAction.php:20
+* @see app/Actions/ChorusActions/DeleteMessageAction.php:22
 * @route '/api/actions/delete-message'
 */
 export const deleteMessage = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -99,7 +99,7 @@ deleteMessage.definition = {
 
 /**
 * @see \App\Actions\ChorusActions\DeleteMessageAction::deleteMessage
-* @see app/Actions/ChorusActions/DeleteMessageAction.php:20
+* @see app/Actions/ChorusActions/DeleteMessageAction.php:22
 * @route '/api/actions/delete-message'
 */
 deleteMessage.url = (options?: { query?: QueryParams, mergeQuery?: QueryParams }) => {
@@ -108,7 +108,7 @@ deleteMessage.url = (options?: { query?: QueryParams, mergeQuery?: QueryParams }
 
 /**
 * @see \App\Actions\ChorusActions\DeleteMessageAction::deleteMessage
-* @see app/Actions/ChorusActions/DeleteMessageAction.php:20
+* @see app/Actions/ChorusActions/DeleteMessageAction.php:22
 * @route '/api/actions/delete-message'
 */
 deleteMessage.post = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {

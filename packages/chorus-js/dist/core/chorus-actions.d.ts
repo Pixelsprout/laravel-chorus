@@ -1,4 +1,4 @@
-import { WriteOperation, WritesProxy } from './writes-collector';
+import { WriteOperation, ActionContextLike } from './writes-collector';
 import { ChorusCore } from './chorus';
 export interface ValidationError {
     field: string;
@@ -59,7 +59,7 @@ export declare class ChorusActionsAPI {
     /**
      * Execute a ChorusAction with callback-style writes collection
      */
-    executeActionWithCallback(actionName: string, callback: (writes: WritesProxy) => any, options?: {
+    executeActionWithCallback(actionName: string, callback: (actionContext: ActionContextLike) => any, options?: {
         optimistic?: boolean;
         offline?: boolean;
         validate?: boolean;
@@ -72,6 +72,16 @@ export declare class ChorusActionsAPI {
         optimistic?: boolean;
         offline?: boolean;
         batch?: boolean;
+    }): Promise<ChorusActionResponse>;
+    /**
+     * Execute a ChorusAction with simplified ActionContext-style API
+     * This provides the same API as the server-side ActionContext
+     */
+    executeActionWithContext(actionName: string, callback: (context: ActionContextLike) => any, options?: {
+        optimistic?: boolean;
+        offline?: boolean;
+        validate?: boolean;
+        validationSchema?: any;
     }): Promise<ChorusActionResponse>;
     /**
      * Execute a batch of actions

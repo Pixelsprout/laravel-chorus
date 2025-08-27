@@ -7,7 +7,8 @@
       "Bash(rg:*)",
       "Bash(npm run build:*)",
       "Bash(npm run lint:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(./vendor/bin/pest:*)"
     ]
   },
   "enableAllProjectMcpServers": false

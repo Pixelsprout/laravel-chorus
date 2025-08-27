@@ -37,6 +37,7 @@ export class ChorusCore {
         this.isRebuilding = false;
         this.debugMode = false;
         this.readyPromise = null;
+        this.isSetup = false;
         this.debugMode = (_a = options.debugMode) !== null && _a !== void 0 ? _a : false;
         this.readyPromise = new Promise((resolve) => {
             this.resolveReady = resolve;
@@ -75,8 +76,6 @@ export class ChorusCore {
             try {
                 // Process any pending offline requests first
                 yield offlineManager.processPendingRequests();
-                // Don't sync harmonics here - they will come through WebSocket channels
-                // The bulk sync would conflict with optimistic updates from offline requests
             }
             catch (err) {
                 console.error("Error during online reconnection:", err);
@@ -104,6 +103,16 @@ export class ChorusCore {
      * Set up the ChorusCore with a userId and optional fallback schema
      */
     setup(userId, onRejectedHarmonic, onSchemaVersionChange, onDatabaseVersionChange, onTableStatesChange) {
+        // Prevent multiple setup calls with the same userId
+        if (this.isSetup && this.userId === userId) {
+            this.log("ChorusCore already setup for this userId, skipping");
+            return;
+        }
+        // If setup is being called with a different userId, we need to clean up first
+        if (this.isSetup && this.userId !== userId) {
+            this.log(`ChorusCore userId changing from ${this.userId} to ${userId}, cleaning up`);
+            this.cleanup();
+        }
         this.userId = userId;
         this.onRejectedHarmonic = onRejectedHarmonic;
         this.onSchemaVersionChange = onSchemaVersionChange;
@@ -111,8 +120,30 @@ export class ChorusCore {
         this.onTableStatesChange = onTableStatesChange;
         const dbName = `chorus_db_${userId || "guest"}`;
         this.db = createChorusDb(dbName);
+        this.isSetup = true;
         // Don't initialize schema here - it will be fetched from server
         this.log("Setting up ChorusCore with userId", userId);
+    }
+    /**
+     * Clean up ChorusCore resources
+     */
+    cleanup() {
+        this.log("Cleaning up ChorusCore resources");
+        // Close database connection if it exists
+        if (this.db && this.db.isOpen()) {
+            this.db.close();
+        }
+        // Reset state
+        this.db = null;
+        this.isSetup = false;
+        this.isInitialized = false;
+        this.schema = {};
+        this.tableStates = {};
+        this.processedRejectedHarmonics.clear();
+        // Reset ready promise
+        this.readyPromise = new Promise((resolve) => {
+            this.resolveReady = resolve;
+        });
     }
     /**
      * Fetch schema from server and initialize database
@@ -132,19 +163,20 @@ export class ChorusCore {
                 // Store the schema in the class property
                 this.schema = schema;
                 this.log("Received schema from server", { schema, schemaVersion: newSchemaVersion, databaseVersion: newDatabaseVersion });
-                // Check if schema version has changed
-                const currentSchemaVersion = localStorage.getItem(`chorus_schema_version_${this.userId}`);
-                const schemaVersionChanged = currentSchemaVersion && newSchemaVersion && currentSchemaVersion !== newSchemaVersion.toString();
+                // Check if schema has changed by comparing hashes
+                const currentSchemaHash = localStorage.getItem(`chorus_schema_hash_${this.userId}`);
+                const newSchemaHash = this.generateSchemaHash(schema);
+                const schemaChanged = currentSchemaHash && currentSchemaHash !== newSchemaHash;
                 // Check if database version has changed (migrations were run)
                 const currentDatabaseVersion = localStorage.getItem(`chorus_database_version_${this.userId}`);
                 const databaseVersionChanged = currentDatabaseVersion && newDatabaseVersion && currentDatabaseVersion !== newDatabaseVersion.toString();
-                const shouldRebuildDb = schemaVersionChanged || databaseVersionChanged;
+                const shouldRebuildDb = schemaChanged || databaseVersionChanged;
                 if (shouldRebuildDb) {
-                    if (schemaVersionChanged) {
-                        this.log(`Schema version changed from ${currentSchemaVersion} to ${newSchemaVersion}, rebuilding database...`);
-                        // Notify about schema version change
+                    if (schemaChanged) {
+                        this.log(`Schema hash changed from ${currentSchemaHash} to ${newSchemaHash}, rebuilding database...`);
+                        // Notify about schema change (using hash instead of version)
                         if (this.onSchemaVersionChange) {
-                            this.onSchemaVersionChange(currentSchemaVersion, newSchemaVersion.toString());
+                            this.onSchemaVersionChange(currentSchemaHash, newSchemaHash);
                         }
                     }
                     if (databaseVersionChanged) {
@@ -156,10 +188,8 @@ export class ChorusCore {
                     }
                     this.isRebuilding = true;
                     yield this.rebuildDatabase();
-                    // Store versions AFTER rebuild to ensure they're updated
-                    if (newSchemaVersion) {
-                        localStorage.setItem(`chorus_schema_version_${this.userId}`, newSchemaVersion.toString());
-                    }
+                    // Store hash and version AFTER rebuild to ensure they're updated
+                    localStorage.setItem(`chorus_schema_hash_${this.userId}`, newSchemaHash);
                     if (newDatabaseVersion) {
                         localStorage.setItem(`chorus_database_version_${this.userId}`, newDatabaseVersion.toString());
                     }
@@ -174,10 +204,8 @@ export class ChorusCore {
                     this.isRebuilding = false;
                 }
                 else {
-                    // Store versions for future reference
-                    if (newSchemaVersion) {
-                        localStorage.setItem(`chorus_schema_version_${this.userId}`, newSchemaVersion.toString());
-                    }
+                    // Store hash and version for future reference
+                    localStorage.setItem(`chorus_schema_hash_${this.userId}`, newSchemaHash);
                     if (newDatabaseVersion) {
                         localStorage.setItem(`chorus_database_version_${this.userId}`, newDatabaseVersion.toString());
                     }
@@ -200,11 +228,26 @@ export class ChorusCore {
         return this.schema;
     }
     /**
+     * Generate a hash of the schema to detect changes
+     */
+    generateSchemaHash(tables) {
+        const sortedKeys = Object.keys(tables).sort();
+        const schemaString = sortedKeys.map(key => `${key}:${tables[key]}`).join('|');
+        let hash = 0;
+        for (let i = 0; i < schemaString.length; i++) {
+            const char = schemaString.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32-bit integer
+        }
+        return Math.abs(hash).toString();
+    }
+    /**
      * Rebuild the database by deleting it and clearing stored harmonic IDs
      */
     rebuildDatabase() {
         return __awaiter(this, void 0, void 0, function* () {
             var _a;
+            console.log("Rebuilding database...");
             try {
                 if (this.db && this.db.isOpen()) {
                     yield this.db.close();
@@ -234,6 +277,8 @@ export class ChorusCore {
                 return;
             }
             this.log("Starting full resync for all tables...");
+            // Track the highest harmonic ID from all table responses
+            let maxHarmonicId = null;
             for (const tableName of this.tableNames) {
                 try {
                     // Set table to loading state
@@ -250,9 +295,12 @@ export class ChorusCore {
                         this.log(`Failed to sync ${tableName}: ${response.status}`);
                     }
                     const responseData = yield response.json();
-                    // Save latest harmonic ID
+                    // Track the highest harmonic ID across all tables
                     if (responseData.latest_harmonic_id) {
-                        this.saveLatestHarmonicId(responseData.latest_harmonic_id);
+                        const currentHarmonicId = responseData.latest_harmonic_id;
+                        if (!maxHarmonicId || parseInt(currentHarmonicId) > parseInt(maxHarmonicId)) {
+                            maxHarmonicId = currentHarmonicId;
+                        }
                     }
                     // Clear the table first to ensure clean state
                     yield this.db.table(tableName).clear();
@@ -269,6 +317,12 @@ export class ChorusCore {
                     // Update state with error
                     this.updateTableState(tableName, Object.assign(Object.assign({}, this.getTableState(tableName)), { isLoading: false, error: `Failed to resync ${tableName}: ${err instanceof Error ? err.message : String(err)}` }));
                 }
+            }
+            // Save the highest harmonic ID found across all tables
+            // This prevents race conditions where older harmonic IDs overwrite newer ones
+            if (maxHarmonicId) {
+                this.log(`Saving maximum harmonic ID from full resync: ${maxHarmonicId}`);
+                this.saveLatestHarmonicId(maxHarmonicId);
             }
             this.log("Full resync completed");
         });
@@ -345,6 +399,7 @@ export class ChorusCore {
      */
     processHarmonics(harmonics, tableName) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             if (!this.db) {
                 throw new SyncError("Database not initialized");
             }
@@ -406,6 +461,8 @@ export class ChorusCore {
                 if (operations.length) {
                     yield Promise.all(operations);
                 }
+                // Only save the latest harmonic ID if all operations succeeded
+                // If we get here, all harmonics were processed successfully
                 this.saveLatestHarmonicId(harmonics[harmonics.length - 1].id);
                 if (errors.length) {
                     errors.forEach((error) => console.error(error));
@@ -414,6 +471,20 @@ export class ChorusCore {
             }
             catch (err) {
                 console.error(`Error during batch processing for ${tableName}:`, err);
+                // Check if this is a duplicate key error from bulkAdd
+                // This indicates localStorage harmonic ID is out of sync
+                if (err && typeof err === 'object' && 'name' in err && err.name === 'BulkError') {
+                    const bulkError = err;
+                    if (bulkError.failures && bulkError.failures.some((f) => f.name === 'ConstraintError' && f.message && f.message.includes('Key already exists'))) {
+                        this.log(`Detected duplicate key error - localStorage harmonic ID is out of sync. Clearing stored ID to force full resync.`);
+                        // Clear the stored harmonic ID to force a full resync on next reload
+                        localStorage.removeItem(getLatestHarmonicIdKey((_a = this.userId) === null || _a === void 0 ? void 0 : _a.toString()));
+                        // Also trigger a database rebuild to ensure clean state
+                        this.log(`Triggering database rebuild due to sync inconsistency`);
+                        yield this.rebuildDatabase();
+                        return true; // Don't throw error, let the rebuild handle it
+                    }
+                }
                 throw new SyncError(`Failed to process harmonics batch for ${tableName}`, err instanceof Error ? err : new Error(String(err)));
             }
         });
@@ -510,6 +581,8 @@ export class ChorusCore {
             });
             // Get the latest harmonic ID once for all tables
             const latestHarmonicId = this.getLatestHarmonicId();
+            // Track the maximum harmonic ID across all table responses
+            let maxHarmonicId = latestHarmonicId;
             for (const tableName of this.tableNames) {
                 try {
                     // Check if we have data already
@@ -534,16 +607,14 @@ export class ChorusCore {
                         console.error("Error response body:", errorText);
                     }
                     const responseData = yield response.json();
-                    // Save latest harmonic ID - always update to the latest from server
+                    // Track the maximum harmonic ID from this table's response
                     if (responseData.latest_harmonic_id) {
-                        const currentId = this.getLatestHarmonicId();
                         const newId = responseData.latest_harmonic_id;
-                        // Always save the latest ID from the server response
-                        // The server should only send this if there were harmonics processed
-                        if (newId) {
-                            this.log(`Updating latest harmonic ID: ${currentId} -> ${newId}`);
-                            this.saveLatestHarmonicId(newId);
+                        // Update maxHarmonicId if this one is newer
+                        if (!maxHarmonicId || newId > maxHarmonicId) {
+                            maxHarmonicId = newId;
                         }
+                        this.log(`Table ${tableName} latest harmonic ID: ${newId}`);
                     }
                     // Process the data
                     if (isInitialSync && responseData.records) {
@@ -571,6 +642,12 @@ export class ChorusCore {
                     // Update state with error
                     this.updateTableState(tableName, Object.assign(Object.assign({}, this.getTableState(tableName)), { isLoading: false, error: `Failed to sync ${tableName} data: ${err instanceof Error ? err.message : String(err)}` }));
                 }
+            }
+            // Save the maximum harmonic ID found across all table responses
+            // This prevents race conditions where older harmonic IDs overwrite newer ones
+            if (maxHarmonicId && maxHarmonicId !== latestHarmonicId) {
+                this.log(`Saving maximum harmonic ID from initialization: ${latestHarmonicId} -> ${maxHarmonicId}`);
+                this.saveLatestHarmonicId(maxHarmonicId);
             }
             // Mark as initialized
             this.isInitialized = true;

@@ -1,5 +1,5 @@
 // Auto-generated TypeScript interfaces for Chorus models
-// Generated on 2025-08-16 09:14:51
+// Generated on 2025-08-19 20:30:58
 
 export interface User {
   id: string;

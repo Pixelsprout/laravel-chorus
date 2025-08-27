@@ -46,29 +46,29 @@ export default function CreateMessageForm({
             message: '',
         },
         onSubmit: async ({ value, formApi }) => {
-            // Execute the new ChorusAction with callback-style API
-            const result = await createMessageWithActivityAction((writes) => {
+            // Execute the new ChorusAction with simplified context API
+            const result = await createMessageWithActivityAction(({ create, update }) => {
                 // Create the message (UUID auto-generated)
-                writes.messages.create({
+                create('messages', {
                     body: value.message,
                     platform_id: value.platformId,
                     user_id: auth.user.id,
-                    tenant_id: parseInt(auth.user.tenant_id), // Ensure it's a number
+                    tenant_id: auth.user.tenant_id,
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString(),
                 });
 
                 // Update user's last activity (handled automatically by the action)
-                writes.users.update({
+                update('users', {
                     id: auth.user.id,
                     last_activity_at: new Date().toISOString(),
                 });
 
                 // Update platform metrics (handled automatically by the action)
-                writes.platforms.update({
+                update('platforms', {
                     id: value.platformId,
                     last_message_at: new Date().toISOString(),
-                });
+            });
 
                 return {
                     test_item: 'test message',
@@ -202,8 +202,8 @@ export default function CreateMessageForm({
                                     // Test client-side validation with invalid data
                                     try {
                                         // Execute the ChorusAction with invalid data to test client-side validation
-                                        const result = await createMessageWithActivityAction((writes) => {
-                                            writes.messages.create({
+                                        const result = await createMessageWithActivityAction(({ create }) => {
+                                            create('messages', {
                                                 body: '', // This will fail validation (empty message)
                                                 platform_id: 'invalid-platform-id', // This will fail UUID validation
                                                 user_id: auth.user.id,

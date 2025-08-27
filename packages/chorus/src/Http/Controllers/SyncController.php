@@ -161,10 +161,13 @@ final class SyncController extends Controller
 
             $harmonics = $harmonicsQuery->orderBy('id')->take($limit)->get();
 
-            $latestHarmonicId =
-                $harmonics->count() > 0
-                    ? $harmonics->last()->id
-                    : $afterHarmonicId ?? null;
+            // Always get the actual latest harmonic ID for this table
+            // Don't fall back to $afterHarmonicId as that can cause sync issues
+            $actualLatestHarmonic = Harmonic::where('table_name', $table)
+                ->latest('id')
+                ->first();
+
+            $latestHarmonicId = $actualLatestHarmonic ? $actualLatestHarmonic->id : null;
 
             return response()
                 ->json([
