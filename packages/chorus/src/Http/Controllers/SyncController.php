@@ -166,7 +166,7 @@ final class SyncController extends Controller
             $actualLatestHarmonic = Harmonic::where('table_name', $table)
                 ->latest('id')
                 ->first();
-            
+
             $latestHarmonicId = $actualLatestHarmonic ? $actualLatestHarmonic->id : null;
 
             return response()
