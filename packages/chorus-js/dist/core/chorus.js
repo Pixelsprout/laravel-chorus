@@ -163,19 +163,20 @@ export class ChorusCore {
                 // Store the schema in the class property
                 this.schema = schema;
                 this.log("Received schema from server", { schema, schemaVersion: newSchemaVersion, databaseVersion: newDatabaseVersion });
-                // Check if schema version has changed
-                const currentSchemaVersion = localStorage.getItem(`chorus_schema_version_${this.userId}`);
-                const schemaVersionChanged = currentSchemaVersion && newSchemaVersion && currentSchemaVersion !== newSchemaVersion.toString();
+                // Check if schema has changed by comparing hashes
+                const currentSchemaHash = localStorage.getItem(`chorus_schema_hash_${this.userId}`);
+                const newSchemaHash = this.generateSchemaHash(schema);
+                const schemaChanged = currentSchemaHash && currentSchemaHash !== newSchemaHash;
                 // Check if database version has changed (migrations were run)
                 const currentDatabaseVersion = localStorage.getItem(`chorus_database_version_${this.userId}`);
                 const databaseVersionChanged = currentDatabaseVersion && newDatabaseVersion && currentDatabaseVersion !== newDatabaseVersion.toString();
-                const shouldRebuildDb = schemaVersionChanged || databaseVersionChanged;
+                const shouldRebuildDb = schemaChanged || databaseVersionChanged;
                 if (shouldRebuildDb) {
-                    if (schemaVersionChanged) {
-                        this.log(`Schema version changed from ${currentSchemaVersion} to ${newSchemaVersion}, rebuilding database...`);
-                        // Notify about schema version change
+                    if (schemaChanged) {
+                        this.log(`Schema hash changed from ${currentSchemaHash} to ${newSchemaHash}, rebuilding database...`);
+                        // Notify about schema change (using hash instead of version)
                         if (this.onSchemaVersionChange) {
-                            this.onSchemaVersionChange(currentSchemaVersion, newSchemaVersion.toString());
+                            this.onSchemaVersionChange(currentSchemaHash, newSchemaHash);
                         }
                     }
                     if (databaseVersionChanged) {
@@ -187,10 +188,8 @@ export class ChorusCore {
                     }
                     this.isRebuilding = true;
                     yield this.rebuildDatabase();
-                    // Store versions AFTER rebuild to ensure they're updated
-                    if (newSchemaVersion) {
-                        localStorage.setItem(`chorus_schema_version_${this.userId}`, newSchemaVersion.toString());
-                    }
+                    // Store hash and version AFTER rebuild to ensure they're updated
+                    localStorage.setItem(`chorus_schema_hash_${this.userId}`, newSchemaHash);
                     if (newDatabaseVersion) {
                         localStorage.setItem(`chorus_database_version_${this.userId}`, newDatabaseVersion.toString());
                     }
@@ -205,10 +204,8 @@ export class ChorusCore {
                     this.isRebuilding = false;
                 }
                 else {
-                    // Store versions for future reference
-                    if (newSchemaVersion) {
-                        localStorage.setItem(`chorus_schema_version_${this.userId}`, newSchemaVersion.toString());
-                    }
+                    // Store hash and version for future reference
+                    localStorage.setItem(`chorus_schema_hash_${this.userId}`, newSchemaHash);
                     if (newDatabaseVersion) {
                         localStorage.setItem(`chorus_database_version_${this.userId}`, newDatabaseVersion.toString());
                     }
@@ -229,6 +226,20 @@ export class ChorusCore {
      */
     getSchema() {
         return this.schema;
+    }
+    /**
+     * Generate a hash of the schema to detect changes
+     */
+    generateSchemaHash(tables) {
+        const sortedKeys = Object.keys(tables).sort();
+        const schemaString = sortedKeys.map(key => `${key}:${tables[key]}`).join('|');
+        let hash = 0;
+        for (let i = 0; i < schemaString.length; i++) {
+            const char = schemaString.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32-bit integer
+        }
+        return Math.abs(hash).toString();
     }
     /**
      * Rebuild the database by deleting it and clearing stored harmonic IDs

@@ -76,6 +76,10 @@ export declare class ChorusCore {
      */
     getSchema(): Record<string, any>;
     /**
+     * Generate a hash of the schema to detect changes
+     */
+    private generateSchemaHash;
+    /**
      * Rebuild the database by deleting it and clearing stored harmonic IDs
      */
     private rebuildDatabase;
