@@ -110,9 +110,6 @@ export class ChorusCore {
     try {
       // Process any pending offline requests first
       await offlineManager.processPendingRequests();
-      
-      // Don't sync harmonics here - they will come through WebSocket channels
-      // The bulk sync would conflict with optimistic updates from offline requests
     } catch (err) {
       console.error("Error during online reconnection:", err);
     }
@@ -227,7 +224,7 @@ export class ChorusCore {
       // Check if database version has changed (migrations were run)
       const currentDatabaseVersion = localStorage.getItem(`chorus_database_version_${this.userId}`);
       const databaseVersionChanged = currentDatabaseVersion && newDatabaseVersion && currentDatabaseVersion !== newDatabaseVersion.toString();
-      
+
       const shouldRebuildDb = schemaVersionChanged || databaseVersionChanged;
       
       if (shouldRebuildDb) {
@@ -304,6 +301,9 @@ export class ChorusCore {
    * Rebuild the database by deleting it and clearing stored harmonic IDs
    */
   private async rebuildDatabase(): Promise<void> {
+
+    console.log("Rebuilding database...");
+
     try {
       if (this.db && this.db.isOpen()) {
         await this.db.close();
@@ -337,6 +337,9 @@ export class ChorusCore {
 
     this.log("Starting full resync for all tables...");
 
+    // Track the highest harmonic ID from all table responses
+    let maxHarmonicId: string | null = null;
+
     for (const tableName of this.tableNames) {
       try {
         // Set table to loading state
@@ -359,9 +362,14 @@ export class ChorusCore {
 
         const responseData = await response.json();
 
-        // Save latest harmonic ID
+
+
+        // Track the highest harmonic ID across all tables
         if (responseData.latest_harmonic_id) {
-          this.saveLatestHarmonicId(responseData.latest_harmonic_id);
+          const currentHarmonicId = responseData.latest_harmonic_id;
+          if (!maxHarmonicId || parseInt(currentHarmonicId) > parseInt(maxHarmonicId)) {
+            maxHarmonicId = currentHarmonicId;
+          }
         }
 
         // Clear the table first to ensure clean state
@@ -386,6 +394,13 @@ export class ChorusCore {
           error: `Failed to resync ${tableName}: ${err instanceof Error ? err.message : String(err)}`,
         });
       }
+    }
+
+    // Save the highest harmonic ID found across all tables
+    // This prevents race conditions where older harmonic IDs overwrite newer ones
+    if (maxHarmonicId) {
+      this.log(`Saving maximum harmonic ID from full resync: ${maxHarmonicId}`);
+      this.saveLatestHarmonicId(maxHarmonicId);
     }
 
     this.log("Full resync completed");
@@ -566,7 +581,7 @@ export class ChorusCore {
         const bulkError = err as any;
         if (bulkError.failures && bulkError.failures.some((f: any) => 
           f.name === 'ConstraintError' && f.message && f.message.includes('Key already exists'))) {
-          
+
           this.log(`Detected duplicate key error - localStorage harmonic ID is out of sync. Clearing stored ID to force full resync.`);
           
           // Clear the stored harmonic ID to force a full resync on next reload
@@ -699,6 +714,9 @@ export class ChorusCore {
 
     // Get the latest harmonic ID once for all tables
     const latestHarmonicId = this.getLatestHarmonicId();
+    
+    // Track the maximum harmonic ID across all table responses
+    let maxHarmonicId: string | null = latestHarmonicId;
 
     for (const tableName of this.tableNames) {
       try {
@@ -731,17 +749,16 @@ export class ChorusCore {
 
         const responseData = await response.json();
 
-        // Save latest harmonic ID - always update to the latest from server
+        // Track the maximum harmonic ID from this table's response
         if (responseData.latest_harmonic_id) {
-          const currentId = this.getLatestHarmonicId();
           const newId = responseData.latest_harmonic_id;
           
-          // Always save the latest ID from the server response
-          // The server should only send this if there were harmonics processed
-          if (newId) {
-            this.log(`Updating latest harmonic ID: ${currentId} -> ${newId}`);
-            this.saveLatestHarmonicId(newId);
+          // Update maxHarmonicId if this one is newer
+          if (!maxHarmonicId || newId > maxHarmonicId) {
+            maxHarmonicId = newId;
           }
+          
+          this.log(`Table ${tableName} latest harmonic ID: ${newId}`);
         }
 
         // Process the data
@@ -780,6 +797,13 @@ export class ChorusCore {
           error: `Failed to sync ${tableName} data: ${err instanceof Error ? err.message : String(err)}`,
         });
       }
+    }
+
+    // Save the maximum harmonic ID found across all table responses
+    // This prevents race conditions where older harmonic IDs overwrite newer ones
+    if (maxHarmonicId && maxHarmonicId !== latestHarmonicId) {
+      this.log(`Saving maximum harmonic ID from initialization: ${latestHarmonicId} -> ${maxHarmonicId}`);
+      this.saveLatestHarmonicId(maxHarmonicId);
     }
 
     // Mark as initialized

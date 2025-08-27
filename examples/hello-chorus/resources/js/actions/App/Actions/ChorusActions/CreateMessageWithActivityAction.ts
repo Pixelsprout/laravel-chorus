@@ -1,7 +1,7 @@
 import { queryParams, type QueryParams } from './../../../../wayfinder'
 /**
 * @see \App\Actions\ChorusActions\CreateMessageWithActivityAction::__invoke
-* @see app/Actions/ChorusActions/CreateMessageWithActivityAction.php:18
+* @see app/Actions/ChorusActions/CreateMessageWithActivityAction.php:22
 * @route '/api/actions/create-message-with-activity'
 */
 const CreateMessageWithActivityAction = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -19,7 +19,7 @@ CreateMessageWithActivityAction.definition = {
 
 /**
 * @see \App\Actions\ChorusActions\CreateMessageWithActivityAction::__invoke
-* @see app/Actions/ChorusActions/CreateMessageWithActivityAction.php:18
+* @see app/Actions/ChorusActions/CreateMessageWithActivityAction.php:22
 * @route '/api/actions/create-message-with-activity'
 */
 CreateMessageWithActivityAction.url = (options?: { query?: QueryParams, mergeQuery?: QueryParams }) => {
@@ -28,7 +28,7 @@ CreateMessageWithActivityAction.url = (options?: { query?: QueryParams, mergeQue
 
 /**
 * @see \App\Actions\ChorusActions\CreateMessageWithActivityAction::__invoke
-* @see app/Actions/ChorusActions/CreateMessageWithActivityAction.php:18
+* @see app/Actions/ChorusActions/CreateMessageWithActivityAction.php:22
 * @route '/api/actions/create-message-with-activity'
 */
 CreateMessageWithActivityAction.post = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {

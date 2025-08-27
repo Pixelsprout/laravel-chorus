@@ -34,23 +34,25 @@ final class DeleteMessageAction extends ChorusAction
         }
 
         // Delete the message using request data
-        $messageData = $request->input('operations')['messages.delete'][0] ?? null;
-        
-        if (!$messageData) {
+        $messageOperations = $this->getOperations('messages', 'delete');
+
+        if (empty($messageOperations)) {
             throw new \Exception('No message data found in request');
         }
 
         // Verify the message belongs to the user's tenant and delete it
-        $message = Message::where('id', $messageData['id'])
-            ->where('tenant_id', $user->tenant_id)
-            ->first();
+        foreach ($messageOperations as $messageData) {
+            $message = Message::where('id', $messageData['id'])
+                ->where('tenant_id', $user->tenant_id)
+                ->first();
 
-        if (!$message) {
-            throw new \Exception('Message not found or unauthorized');
+            if (!$message) {
+                throw new \Exception('Message not found or unauthorized');
+            }
+
+            // Delete the message
+            $message->delete();
         }
-
-        // Delete the message
-        $message->delete();
 
         // Update user's last activity
         User::where('id', $user->id)->update([

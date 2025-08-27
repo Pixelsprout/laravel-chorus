@@ -35,25 +35,27 @@ final class UpdateMessageAction extends ChorusAction
         }
 
         // Update the message using request data
-        $messageData = $request->input('operations')['messages.update'][0] ?? null;
-        
-        if (!$messageData) {
+        $messageUpdateOperation = $this->getOperations('messages', 'update');
+
+        if (empty($messageUpdateOperation)) {
             throw new \Exception('No message data found in request');
         }
 
         // Verify the message belongs to the user's tenant
-        $message = Message::where('id', $messageData['id'])
-            ->where('tenant_id', $user->tenant_id)
-            ->first();
+        foreach ($messageUpdateOperation as $messageData) {
+            $message = Message::where('id', $messageData['id'])
+                ->where('tenant_id', $user->tenant_id)
+                ->first();
 
-        if (!$message) {
-            throw new \Exception('Message not found or unauthorized');
+            if (!$message) {
+                throw new \Exception('Message not found or unauthorized');
+            }
+
+            // Update the message
+            $message->update([
+                'body' => $messageData['body'],
+            ]);
         }
-
-        // Update the message
-        $message->update([
-            'body' => $messageData['body'],
-        ]);
 
         // Update user's last activity
         User::where('id', $user->id)->update([
