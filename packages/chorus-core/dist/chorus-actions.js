@@ -34,19 +34,15 @@ export class ChorusActionsAPI {
         }
     }
     setupOfflineSync() {
-        // Listen for when the browser comes back online
         window.addEventListener('online', () => {
-            console.log('[ChorusActionsAPI] Network restored, attempting to sync offline actions...');
             this.syncOfflineActions().catch(error => {
                 console.error('[ChorusActionsAPI] Failed to sync offline actions after coming online:', error);
             });
         });
-        // Also sync when the page becomes visible (user returns to tab)
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden && navigator.onLine) {
                 const offlineActions = JSON.parse(localStorage.getItem('chorus_offline_actions') || '[]');
                 if (offlineActions.length > 0) {
-                    console.log('[ChorusActionsAPI] Page visible and online, syncing offline actions...');
                     this.syncOfflineActions().catch(error => {
                         console.error('[ChorusActionsAPI] Failed to sync offline actions on visibility change:', error);
                     });
@@ -105,7 +101,7 @@ export class ChorusActionsAPI {
                 }
                 // Handle optimistic updates for online requests
                 if (options.optimistic) {
-                    this.handleOptimisticUpdates(operations, actionName, callbackData);
+                    yield this.handleOptimisticUpdates(operations, actionName, callbackData);
                 }
                 const response = yield this.axios.post(endpoint, requestData);
                 if (response.data.success) {
@@ -215,6 +211,10 @@ export class ChorusActionsAPI {
             const requestData = Object.assign({ operations: operations }, (callbackData && typeof callbackData === 'object' ? { data: callbackData } : {}));
             const endpoint = `/actions/${actionName}`;
             try {
+                // Handle offline mode
+                if (options.offline && this.isOffline()) {
+                    return this.handleOfflineActionWithDelta(actionName, operations, callbackData);
+                }
                 if (options.optimistic && this.chorusCore) {
                     yield this.handleOptimisticUpdates(operations, actionName, callbackData);
                 }
@@ -357,7 +357,6 @@ export class ChorusActionsAPI {
                     yield db.table(shadowTableName).delete(data.id);
                     break;
             }
-            console.log(`[ChorusActionsAPI] Optimistic ${operationType} written for ${table}:`, data);
         });
     }
     handleOfflineActionWithDelta(actionName, operations, actionData) {
@@ -366,7 +365,6 @@ export class ChorusActionsAPI {
             if (this.chorusCore) {
                 yield this.handleOptimisticUpdates(operations, actionName, actionData);
             }
-            console.log(`[ChorusActionsAPI] Stored ${operations.length} operations offline for action: ${actionName}`);
             // Return optimistic response
             return {
                 success: true,
@@ -490,9 +488,6 @@ export class ChorusActionsAPI {
                             synced_at: Date.now()
                         });
                     }
-                    if (pendingDeltas.length > 0) {
-                        console.log(`[ChorusActionsAPI] Marked ${pendingDeltas.length} deltas as synced in ${deltaTableName}`);
-                    }
                 }
                 catch (error) {
                     console.error(`[ChorusActionsAPI] Failed to mark deltas as synced in ${deltaTableName}:`, error);
@@ -529,9 +524,6 @@ export class ChorusActionsAPI {
                             failed_at: Date.now(),
                             error_message: errorMessage
                         });
-                    }
-                    if (pendingDeltas.length > 0) {
-                        console.log(`[ChorusActionsAPI] Marked ${pendingDeltas.length} deltas as failed in ${deltaTableName}`);
                     }
                 }
                 catch (error) {
@@ -640,7 +632,6 @@ export class ChorusActionsAPI {
                     }
                     break;
             }
-            console.log(`[ChorusActionsAPI] Optimistic ${operationType} rolled back for ${table}:`, data);
         });
     }
     /**
@@ -716,7 +707,6 @@ export class ChorusActionsAPI {
             if (pendingActionGroups.size === 0) {
                 return;
             }
-            console.log(`[ChorusActionsAPI] Syncing ${pendingActionGroups.size} action types from deltas...`);
             // Sync each action with all its operations in one request
             for (const [actionName, group] of Array.from(pendingActionGroups.entries())) {
                 try {
@@ -727,7 +717,6 @@ export class ChorusActionsAPI {
                     const endpoint = `/actions/${actionName}`;
                     const response = yield this.axios.post(endpoint, requestData);
                     if (response.data.success) {
-                        console.log(`[ChorusActionsAPI] Successfully synced action: ${actionName} with ${group.operations.length} operations`);
                         yield this.markDeltasAsSynced(actionName);
                     }
                     else {
@@ -904,7 +893,6 @@ export class ChorusActionsAPI {
             const offlineActions = JSON.parse(localStorage.getItem('chorus_offline_actions') || '[]');
             if (offlineActions.length === 0)
                 return;
-            console.log(`[ChorusActionsAPI] Syncing ${offlineActions.length} offline actions from localStorage...`);
             const synced = [];
             const failed = [];
             for (const action of offlineActions) {
@@ -937,11 +925,9 @@ export class ChorusActionsAPI {
                     }
                     if (result.success) {
                         synced.push(action);
-                        console.log(`[ChorusActionsAPI] Successfully synced offline action: ${action.actionName}`);
                     }
                     else {
                         failed.push(action);
-                        console.error(`[ChorusActionsAPI] Failed to sync offline action: ${action.actionName}`, result.error);
                     }
                 }
                 catch (error) {
@@ -954,12 +940,10 @@ export class ChorusActionsAPI {
                 if (failed.length === 0) {
                     // All actions synced successfully, clear storage
                     localStorage.removeItem('chorus_offline_actions');
-                    console.log(`[ChorusActionsAPI] All ${synced.length} offline actions synced successfully`);
                 }
                 else {
                     // Some actions failed, keep only the failed ones
                     localStorage.setItem('chorus_offline_actions', JSON.stringify(failed));
-                    console.log(`[ChorusActionsAPI] ${synced.length} actions synced, ${failed.length} actions remain offline`);
                 }
             }
         });
@@ -984,12 +968,10 @@ export function getGlobalChorusActionsAPI() {
 export function connectChorusActionsAPI(chorusCore, chorusActionsAPI) {
     const api = chorusActionsAPI || getGlobalChorusActionsAPI();
     api.setChorusCore(chorusCore);
-    console.log('[Chorus] ChorusActionsAPI connected to ChorusCore');
     // Trigger initial sync if we're online and have pending actions
     if (navigator.onLine) {
         const offlineActions = JSON.parse(localStorage.getItem('chorus_offline_actions') || '[]');
         if (offlineActions.length > 0) {
-            console.log('[ChorusActionsAPI] Found pending offline actions on initialization, syncing...');
             api.syncOfflineActions().catch(error => {
                 console.error('[ChorusActionsAPI] Failed to sync offline actions on initialization:', error);
             });

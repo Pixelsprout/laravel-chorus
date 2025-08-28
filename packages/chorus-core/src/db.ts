@@ -47,20 +47,10 @@ export class ChorusDatabase extends Dexie {
     let calculatedVersion: number;
     if (forceVersion) {
       calculatedVersion = forceVersion;
-      console.log(`[Chorus] Using forced version: ${calculatedVersion}`);
     } else {
       // Generate a consistent version number from the schema hash
       const hashValue = parseInt(newSchemaHash.substring(0, 8), 16);
       calculatedVersion = (hashValue % 999999) + 1; // Ensure positive and reasonable
-      
-      const hashMatches = this.currentSchemaHash === newSchemaHash;
-      if (!hashMatches && this.schemaInitialized) {
-        console.log(`[Chorus] Schema changed - using hash-based version: ${calculatedVersion}`);
-        console.log(`[Chorus] Old schema hash: ${this.currentSchemaHash}`);
-        console.log(`[Chorus] New schema hash: ${newSchemaHash}`);
-      } else {
-        console.log(`[Chorus] Schema unchanged - using version: ${calculatedVersion}`);
-      }
     }
     
     const hashMatches = this.currentSchemaHash === newSchemaHash;

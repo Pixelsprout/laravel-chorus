@@ -10,7 +10,7 @@ import type { ChorusActionResponse } from '@/_generated/actions';
 import { usePage } from '@inertiajs/react';
 import { type SharedData } from '@/types';
 import { SendIcon, WifiOffIcon } from 'lucide-react';
-import { useOffline } from '@pixelsprout/chorus-js';
+import { useOffline } from '@pixelsprout/chorus-react';
 import { useForm } from '@tanstack/react-form';
 import type { AnyFieldApi } from '@tanstack/react-form';
 

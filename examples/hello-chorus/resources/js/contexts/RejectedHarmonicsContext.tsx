@@ -1,4 +1,4 @@
-import { type HarmonicEvent } from '@chorus/js';
+import { type HarmonicEvent } from '@pixelsprout/chorus-core';
 import { createContext, useContext, useState, useCallback, useMemo, type PropsWithChildren } from 'react';
 
 interface RejectedNotification {

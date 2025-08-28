@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { ClientWritesCollector, createWritesProxy, createActionContext, WriteOperation, ModelProxy, WritesProxy, ActionContextLike } from './writes-collector';
+import { ClientWritesCollector, createActionContext, WriteOperation, ActionContextLike } from './writes-collector';
 import { ChorusCore } from './chorus';
 import { ChorusDatabase } from './db';
 
@@ -69,7 +69,7 @@ export class ChorusActionsAPI {
 
     // Add CSRF token handling for Laravel
     this.setupCSRFHandling();
-    
+
     // Set up automatic offline sync when coming back online
     this.setupOfflineSync();
   }
@@ -83,20 +83,16 @@ export class ChorusActionsAPI {
   }
 
   private setupOfflineSync() {
-    // Listen for when the browser comes back online
     window.addEventListener('online', () => {
-      console.log('[ChorusActionsAPI] Network restored, attempting to sync offline actions...');
       this.syncOfflineActions().catch(error => {
         console.error('[ChorusActionsAPI] Failed to sync offline actions after coming online:', error);
       });
     });
 
-    // Also sync when the page becomes visible (user returns to tab)
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && navigator.onLine) {
         const offlineActions = JSON.parse(localStorage.getItem('chorus_offline_actions') || '[]');
         if (offlineActions.length > 0) {
-          console.log('[ChorusActionsAPI] Page visible and online, syncing offline actions...');
           this.syncOfflineActions().catch(error => {
             console.error('[ChorusActionsAPI] Failed to sync offline actions on visibility change:', error);
           });
@@ -123,18 +119,18 @@ export class ChorusActionsAPI {
    * Execute a ChorusAction with callback-style writes collection
    */
   async executeActionWithCallback(
-    actionName: string,
-    callback: (actionContext: ActionContextLike) => any,
-    options: {
-      optimistic?: boolean;
-      offline?: boolean;
-      validate?: boolean;
-      validationSchema?: any;
-    } = {}
+      actionName: string,
+      callback: (actionContext: ActionContextLike) => any,
+      options: {
+        optimistic?: boolean;
+        offline?: boolean;
+        validate?: boolean;
+        validationSchema?: any;
+      } = {}
   ): Promise<ChorusActionResponse> {
     const collector = new ClientWritesCollector();
     const actionContext = createActionContext(collector);
-    
+
     // Collect writes by executing the callback and capture return value
     collector.startCollecting();
     let callbackData: any = undefined;
@@ -143,9 +139,9 @@ export class ChorusActionsAPI {
     } finally {
       collector.stopCollecting();
     }
-    
+
     const operations = collector.getOperations();
-    
+
     // Client-side validation if enabled and schema provided
     if (options.validate && options.validationSchema) {
       const validationResult = this.validateOperations(operations, callbackData, options.validationSchema);
@@ -157,16 +153,16 @@ export class ChorusActionsAPI {
         };
       }
     }
-    
+
     // Convert operations to the format expected by the server
     const requestData = {
       operations: operations,
       // Include any additional data returned by the callback
-      ...(callbackData && typeof callbackData === 'object' ? { data: callbackData } : {})
+      ...(callbackData && typeof callbackData === 'object' ? {data: callbackData} : {})
     };
-    
+
     const endpoint = `/actions/${actionName}`;
-    
+
     try {
       // Handle offline mode
       if (options.offline && this.isOffline()) {
@@ -175,17 +171,17 @@ export class ChorusActionsAPI {
 
       // Handle optimistic updates for online requests
       if (options.optimistic) {
-        this.handleOptimisticUpdates(operations, actionName, callbackData);
+        await this.handleOptimisticUpdates(operations, actionName, callbackData);
       }
 
       const response = await this.axios.post(endpoint, requestData);
-      
+
       if (response.data.success) {
         // Mark deltas as synced if we have them
         if (options.optimistic) {
           await this.markDeltasAsSynced(actionName);
         }
-        
+
         // Cache successful responses for offline support
         this.cacheResponse(`${actionName}:${JSON.stringify(operations)}`, response.data);
       }
@@ -220,16 +216,16 @@ export class ChorusActionsAPI {
    * Execute a ChorusAction (legacy method)
    */
   async executeAction<T = any>(
-    actionName: string,
-    params: Record<string, any>,
-    options: {
-      optimistic?: boolean;
-      offline?: boolean;
-      batch?: boolean;
-    } = {}
+      actionName: string,
+      params: Record<string, any>,
+      options: {
+        optimistic?: boolean;
+        offline?: boolean;
+        batch?: boolean;
+      } = {}
   ): Promise<ChorusActionResponse> {
     const endpoint = `/actions/${actionName}`;
-    
+
     try {
       // Handle offline mode
       if (options.offline && this.isOffline()) {
@@ -242,7 +238,7 @@ export class ChorusActionsAPI {
       }
 
       const response = await this.axios.post(endpoint, params);
-      
+
       if (response.data.success) {
         // Cache successful responses for offline support
         this.cacheResponse(`${actionName}:${JSON.stringify(params)}`, response.data);
@@ -274,18 +270,18 @@ export class ChorusActionsAPI {
    * This provides the same API as the server-side ActionContext
    */
   async executeActionWithContext(
-    actionName: string,
-    callback: (context: ActionContextLike) => any,
-    options: {
-      optimistic?: boolean;
-      offline?: boolean;
-      validate?: boolean;
-      validationSchema?: any;
-    } = {}
+      actionName: string,
+      callback: (context: ActionContextLike) => any,
+      options: {
+        optimistic?: boolean;
+        offline?: boolean;
+        validate?: boolean;
+        validationSchema?: any;
+      } = {}
   ): Promise<ChorusActionResponse> {
     const collector = new ClientWritesCollector();
     const actionContext = createActionContext(collector);
-    
+
     // Collect writes by executing the callback and capture return value
     collector.startCollecting();
     let callbackData: any = undefined;
@@ -294,9 +290,9 @@ export class ChorusActionsAPI {
     } finally {
       collector.stopCollecting();
     }
-    
+
     const operations = collector.getOperations();
-    
+
     // Client-side validation if enabled and schema provided
     if (options.validate && options.validationSchema) {
       const validationResult = this.validateOperations(operations, callbackData, options.validationSchema);
@@ -308,17 +304,22 @@ export class ChorusActionsAPI {
         };
       }
     }
-    
+
     // Convert operations to the format expected by the server
     const requestData = {
       operations: operations,
       // Include any additional data returned by the callback
-      ...(callbackData && typeof callbackData === 'object' ? { data: callbackData } : {})
+      ...(callbackData && typeof callbackData === 'object' ? {data: callbackData} : {})
     };
-    
+
     const endpoint = `/actions/${actionName}`;
-    
+
     try {
+      // Handle offline mode
+      if (options.offline && this.isOffline()) {
+        return this.handleOfflineActionWithDelta(actionName, operations, callbackData);
+      }
+
       if (options.optimistic && this.chorusCore) {
         await this.handleOptimisticUpdates(operations, actionName, callbackData);
       }
@@ -352,19 +353,19 @@ export class ChorusActionsAPI {
    * Execute a batch of actions
    */
   async executeBatch(
-    actionName: string,
-    items: Record<string, any>[],
-    options: { optimistic?: boolean; offline?: boolean } = {}
+      actionName: string,
+      items: Record<string, any>[],
+      options: { optimistic?: boolean; offline?: boolean } = {}
   ): Promise<ChorusActionResponse> {
     const endpoint = `/actions/${actionName}`;
-    
+
     try {
       if (options.optimistic) {
         items.forEach(item => this.handleOptimisticUpdate(actionName, item));
       }
 
-      const response = await this.axios.post(endpoint, { 
-        batch: items 
+      const response = await this.axios.post(endpoint, {
+        batch: items
       });
 
       return response.data;
@@ -380,7 +381,7 @@ export class ChorusActionsAPI {
    * Create a typed action client (legacy method)
    */
   createActionClient(
-    actionMeta: Record<string, ChorusActionMeta> = {}
+      actionMeta: Record<string, ChorusActionMeta> = {}
   ): Record<string, (params: Record<string, any>, options?: any) => Promise<ChorusActionResponse>> {
     const client: Record<string, (params: Record<string, any>, options?: any) => Promise<ChorusActionResponse>> = {};
 
@@ -401,14 +402,14 @@ export class ChorusActionsAPI {
   private handleOptimisticUpdate(actionName: string, params: Record<string, any>) {
     // Emit optimistic update event for UI to handle
     window.dispatchEvent(new CustomEvent('chorus:optimistic-update', {
-      detail: { actionName, params }
+      detail: {actionName, params}
     }));
   }
 
   private async handleOptimisticUpdates(
-    operations: WriteOperation[], 
-    actionName?: string,
-    actionData?: any
+      operations: WriteOperation[],
+      actionName?: string,
+      actionData?: any
   ) {
     if (!this.chorusCore) {
       // Fallback to event emission if no ChorusCore is available
@@ -437,12 +438,12 @@ export class ChorusActionsAPI {
   }
 
   private async writeOptimisticOperation(
-    db: ChorusDatabase, 
-    operation: WriteOperation, 
-    actionName?: string,
-    actionData?: any
+      db: ChorusDatabase,
+      operation: WriteOperation,
+      actionName?: string,
+      actionData?: any
   ) {
-    const { table, operation: operationType, data } = operation;
+    const {table, operation: operationType, data} = operation;
     const deltaTableName = `${table}_deltas`;
     const shadowTableName = `${table}_shadow`;
 
@@ -464,7 +465,7 @@ export class ChorusActionsAPI {
         // Add new record to shadow table
         await db.table(shadowTableName).put(data);
         break;
-        
+
       case 'update':
         if (!data.id) {
           console.warn('[ChorusActionsAPI] Update operation missing id:', data);
@@ -473,16 +474,16 @@ export class ChorusActionsAPI {
         // Update existing record in shadow table, or create if doesn't exist
         const existing = await db.table(shadowTableName).get(data.id);
         if (existing) {
-          await db.table(shadowTableName).put({ ...existing, ...data });
+          await db.table(shadowTableName).put({...existing, ...data});
         } else {
           // If not in shadow, get from main table and update
           const mainRecord = await db.table(table).get(data.id);
           if (mainRecord) {
-            await db.table(shadowTableName).put({ ...mainRecord, ...data });
+            await db.table(shadowTableName).put({...mainRecord, ...data});
           }
         }
         break;
-        
+
       case 'delete':
         if (!data.id) {
           console.warn('[ChorusActionsAPI] Delete operation missing id:', data);
@@ -492,22 +493,18 @@ export class ChorusActionsAPI {
         await db.table(shadowTableName).delete(data.id);
         break;
     }
-
-    console.log(`[ChorusActionsAPI] Optimistic ${operationType} written for ${table}:`, data);
   }
 
   private async handleOfflineActionWithDelta(
-    actionName: string,
-    operations: WriteOperation[],
-    actionData?: any
+      actionName: string,
+      operations: WriteOperation[],
+      actionData?: any
   ): Promise<ChorusActionResponse> {
     // Store optimistic updates in deltas with action metadata
     if (this.chorusCore) {
       await this.handleOptimisticUpdates(operations, actionName, actionData);
     }
-    
-    console.log(`[ChorusActionsAPI] Stored ${operations.length} operations offline for action: ${actionName}`);
-    
+
     // Return optimistic response
     return {
       success: true,
@@ -530,12 +527,12 @@ export class ChorusActionsAPI {
   }
 
   private async handleOfflineActionWithOperations(
-    actionName: string,
-    operations: WriteOperation[]
+      actionName: string,
+      operations: WriteOperation[]
   ): Promise<ChorusActionResponse> {
     // Store action for later sync
     this.storeOfflineActionWithOperations(actionName, operations);
-    
+
     // Return optimistic response
     return {
       success: true,
@@ -558,13 +555,13 @@ export class ChorusActionsAPI {
   }
 
   private async handleOfflineAction(
-    actionName: string,
-    params: Record<string, any>,
-    options: any
+      actionName: string,
+      params: Record<string, any>,
+      options: any
   ): Promise<ChorusActionResponse> {
     // Store action for later sync
     this.storeOfflineAction(actionName, params);
-    
+
     // Return optimistic response
     return {
       success: true,
@@ -587,11 +584,11 @@ export class ChorusActionsAPI {
   }
 
   private async handleOfflineBatch(
-    actionName: string,
-    items: Record<string, any>[]
+      actionName: string,
+      items: Record<string, any>[]
   ): Promise<ChorusActionResponse> {
     items.forEach(item => this.storeOfflineAction(actionName, item));
-    
+
     return {
       success: true,
       operations: items.map((item, index) => ({
@@ -632,10 +629,10 @@ export class ChorusActionsAPI {
       try {
         // Find all pending deltas for this action
         const pendingDeltas = await db.table(deltaTableName)
-          .where('action_name')
-          .equals(actionName)
-          .and(delta => delta.sync_status === 'pending')
-          .toArray();
+            .where('action_name')
+            .equals(actionName)
+            .and(delta => delta.sync_status === 'pending')
+            .toArray();
 
         // Mark them as synced
         for (const delta of pendingDeltas) {
@@ -643,10 +640,6 @@ export class ChorusActionsAPI {
             sync_status: 'synced',
             synced_at: Date.now()
           });
-        }
-
-        if (pendingDeltas.length > 0) {
-          console.log(`[ChorusActionsAPI] Marked ${pendingDeltas.length} deltas as synced in ${deltaTableName}`);
         }
       } catch (error) {
         console.error(`[ChorusActionsAPI] Failed to mark deltas as synced in ${deltaTableName}:`, error);
@@ -674,10 +667,10 @@ export class ChorusActionsAPI {
       try {
         // Find all pending deltas for this action
         const pendingDeltas = await db.table(deltaTableName)
-          .where('action_name')
-          .equals(actionName)
-          .and(delta => delta.sync_status === 'pending')
-          .toArray();
+            .where('action_name')
+            .equals(actionName)
+            .and(delta => delta.sync_status === 'pending')
+            .toArray();
 
         // Mark them as failed
         for (const delta of pendingDeltas) {
@@ -686,10 +679,6 @@ export class ChorusActionsAPI {
             failed_at: Date.now(),
             error_message: errorMessage
           });
-        }
-
-        if (pendingDeltas.length > 0) {
-          console.log(`[ChorusActionsAPI] Marked ${pendingDeltas.length} deltas as failed in ${deltaTableName}`);
         }
       } catch (error) {
         console.error(`[ChorusActionsAPI] Failed to mark deltas as failed in ${deltaTableName}:`, error);
@@ -755,15 +744,15 @@ export class ChorusActionsAPI {
   }
 
   private async rollbackOptimisticOperation(db: ChorusDatabase, operation: WriteOperation) {
-    const { table, operation: operationType, data } = operation;
+    const {table, operation: operationType, data} = operation;
     const deltaTableName = `${table}_deltas`;
     const shadowTableName = `${table}_shadow`;
 
     // Find and mark the corresponding delta as rejected
     const pendingDeltas = await db.table(deltaTableName)
-      .where('sync_status')
-      .equals('pending')
-      .toArray();
+        .where('sync_status')
+        .equals('pending')
+        .toArray();
 
     for (const delta of pendingDeltas) {
       if (JSON.stringify(delta.data) === JSON.stringify(data)) {
@@ -782,7 +771,7 @@ export class ChorusActionsAPI {
           await db.table(shadowTableName).delete(data.id);
         }
         break;
-        
+
       case 'update':
         if (data.id) {
           // Restore original record from main table to shadow
@@ -794,7 +783,7 @@ export class ChorusActionsAPI {
           }
         }
         break;
-        
+
       case 'delete':
         if (data.id) {
           // Restore the deleted record to shadow table from main table
@@ -805,8 +794,6 @@ export class ChorusActionsAPI {
         }
         break;
     }
-
-    console.log(`[ChorusActionsAPI] Optimistic ${operationType} rolled back for ${table}:`, data);
   }
 
   /**
@@ -817,7 +804,7 @@ export class ChorusActionsAPI {
     if (this.chorusCore) {
       await this.syncOfflineActionsFromDeltas();
     }
-    
+
     // Fallback to legacy localStorage sync for any remaining actions
     await this.syncOfflineActionsFromLocalStorage();
   }
@@ -850,24 +837,24 @@ export class ChorusActionsAPI {
     for (const deltaTableName of deltaTableNames) {
       try {
         const pendingDeltas = await db.table(deltaTableName)
-          .where('sync_status')
-          .equals('pending')
-          .and(delta => delta.action_name)
-          .toArray();
-        
+            .where('sync_status')
+            .equals('pending')
+            .and(delta => delta.action_name)
+            .toArray();
+
         // Sort by timestamp after retrieval
         pendingDeltas.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
         for (const delta of pendingDeltas) {
           const tableName = deltaTableName.replace('_deltas', '');
           const actionName = delta.action_name;
-          
+
           if (!pendingActionGroups.has(actionName)) {
-            pendingActionGroups.set(actionName, { operations: [], actionData: undefined });
+            pendingActionGroups.set(actionName, {operations: [], actionData: undefined});
           }
 
           const group = pendingActionGroups.get(actionName)!;
-          
+
           // Add the operation
           group.operations.push({
             table: tableName,
@@ -894,26 +881,24 @@ export class ChorusActionsAPI {
       return;
     }
 
-    console.log(`[ChorusActionsAPI] Syncing ${pendingActionGroups.size} action types from deltas...`);
 
     // Sync each action with all its operations in one request
     for (const [actionName, group] of Array.from(pendingActionGroups.entries())) {
       try {
         // Sort operations by timestamp to preserve order
         group.operations.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-        
+
         // Send all operations for this action - let server determine execution grouping
         const requestData = {
           operations: group.operations,
           // Include action data if it exists
-          ...(group.actionData && { data: group.actionData })
+          ...(group.actionData && {data: group.actionData})
         };
 
         const endpoint = `/actions/${actionName}`;
         const response = await this.axios.post(endpoint, requestData);
 
         if (response.data.success) {
-          console.log(`[ChorusActionsAPI] Successfully synced action: ${actionName} with ${group.operations.length} operations`);
           await this.markDeltasAsSynced(actionName);
         } else {
           console.error(`[ChorusActionsAPI] Failed to sync action: ${actionName}`, response.data.error);
@@ -921,7 +906,7 @@ export class ChorusActionsAPI {
         }
       } catch (error: any) {
         console.error(`[ChorusActionsAPI] Failed to sync action: ${actionName}`, error);
-        
+
         // Distinguish between network errors and server rejections
         if (this.isNetworkError(error)) {
           await this.markDeltasAsFailed(actionName, error instanceof Error ? error.message : 'Unknown error');
@@ -943,7 +928,7 @@ export class ChorusActionsAPI {
     for (const operation of operations) {
       const operationKey = `${operation.table}.${operation.operation}`;
       const schema = validationSchema[operationKey];
-      
+
       if (schema) {
         const operationErrors = this.validateData(operation.data, schema, operationKey);
         errors.push(...operationErrors);
@@ -971,7 +956,7 @@ export class ChorusActionsAPI {
     for (const [fieldName, constraints] of Object.entries(schema)) {
       const value = data[fieldName];
       const fullFieldName = prefix ? `${prefix}.${fieldName}` : fieldName;
-      
+
       // Required check
       if (constraints.required && (value === null || value === undefined || value === '')) {
         errors.push({
@@ -1097,18 +1082,16 @@ export class ChorusActionsAPI {
    */
   async syncOfflineActionsFromLocalStorage(): Promise<void> {
     const offlineActions = JSON.parse(localStorage.getItem('chorus_offline_actions') || '[]');
-    
+
     if (offlineActions.length === 0) return;
 
-    console.log(`[ChorusActionsAPI] Syncing ${offlineActions.length} offline actions from localStorage...`);
-    
     const synced: any[] = [];
     const failed: any[] = [];
 
     for (const action of offlineActions) {
       try {
         let result: ChorusActionResponse;
-        
+
         // Handle new operations format
         if (action.operations && Array.isArray(action.operations)) {
           // Recreate the callback that would generate these operations
@@ -1120,28 +1103,25 @@ export class ChorusActionsAPI {
               }
             });
           };
-          
-          result = await this.executeActionWithCallback(action.actionName, callback, { 
+
+          result = await this.executeActionWithCallback(action.actionName, callback, {
             offline: false,
             optimistic: false // Don't do optimistic updates during sync
           });
-        } 
+        }
         // Handle legacy params format
         else if (action.params) {
-          result = await this.executeAction(action.actionName, action.params, { offline: false });
-        } 
-        else {
+          result = await this.executeAction(action.actionName, action.params, {offline: false});
+        } else {
           console.warn('[ChorusActionsAPI] Skipping malformed offline action:', action);
           failed.push(action);
           continue;
         }
-        
+
         if (result.success) {
           synced.push(action);
-          console.log(`[ChorusActionsAPI] Successfully synced offline action: ${action.actionName}`);
         } else {
           failed.push(action);
-          console.error(`[ChorusActionsAPI] Failed to sync offline action: ${action.actionName}`, result.error);
         }
       } catch (error) {
         failed.push(action);
@@ -1154,11 +1134,9 @@ export class ChorusActionsAPI {
       if (failed.length === 0) {
         // All actions synced successfully, clear storage
         localStorage.removeItem('chorus_offline_actions');
-        console.log(`[ChorusActionsAPI] All ${synced.length} offline actions synced successfully`);
       } else {
         // Some actions failed, keep only the failed ones
         localStorage.setItem('chorus_offline_actions', JSON.stringify(failed));
-        console.log(`[ChorusActionsAPI] ${synced.length} actions synced, ${failed.length} actions remain offline`);
       }
     }
   }
@@ -1185,13 +1163,10 @@ export function getGlobalChorusActionsAPI(): ChorusActionsAPI {
 export function connectChorusActionsAPI(chorusCore: ChorusCore, chorusActionsAPI?: ChorusActionsAPI): void {
   const api = chorusActionsAPI || getGlobalChorusActionsAPI();
   api.setChorusCore(chorusCore);
-  console.log('[Chorus] ChorusActionsAPI connected to ChorusCore');
-  
   // Trigger initial sync if we're online and have pending actions
   if (navigator.onLine) {
     const offlineActions = JSON.parse(localStorage.getItem('chorus_offline_actions') || '[]');
     if (offlineActions.length > 0) {
-      console.log('[ChorusActionsAPI] Found pending offline actions on initialization, syncing...');
       api.syncOfflineActions().catch(error => {
         console.error('[ChorusActionsAPI] Failed to sync offline actions on initialization:', error);
       });

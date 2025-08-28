@@ -312,18 +312,15 @@ export class ChorusCore {
   /**
    * Rebuild the database by deleting it and clearing stored harmonic IDs
    */
-  private async rebuildDatabase(): Promise<void> {
-
-    console.log("Rebuilding database...");
-
+  private rebuildDatabase(): void {
     try {
       if (this.db && this.db.isOpen()) {
-        await this.db.close();
+        this.db.close();
       }
       
       // Delete the database
       const dbName = `chorus_db_${this.userId || "guest"}`;
-      await indexedDB.deleteDatabase(dbName);
+      indexedDB.deleteDatabase(dbName);
       
       // Clear stored harmonic IDs to force full resync
       localStorage.removeItem(getLatestHarmonicIdKey(this.userId?.toString()));

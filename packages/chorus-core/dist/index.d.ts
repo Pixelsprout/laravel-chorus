@@ -1,5 +1,5 @@
 export { ChorusActionsAPI, getGlobalChorusActionsAPI, connectChorusActionsAPI, type ChorusActionResponse, type ChorusActionConfig, type ChorusActionMeta, } from './chorus-actions';
-export { ClientWritesCollector, createWritesProxy, type WriteOperation, type ModelProxy, type WritesProxy, } from './writes-collector';
+export { ClientWritesCollector, createWritesProxy, createActionContext, type WriteOperation, type ModelProxy, type WritesProxy, type ActionContextLike, } from './writes-collector';
 export { ChorusDatabase, createChorusDb } from "./db";
 export { ChorusCore, HarmonicEvent, TableState, SyncError, } from "./chorus";
 export { OfflineManager, OfflineRequest, OfflineState, offlineManager, } from "./offline";

@@ -1,5 +1,5 @@
 // Auto-generated TypeScript interfaces for Chorus Actions
-// Generated on 2025-08-19 20:30:58
+// Generated on 2025-08-28 05:38:32
 
 // Validation utilities
 export interface ValidationError {
@@ -127,14 +127,12 @@ export const DeleteMessageValidationSchema: Record<string, ValidationSchema> = {
     'id': {
       required: true,
       type: 'string',
-      uuid: true,
     },
   },
   'users.update': {
     'id': {
       required: true,
       type: 'string',
-      uuid: true,
     },
     'last_activity_at': {
       required: true,
@@ -224,7 +222,6 @@ export const UpdateMessageValidationSchema: Record<string, ValidationSchema> = {
     'id': {
       required: true,
       type: 'string',
-      uuid: true,
     },
     'body': {
       required: true,
@@ -236,7 +233,6 @@ export const UpdateMessageValidationSchema: Record<string, ValidationSchema> = {
     'id': {
       required: true,
       type: 'string',
-      uuid: true,
     },
     'last_activity_at': {
       required: true,

@@ -11,9 +11,11 @@ export {
 export {
   ClientWritesCollector,
   createWritesProxy,
+  createActionContext,
   type WriteOperation,
   type ModelProxy,
   type WritesProxy,
+  type ActionContextLike,
 } from './writes-collector';
 
 // Export other core components

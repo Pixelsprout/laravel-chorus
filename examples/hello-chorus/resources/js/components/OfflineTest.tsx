@@ -1,6 +1,6 @@
 // Simple component to test offline functionality
 import React from 'react';
-import { useOffline, OfflineIndicator, OfflineBanner } from '@pixelsprout/chorus-js';
+import { useOffline, OfflineIndicator, OfflineBanner } from '@pixelsprout/chorus-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 

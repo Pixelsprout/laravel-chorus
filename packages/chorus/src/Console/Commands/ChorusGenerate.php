@@ -599,8 +599,8 @@ final class ChorusGenerate extends Command
         // Generate the actual implementation file
         $implContent = "// Auto-generated implementation for Chorus Actions\n";
         $implContent .= '// Generated on '.now()->toDateTimeString()."\n\n";
-        $implContent .= "import { getGlobalChorusActionsAPI } from '@pixelsprout/chorus-js/core';\n";
-        $implContent .= "import type { ChorusActionResponse, WritesProxy, ModelProxy, ValidationUtils, ValidationResult } from './actions';\n";
+        $implContent .= "import { getGlobalChorusActionsAPI } from '@pixelsprout/chorus-core';\n";
+        $implContent .= "import type { ChorusActionResponse, WritesProxy } from './actions';\n";
         $implContent .= 'import { ';
 
         // Import validation schemas as values (not types)

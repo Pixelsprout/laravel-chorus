@@ -245,27 +245,24 @@ export class ChorusCore {
      * Rebuild the database by deleting it and clearing stored harmonic IDs
      */
     rebuildDatabase() {
-        return __awaiter(this, void 0, void 0, function* () {
-            var _a;
-            console.log("Rebuilding database...");
-            try {
-                if (this.db && this.db.isOpen()) {
-                    yield this.db.close();
-                }
-                // Delete the database
-                const dbName = `chorus_db_${this.userId || "guest"}`;
-                yield indexedDB.deleteDatabase(dbName);
-                // Clear stored harmonic IDs to force full resync
-                localStorage.removeItem(getLatestHarmonicIdKey((_a = this.userId) === null || _a === void 0 ? void 0 : _a.toString()));
-                // Recreate the database
-                this.db = createChorusDb(dbName);
-                this.log("Database rebuilt successfully - will perform full resync");
+        var _a;
+        try {
+            if (this.db && this.db.isOpen()) {
+                this.db.close();
             }
-            catch (err) {
-                console.error("Error rebuilding database:", err);
-                throw err;
-            }
-        });
+            // Delete the database
+            const dbName = `chorus_db_${this.userId || "guest"}`;
+            indexedDB.deleteDatabase(dbName);
+            // Clear stored harmonic IDs to force full resync
+            localStorage.removeItem(getLatestHarmonicIdKey((_a = this.userId) === null || _a === void 0 ? void 0 : _a.toString()));
+            // Recreate the database
+            this.db = createChorusDb(dbName);
+            this.log("Database rebuilt successfully - will perform full resync");
+        }
+        catch (err) {
+            console.error("Error rebuilding database:", err);
+            throw err;
+        }
     }
     /**
      * Perform a full resync of all tables after database rebuild
