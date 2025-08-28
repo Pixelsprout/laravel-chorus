@@ -1,17 +1,9 @@
-// Export all components from the chorus package
-export { ChorusDatabase, createChorusDb } from "./core/db";
-export { ChorusCore, SyncError, } from "./core/chorus";
-export { OfflineManager, offlineManager, } from "./core/offline";
-export { offlineFetch } from "./core/fetch";
-export { InertiaOfflineWrapper, createOfflineRouter } from "./core/inertia-offline";
-// Export ChorusActionsAPI for modern callback-style actions
-export { ChorusActionsAPI, getGlobalChorusActionsAPI, connectChorusActionsAPI, } from "./core/chorus-actions";
-export { ClientWritesCollector, createWritesProxy, createActionContext, } from "./core/writes-collector";
-// CSRF tokens are handled automatically by axios when configured in Laravel
-export { WriteActionsAPI, writeActions, writeActionsAPI, TableWriteActions, EnhancedWriteActionsAPI } from "./core/write-actions";
-// The schema is imported directly from the application's _generated directory
-export { ChorusProvider, useHarmonics, useHarmonicsQuery, useChorus, } from "./react/providers/ChorusProvider";
-export { useOffline } from "./react/hooks/useOffline";
-export { useWriteActions } from "./react/hooks/useWriteActions";
-export { useTable, useTables } from "./react/hooks/useTable";
-export { OfflineIndicator, OfflineBanner } from "./react/components/OfflineIndicator";
+// Chorus Pure JavaScript Integration - Coming Soon
+// This package will provide vanilla JavaScript utilities for Chorus sync engine integration
+export * from '@pixelsprout/chorus-core';
+// TODO: Add pure JavaScript integrations:
+// - Vanilla JS event listeners for table updates
+// - DOM manipulation utilities for offline indicators
+// - Promise-based API for write operations
+// - Browser-native storage management
+console.warn('chorus-js pure JavaScript integration is currently a stub. Pure JS utilities are coming soon!');

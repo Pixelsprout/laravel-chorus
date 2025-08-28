@@ -1,0 +1,52 @@
+{
+  "name": "@pixelsprout/chorus-vue",
+  "version": "0.2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./components/*": "./src/components/*",
+    "./providers/*": "./src/providers/*",
+    "./src/providers/ChorusProvider.vue": "./src/providers/ChorusProvider.vue"
+  },
+  "files": [
+    "dist",
+    "src/**/*.vue"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Pixelsprout",
+  "license": "MIT",
+  "description": "Vue 3 composables and components for Chorus sync engine integration.",
+  "git repository": "https://github.com/Pixelsprout/laravel-chorus",
+  "keywords": [
+    "laravel",
+    "Sync engine",
+    "Offline first",
+    "Local First",
+    "Vue",
+    "Vue 3",
+    "composables"
+  ],
+  "devDependencies": {
+    "@types/node": "^24.0.10",
+    "typescript": "^5.8.3",
+    "vue": "^3.5.0"
+  },
+  "dependencies": {
+    "@pixelsprout/chorus-core": "file:../chorus-core",
+    "@laravel/echo-vue": "^2.1.7",
+    "@vueuse/rxjs": "^12.8.2",
+    "dexie": "^4.0.11"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.0"
+  }
+}

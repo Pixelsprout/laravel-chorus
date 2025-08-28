@@ -1,0 +1,44 @@
+{
+  "name": "@pixelsprout/chorus-core",
+  "version": "0.2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Pixelsprout",
+  "license": "MIT",
+  "description": "Core functionality for Chorus sync engine - framework-agnostic database and websocket management.",
+  "git repository": "https://github.com/Pixelsprout/laravel-chorus",
+  "keywords": [
+    "laravel",
+    "Sync engine",
+    "Offline first",
+    "Local First",
+    "Javascript",
+    "IndexedDB"
+  ],
+  "devDependencies": {
+    "@types/node": "^24.0.10",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@vueuse/rxjs": "^12.8.2",
+    "axios": "^1.11.0",
+    "dexie": "^4.0.11",
+    "rxjs": "^7.8.2",
+    "uuidv7": "^1.0.2"
+  }
+}

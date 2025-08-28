@@ -1,0 +1,46 @@
+{
+  "name": "@pixelsprout/chorus-react",
+  "version": "0.2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Pixelsprout",
+  "license": "MIT",
+  "description": "React hooks and components for Chorus sync engine integration.",
+  "git repository": "https://github.com/Pixelsprout/laravel-chorus",
+  "keywords": [
+    "laravel",
+    "Sync engine",
+    "Offline first",
+    "Local First",
+    "React",
+    "hooks"
+  ],
+  "devDependencies": {
+    "@types/node": "^24.0.10",
+    "@types/react": "^19.1.8",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@pixelsprout/chorus-core": "file:../chorus-core",
+    "@laravel/echo-react": "^2.1.4",
+    "dexie-react-hooks": "^1.1.7"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  }
+}
