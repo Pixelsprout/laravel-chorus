@@ -1,4 +1,3 @@
-import { WriteActionConfig, WriteActionResponse, BatchWriteResponse, TableWriteActions } from '@pixelsprout/chorus-core';
 export interface UseWriteActionsReturn<T = any> {
     actions: Record<string, WriteActionConfig> | null;
     loading: boolean;

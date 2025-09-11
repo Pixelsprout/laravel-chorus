@@ -11,5 +11,8 @@
       "Bash(./vendor/bin/pest:*)"
     ]
   },
-  "enableAllProjectMcpServers": false
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "playwright-extension"
+  ]
 }

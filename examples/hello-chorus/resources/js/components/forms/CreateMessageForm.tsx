@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import type { Platform } from '@/_generated/types';
 import { createMessageWithActivityAction } from '@/_generated/chorus-actions';
-import type { ChorusActionResponse } from '@/_generated/actions';
+import type { ChorusActionResponse } from '@/_generated/action-types';
 
 import { usePage } from '@inertiajs/react';
 import { type SharedData } from '@/types';

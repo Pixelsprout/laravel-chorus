@@ -7,8 +7,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import { useState, useCallback, useEffect, useMemo } from 'react';
-import { writeActions } from '@pixelsprout/chorus-core';
 export function useWriteActions(tableName) {
     const [actions, setActions] = useState(null);
     const [loading, setLoading] = useState(false);

@@ -72,7 +72,6 @@ export function ChorusProvider({
 
     // If this is a rejected harmonic, we need to update the delta status and remove from shadow
     if (event.rejected) {
-      // Find and update the corresponding delta to mark it as rejected
       if (event.data) {
         try {
           const eventData = event.data === 'string' ? JSON.parse(event.data) : event.data;

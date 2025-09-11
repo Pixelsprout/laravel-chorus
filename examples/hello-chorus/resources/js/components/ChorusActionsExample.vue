@@ -3,7 +3,7 @@
     <h2 class="text-xl font-bold text-gray-900">
       New ChorusActions API Example
     </h2>
-    
+
     <div class="space-y-4">
       <!-- Message form -->
       <form @submit.prevent="createMessage" class="space-y-3">
@@ -20,7 +20,7 @@
             placeholder="Enter your message..."
           />
         </div>
-        
+
         <div>
           <label for="platform" class="block text-sm font-medium text-gray-700">
             Platform
@@ -36,7 +36,7 @@
             <option value="platform-2">Platform 2</option>
           </select>
         </div>
-        
+
         <button
           type="submit"
           :disabled="isCreatingMessage || !canSubmit"
@@ -51,7 +51,7 @@
       <div v-if="user" class="bg-blue-50 border border-blue-200 text-blue-700 px-3 py-2 rounded text-sm">
         👤 Logged in as: {{ user.name }} ({{ user.email }})
       </div>
-      
+
       <div v-else class="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded text-sm">
         ❌ Not authenticated - please log in
       </div>
@@ -86,7 +86,7 @@
                   {{ error.action }}: {{ error.error }}
                 </li>
               </ul>
-              <button 
+              <button
                 @click="clearAllErrors"
                 class="mt-2 text-sm underline"
               >
@@ -130,7 +130,7 @@
 import { ref, computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import { createMessageWithActivityAction } from '../_generated/chorus-actions';
-import type { ChorusActionResponse } from '../_generated/actions';
+import type { ChorusActionResponse } from '../_generated/action-types';
 
 // Get auth context from Inertia page props
 const page = usePage();
@@ -153,8 +153,8 @@ const syncInProgress = ref(false);
 
 // Form validation
 const canSubmit = computed(() => {
-  return messageForm.value.message.trim() && 
-         messageForm.value.platformId && 
+  return messageForm.value.message.trim() &&
+         messageForm.value.platformId &&
          user.value; // Ensure user is authenticated
 });
 
