@@ -13,7 +13,7 @@ Wrap your app's layout file with the Chorus provider:
 
 ```tsx
 // app.tsx
-import { ChorusProvider } from '@/chorus/react';
+import { ChorusProvider } from '@pixelsprout/chorus-react';
 
 export default function AppSidebarLayoutContent({ user }) {
     return (
@@ -33,7 +33,7 @@ Use Chorus hooks for data access and generated action functions for writes:
 
 ```tsx
 // components/MessagesList.tsx
-import { useTable } from '@/chorus/react';
+import { useTable } from '@pixelsprout/chorus-react';
 import { createMessageWithActivityAction, deleteMessageAction } from '@/_generated/chorus-actions';
 import { uuidv7 } from 'uuidv7';
 import type { Message } from "@/types";
@@ -125,7 +125,7 @@ const {
 Use generated action functions for all write operations:
 
 ```tsx
-import { useTable, useOffline } from '@/chorus/react';
+import { useTable, useOffline } from '@pixelsprout/chorus-react';
 import { updateUserStatusAction } from '@/_generated/chorus-actions';
 
 interface User {
@@ -206,7 +206,7 @@ export default function UserList() {
 Monitor and handle offline state:
 
 ```tsx
-import { useOffline } from '@/chorus/react';
+import { useOffline } from '@pixelsprout/chorus-react';
 
 export default function OfflineIndicator() {
     const { 
@@ -249,7 +249,7 @@ Chorus Actions automatically handle optimistic updates with rollback:
 
 ```tsx
 import { useState } from 'react';
-import { useTable } from '@/chorus/react';
+import { useTable } from '@pixelsprout/chorus-react';
 import { updateMessageAction } from '@/_generated/chorus-actions';
 
 interface Message {
@@ -341,7 +341,7 @@ export default function MessageEditor({ messageId }: { messageId: string }) {
 Build collaborative features with presence indicators:
 
 ```tsx
-import { useTable, usePresence } from '@/chorus/react';
+import { useTable, usePresence } from '@pixelsprout/chorus-react';
 import { useState, useEffect } from 'react';
 
 interface Message {
@@ -411,7 +411,7 @@ export default function CollaborativeEditor() {
 Handle and display rejected operations:
 
 ```tsx
-import { useRejectedHarmonics } from '@/chorus/react';
+import { useRejectedHarmonics } from '@pixelsprout/chorus-react';
 
 export default function RejectedOperations() {
     const { 

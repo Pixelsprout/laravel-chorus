@@ -24,7 +24,7 @@ Wrap your app's layout file with the Chorus provider:
 </template>
 
 <script setup lang="ts">
-import ChorusProvider from '@pixelsprout/chorus-js/vue/providers/ChorusProvider.vue';
+import ChorusProvider from '@pixelsprout/chorus-vue';
 
 interface Props {
   App: any;
@@ -67,7 +67,7 @@ Use Chorus composables to access synchronized data:
 </template>
 
 <script setup lang="ts">
-import { useTable } from '@pixelsprout/chorus-js/vue';
+import { useTable } from '@pixelsprout/chorus-vue';
 import type { Message } from '@/types';
 
 // Get data and actions from table composable
@@ -153,7 +153,7 @@ const {
 </template>
 
 <script setup lang="ts">
-import { useTable, useOffline } from '@pixelsprout/chorus-js/vue';
+import { useTable, useOffline } from '@pixelsprout/chorus-vue';
 
 interface User {
   id: number;
@@ -213,7 +213,7 @@ Monitor and handle offline state:
 </template>
 
 <script setup lang="ts">
-import { useOffline } from '@pixelsprout/chorus-js/vue';
+import { useOffline } from '@pixelsprout/chorus-vue';
 import { computed } from 'vue';
 
 const { 
@@ -262,7 +262,7 @@ For advanced data access with custom queries:
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { useHarmonics, useHarmonicsQuery } from '@pixelsprout/chorus-js/vue';
+import { useHarmonics, useHarmonicsQuery } from '@pixelsprout/chorus-vue';
 
 interface Message {
   id: string;
@@ -319,7 +319,7 @@ Handle complex optimistic updates with error recovery:
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { useTable } from '@pixelsprout/chorus-js/vue';
+import { useTable } from '@pixelsprout/chorus-vue';
 
 interface Message {
   id: string;
@@ -419,7 +419,7 @@ Build collaborative features with presence indicators:
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
-import { useTable, usePresence } from '@pixelsprout/chorus-js/vue';
+import { useTable, usePresence } from '@pixelsprout/chorus-vue';
 
 interface Message {
   id: string;
@@ -477,7 +477,7 @@ Ready-to-use component for displaying offline status:
 </template>
 
 <script setup lang="ts">
-import OfflineIndicator from '@pixelsprout/chorus-js/vue/components/OfflineIndicator.vue';
+import OfflineIndicator from '@pixelsprout/chorus-vue/components/OfflineIndicator.vue';
 
 const handleRetry = () => {
   console.log('Retrying pending operations...');
@@ -499,7 +499,7 @@ Simple banner for offline status:
 </template>
 
 <script setup lang="ts">
-import OfflineBanner from '@pixelsprout/chorus-js/vue/components/OfflineBanner.vue';
+import OfflineBanner from '@pixelsprout/chorus-vue/components/OfflineBanner.vue';
 </script>
 ```
 
@@ -541,7 +541,7 @@ Handle and display rejected operations:
 </template>
 
 <script setup lang="ts">
-import { useRejectedHarmonics } from '@pixelsprout/chorus-js/vue';
+import { useRejectedHarmonics } from '@pixelsprout/chorus-vue';
 
 const { 
   rejectedOperations, 
@@ -579,7 +579,7 @@ export interface Message {
 
 ```vue
 <script setup lang="ts">
-import { useTable } from '@pixelsprout/chorus-js/vue';
+import { useTable } from '@pixelsprout/chorus-vue';
 import type { User, Message } from '@/types';
 
 // Full type safety and auto-completion
