@@ -298,6 +298,66 @@ await createMessageAction({
 });
 ```
 
+## Route Registration
+
+**Important:** Chorus Actions must be registered as routes to be accessible from the client-side. Add your action routes to `routes/web.php` with proper authentication:
+
+### Basic Route Registration
+
+```php
+// routes/web.php
+use App\Actions\ChorusActions\CreateMessageAction;
+use App\Actions\ChorusActions\UpdateMessageAction;
+use App\Actions\ChorusActions\DeleteMessageAction;
+
+// Chorus Actions - must be authenticated
+Route::middleware(['auth'])->group(function () {
+    Route::post('/api/actions/create-message', CreateMessageAction::class)->name('chorus.create-message');
+    Route::post('/api/actions/update-message', UpdateMessageAction::class)->name('chorus.update-message');
+    Route::post('/api/actions/delete-message', DeleteMessageAction::class)->name('chorus.delete-message');
+});
+```
+
+### Route Naming Convention
+
+The route path should match the action name used in the generated TypeScript functions:
+
+- **Action Class**: `CreateMessageAction`
+- **Route Path**: `/api/actions/create-message`
+- **Generated Function**: `createMessageAction()`
+- **Route Name**: `chorus.create-message` (optional but recommended)
+
+### Authentication & Authorization
+
+Always protect Chorus Action routes with appropriate middleware:
+
+```php
+// Basic authentication
+Route::middleware(['auth'])->group(function () {
+    Route::post('/api/actions/create-user', CreateUserAction::class);
+});
+
+// Additional middleware for admin actions
+Route::middleware(['auth', 'admin'])->group(function () {
+    Route::post('/api/actions/delete-user', DeleteUserAction::class);
+});
+
+// API-specific middleware
+Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
+    Route::post('/api/actions/bulk-import', BulkImportAction::class);
+});
+```
+
+### Multi-Tenancy Support
+
+For multi-tenant applications, you can add tenant-specific middleware:
+
+```php
+Route::middleware(['auth', 'tenant'])->group(function () {
+    Route::post('/api/actions/create-message', CreateMessageAction::class);
+    Route::post('/api/actions/update-message', UpdateMessageAction::class);
+});
+```
 ## Client-Side Integration
 
 ### Generated Functions

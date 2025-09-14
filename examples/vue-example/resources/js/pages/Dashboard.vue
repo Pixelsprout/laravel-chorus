@@ -7,6 +7,13 @@ import { ref } from 'vue';
 import { createUserAction } from '@/_generated/chorus-actions';
 import type { User } from '@/_generated/types';
 
+// shadcn-vue components
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Dashboard',
@@ -86,81 +93,92 @@ const handleSubmit = async () => {
     <Head title="Dashboard" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
-        <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4 overflow-x-auto">
+        <div class="flex h-full flex-1 flex-col gap-6 rounded-xl p-4 overflow-x-auto">
             <!-- Create User Form -->
-            <div class="rounded-xl border border-sidebar-border/70 dark:border-sidebar-border p-6 bg-white dark:bg-gray-800">
-                <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Create New User</h2>
-                
-                <form @submit.prevent="handleSubmit" class="space-y-4">
-                    <div>
-                        <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Name
-                        </label>
-                        <input
-                            id="name"
-                            v-model="form.name"
-                            type="text"
-                            required
-                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                            placeholder="Enter user's name"
+            <Card>
+                <CardHeader>
+                    <CardTitle>Create New User</CardTitle>
+                    <CardDescription>
+                        Add a new user to the system. The user will appear in real-time in the list below.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <form @submit.prevent="handleSubmit" class="space-y-4">
+                        <div class="space-y-2">
+                            <Label for="name">Name</Label>
+                            <Input
+                                id="name"
+                                v-model="form.name"
+                                type="text"
+                                placeholder="Enter user's name"
+                                :disabled="isSubmitting"
+                                required
+                            />
+                        </div>
+
+                        <div class="space-y-2">
+                            <Label for="email">Email</Label>
+                            <Input
+                                id="email"
+                                v-model="form.email"
+                                type="email"
+                                autocomplete="email"
+                                placeholder="Enter user's email"
+                                :disabled="isSubmitting"
+                                required
+                            />
+                        </div>
+
+                        <div class="space-y-2">
+                            <Label for="password">Password</Label>
+                            <Input
+                                id="password"
+                                v-model="form.password"
+                                type="password"
+                                autocomplete="new-password"
+                                placeholder="Enter user's password"
+                                :disabled="isSubmitting"
+                                required
+                            />
+                        </div>
+
+                        <!-- Success Message -->
+                        <Alert v-if="formMessage">
+                            <AlertDescription>
+                                {{ formMessage }}
+                            </AlertDescription>
+                        </Alert>
+
+                        <!-- Error Message -->
+                        <Alert v-if="formError" variant="destructive">
+                            <AlertDescription>
+                                {{ formError }}
+                            </AlertDescription>
+                        </Alert>
+
+                        <Button
+                            type="submit"
                             :disabled="isSubmitting"
-                        />
-                    </div>
+                            class="w-full"
+                        >
+                            {{ isSubmitting ? 'Creating User...' : 'Create User' }}
+                        </Button>
+                    </form>
+                </CardContent>
+            </Card>
 
-                    <div>
-                        <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Email
-                        </label>
-                        <input
-                            id="email"
-                            v-model="form.email"
-                            type="email"
-                            required
-                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                            placeholder="Enter user's email"
-                            :disabled="isSubmitting"
-                        />
-                    </div>
-
-                    <div>
-                        <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Password
-                        </label>
-                        <input
-                            id="password"
-                            v-model="form.password"
-                            type="password"
-                            required
-                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                            placeholder="Enter user's password"
-                            :disabled="isSubmitting"
-                        />
-                    </div>
-
-                    <!-- Success Message -->
-                    <div v-if="formMessage" class="p-3 bg-green-100 border border-green-400 text-green-700 rounded-md">
-                        {{ formMessage }}
-                    </div>
-
-                    <!-- Error Message -->
-                    <div v-if="formError" class="p-3 bg-red-100 border border-red-400 text-red-700 rounded-md">
-                        {{ formError }}
-                    </div>
-
-                    <button
-                        type="submit"
-                        :disabled="isSubmitting"
-                        class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-                    >
-                        {{ isSubmitting ? 'Creating User...' : 'Create User' }}
-                    </button>
-                </form>
-            </div>
-
-            <!-- Chorus Example (Users List) -->
-            <div class="relative min-h-[100vh] flex-1 rounded-xl border border-sidebar-border/70 md:min-h-min dark:border-sidebar-border">
-                <ChorusExample />
-            </div>
+            <!-- Users List -->
+            <Card>
+                <CardHeader>
+                    <CardTitle>Users List</CardTitle>
+                    <CardDescription>
+                        Real-time synchronized user data from the database.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <ChorusExample />
+                </CardContent>
+            </Card>
         </div>
     </AppLayout>
 </template>
