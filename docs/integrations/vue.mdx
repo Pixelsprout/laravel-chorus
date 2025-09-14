@@ -262,7 +262,7 @@ For advanced data access with custom queries:
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { useHarmonics, useHarmonicsQuery } from '@pixelsprout/chorus-vue';
+import { useHarmonics, useTableQuery } from '@pixelsprout/chorus-vue';
 
 interface Message {
   id: string;
@@ -274,7 +274,7 @@ interface Message {
 const selectedPlatform = ref<number | null>(null);
 
 // Create a reactive query based on selected platform
-const query = useHarmonicsQuery<Message>(
+const query = useTableQuery<Message>(
   (table) => selectedPlatform.value 
     ? table.where('platform_id').equals(selectedPlatform.value)
     : table,

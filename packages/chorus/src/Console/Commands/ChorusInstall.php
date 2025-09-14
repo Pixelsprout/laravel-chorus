@@ -200,7 +200,7 @@ TS;
             'react' => '@pixelsprout/chorus-react',
             'vue' => '@pixelsprout/chorus-vue',
             'svelte' => '@pixelsprout/chorus-svelte',
-            'vanilla' => '@pixelsprout/chorus-js',
+            'vanilla' => '@pixelsprout/chorus-react',
         ];
 
         $packageName = $packageMap[$framework];

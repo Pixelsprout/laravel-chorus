@@ -107,6 +107,16 @@ WebSocket server that broadcasts change events to connected clients in real-time
 <AccordionGroup>
 <Accordion title="IndexedDB Storage" icon="hard-drive">
 Browser-based database that stores synchronized data locally for offline access and instant queries. We use [DexieJS](https://dexie.org) to provide to sensibly interface with IndexedDB.
+
+**Example DexieJS Query**
+```tsx
+const messagesQuery = useTableQuery<Message>(
+    (table) => selectedPlatform
+        ? table.where('platform_id').equals(selectedPlatform)
+        : table,
+        [selectedPlatform]
+);
+```
 </Accordion>
 
 <Accordion title="Chorus Hooks" icon="hook">
