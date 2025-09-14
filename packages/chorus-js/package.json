@@ -35,6 +35,6 @@
     "typescript": "^5.8.3"
   },
   "dependencies": {
-    "@pixelsprout/chorus-core": "file:../chorus-core"
+    "@pixelsprout/chorus-core": "@pixelsprout/chorus-core"
   }
 }
