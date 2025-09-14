@@ -28,7 +28,7 @@ export declare function useHarmonics<T extends {
  * Use this when your query depends on reactive values to prevent infinite re-renders.
  *
  * @example
- * const query = useHarmonicsQuery<Message>(
+ * const query = useTableQuery<Message>(
  *   (table) => selectedPlatform.value
  *     ? table.where('platform_id').equals(selectedPlatform.value)
  *     : table,
@@ -36,7 +36,7 @@ export declare function useHarmonics<T extends {
  * );
  * const { data } = useHarmonics('messages', query.value);
  */
-export declare function useHarmonicsQuery<T extends {
+export declare function useTableQuery<T extends {
     id: string | number;
 }>(queryFn: (table: Table<T>) => Table<T> | Collection<T, any>, deps: Ref<any>[]): Ref<(table: Table<T>) => Table<T> | Collection<T, any>>;
 export {};

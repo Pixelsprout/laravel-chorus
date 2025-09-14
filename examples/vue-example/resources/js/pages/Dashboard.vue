@@ -2,9 +2,8 @@
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/vue3';
-import PlaceholderPattern from '../components/PlaceholderPattern.vue';
-import ChorusExample from '../components/ChorusExample.vue';
-import ChorusExampleSimple from '../components/ChorusExampleSimple.vue';
+import ChorusExample from '@/components/ChorusExample.vue';
+
 
 const breadcrumbs: BreadcrumbItem[] = [
     {

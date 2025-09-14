@@ -27,7 +27,8 @@
     },
     "dependencies": {
         "@inertiajs/vue3": "^2.0.0",
-        "@pixelsprout/chorus-js": "^0.1.2",
+        "@pixelsprout/chorus-vue": "latest",
+        "@pixelsprout/chorus-core": "latest",
         "@tailwindcss/vite": "^4.1.11",
         "@vitejs/plugin-vue": "^6.0.0",
         "@vueuse/core": "^12.8.2",
@@ -46,7 +47,8 @@
         "ziggy-js": "^2.4.2"
     },
     "workspaces": [
-        "../../packages/chorus-js"
+        "../../packages/chorus-vue",
+        "../../packages/chorus-core"
     ],
     "optionalDependencies": {
         "@rollup/rollup-linux-x64-gnu": "4.9.5",

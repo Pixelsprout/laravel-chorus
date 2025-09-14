@@ -4,9 +4,9 @@ import {
     useChorus,
     useOffline,
     useTable
-} from '@pixelsprout/chorus-js/vue';
+} from '@pixelsprout/chorus-vue';
 import { watch, computed } from 'vue';
-import OfflineIndicator from '@pixelsprout/chorus-js/vue/components/OfflineIndicator.vue';
+import OfflineIndicator from '@pixelsprout/chorus-vue/components/OfflineIndicator.vue';
 
 // Get Chorus state
 const {

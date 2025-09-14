@@ -156,7 +156,7 @@ export function useHarmonics(tableName, query) {
  * Use this when your query depends on reactive values to prevent infinite re-renders.
  *
  * @example
- * const query = useHarmonicsQuery<Message>(
+ * const query = useTableQuery<Message>(
  *   (table) => selectedPlatform.value
  *     ? table.where('platform_id').equals(selectedPlatform.value)
  *     : table,
@@ -164,6 +164,6 @@ export function useHarmonics(tableName, query) {
  * );
  * const { data } = useHarmonics('messages', query.value);
  */
-export function useHarmonicsQuery(queryFn, deps) {
+export function useTableQuery(queryFn, deps) {
     return computed(() => queryFn);
 }
