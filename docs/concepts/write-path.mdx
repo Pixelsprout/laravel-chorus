@@ -43,8 +43,6 @@ use App\Models\User;
 use App\Models\Platform;
 use Illuminate\Http\Request;
 use Pixelsprout\LaravelChorus\Support\ChorusAction;
-use Pixelsprout\LaravelChorus\Support\ActionCollector;
-
 final class CreateMessageWithActivityAction extends ChorusAction
 {
     public function rules(): array
@@ -69,34 +67,40 @@ final class CreateMessageWithActivityAction extends ChorusAction
         ];
     }
 
-    protected function handle(Request $request, ActionCollector $actions): void
+    public function handle(Request $request): void
     {
         // Authorization check
         $this->authorize('create', Message::class);
 
-        $data = $request->all();
+        $user = auth()->user();
 
-        // Execute multiple operations atomically (UUID auto-generated on client)
-        $actions->messages->create([
-            'id' => $data['id'], // UUID provided by client
-            'body' => $data['body'],
-            'user_id' => auth()->id(),
-            'platform_id' => $data['platform_id'],
-            'tenant_id' => auth()->user()->tenant_id,
-        ]);
+        // Get message create operations
+        $messageCreateOperations = $this->getOperations('messages', 'create');
+        
+        foreach ($messageCreateOperations as $messageData) {
+            Message::create([
+                'id' => $messageData['id'] ?? Str::uuid(),
+                'body' => $messageData['body'],
+                'user_id' => $user->id,
+                'platform_id' => $messageData['platform_id'],
+                'tenant_id' => $user->tenant_id,
+            ]);
+        }
 
         // Update user activity
-        $actions->users->update([
-            'id' => auth()->id(),
+        User::where('id', $user->id)->update([
             'last_activity_at' => now(),
         ]);
 
-        // Update platform metrics
-        $actions->platforms->update([
-            'id' => $data['platform_id'],
-            'last_message_at' => now(),
-            'message_count' => \DB::raw('message_count + 1'),
-        ]);
+        // Get platform update operations
+        $platformUpdateOperations = $this->getOperations('platforms', 'update');
+        
+        foreach ($platformUpdateOperations as $platformData) {
+            Platform::where('id', $platformData['id'])->update([
+                'last_message_at' => now(),
+                'message_count' => \DB::raw('message_count + 1'),
+            ]);
+        }
     }
     
     protected function authorize(string $ability, $model): void
@@ -118,8 +122,6 @@ namespace App\Actions\ChorusActions;
 use App\Models\Message;
 use Illuminate\Http\Request;
 use Pixelsprout\LaravelChorus\Support\ChorusAction;
-use Pixelsprout\LaravelChorus\Support\ActionCollector;
-
 final class UpdateMessageAction extends ChorusAction
 {
     public function rules(): array
@@ -137,34 +139,43 @@ final class UpdateMessageAction extends ChorusAction
         ];
     }
 
-    protected function handle(Request $request, ActionCollector $actions): void
+    public function handle(Request $request): void
     {
-        $data = $request->all();
-        $messageId = $data['id'];
-        $message = Message::findOrFail($messageId);
+        $user = auth()->user();
         
-        // Authorization check
-        $this->authorize('update', $message);
+        // Get message update operations
+        $messageUpdateOperations = $this->getOperations('messages', 'update');
         
-        // Optimistic locking check
-        if (isset($data['updated_at'])) {
-            $expectedUpdatedAt = Carbon::parse($data['updated_at']);
-            if ($message->updated_at->gt($expectedUpdatedAt)) {
-                throw new ConflictException('Message was updated by another user');
+        foreach ($messageUpdateOperations as $messageData) {
+            $message = Message::where('id', $messageData['id'])
+                ->where('tenant_id', $user->tenant_id)
+                ->first();
+            
+            if (!$message) {
+                throw new \Exception('Message not found or unauthorized');
             }
+            
+            // Authorization check
+            $this->authorize('update', $message);
+            
+            // Optimistic locking check
+            if (isset($messageData['updated_at'])) {
+                $expectedUpdatedAt = Carbon::parse($messageData['updated_at']);
+                if ($message->updated_at->gt($expectedUpdatedAt)) {
+                    throw new ConflictException('Message was updated by another user');
+                }
+            }
+            
+            // Update the message
+            $message->update([
+                'body' => $messageData['body'],
+                'is_edited' => true,
+                'edited_at' => now(),
+            ]);
         }
         
-        // Update the message
-        $actions->messages->update([
-            'id' => $messageId,
-            'body' => $data['body'],
-            'is_edited' => true,
-            'edited_at' => now(),
-        ]);
-        
         // Update user activity
-        $actions->users->update([
-            'id' => auth()->id(),
+        User::where('id', $user->id)->update([
             'last_activity_at' => now(),
         ]);
     }
@@ -188,8 +199,6 @@ namespace App\Actions\ChorusActions;
 use App\Models\Message;
 use Illuminate\Http\Request;
 use Pixelsprout\LaravelChorus\Support\ChorusAction;
-use Pixelsprout\LaravelChorus\Support\ActionCollector;
-
 final class DeleteMessageAction extends ChorusAction
 {
     public function rules(): array
@@ -199,7 +208,7 @@ final class DeleteMessageAction extends ChorusAction
         ];
     }
 
-    protected function handle(Request $request, ActionCollector $actions): void
+    public function handle(Request $request): void
     {
         $user = auth()->user();
 
@@ -207,16 +216,27 @@ final class DeleteMessageAction extends ChorusAction
             throw new \Exception('User must be authenticated');
         }
 
-        $data = $request->all();
+        // Get message delete operations
+        $messageDeleteOperations = $this->getOperations('messages', 'delete');
         
-        // Delete the message using the action collector
-        $actions->messages->delete([
-            'id' => $data['id'],
-        ]);
+        foreach ($messageDeleteOperations as $messageData) {
+            $message = Message::where('id', $messageData['id'])
+                ->where('tenant_id', $user->tenant_id)
+                ->first();
+
+            if (!$message) {
+                throw new \Exception('Message not found or unauthorized');
+            }
+            
+            // Authorization check
+            $this->authorize('delete', $message);
+            
+            // Delete the message
+            $message->delete();
+        }
 
         // Update user's last activity timestamp
-        $actions->users->update([
-            'id' => $user->id,
+        User::where('id', $user->id)->update([
             'last_activity_at' => now(),
         ]);
     }
@@ -272,17 +292,21 @@ final class SimpleCreateMessageAction extends ChorusAction
         ];
     }
 
-    protected function handle(Request $request, ActionCollector $actions): void
+    public function handle(Request $request): void
     {
-        $data = $request->all();
+        $user = auth()->user();
         
-        // UUID auto-generated on client, just use the provided data
-        $actions->messages->create([
-            'id' => $data['id'], // UUID provided by client
-            'body' => $data['body'],
-            'platform_id' => $data['platform_id'],
-            'user_id' => auth()->id(),
-        ]);
+        // Get message create operations
+        $messageCreateOperations = $this->getOperations('messages', 'create');
+        
+        foreach ($messageCreateOperations as $messageData) {
+            Message::create([
+                'id' => $messageData['id'] ?? Str::uuid(),
+                'body' => $messageData['body'],
+                'platform_id' => $messageData['platform_id'],
+                'user_id' => $user->id,
+            ]);
+        }
     }
 }
 ```
@@ -291,8 +315,8 @@ final class SimpleCreateMessageAction extends ChorusAction
 
 ```typescript
 // Full format (always works) - UUID auto-generated
-await createMessageAction((writes) => {
-    writes.messages.create({
+await createMessageAction(({ create }) => {
+    create('messages', {
         body: "Hello world",
         platform_id: "abc-123"
     });
@@ -313,16 +337,12 @@ Chorus generates TypeScript functions for each registered action:
 
 ```tsx
 import { createMessageWithActivityAction, updateMessageAction, deleteMessageAction } from '@/_generated/chorus-actions';
-import { uuidv7 } from 'uuidv7';
 
 export default function MessageForm() {
-    const handleCreate = async (body: string, platformId: string) => {
-        const messageId = uuidv7();
-        
-        const result = await createMessageWithActivityAction((writes) => {
-            // Create the message
-            writes.messages.create({
-                id: messageId,
+    const handleCreate = async (body: string, platformId: string) => {        
+        const result = await createMessageWithActivityAction(({ create, update }) => {
+            // Create the message (UUID auto-generated)
+            create('messages', {
                 body,
                 platform_id: platformId,
                 user_id: user.id,
@@ -330,13 +350,13 @@ export default function MessageForm() {
             });
             
             // Update user activity (handled automatically)
-            writes.users.update({
+            update('users', {
                 id: user.id,
                 last_activity_at: new Date().toISOString(),
             });
             
             // Update platform metrics (handled automatically)
-            writes.platforms.update({
+            update('platforms', {
                 id: platformId,
                 last_message_at: new Date().toISOString(),
             });
@@ -350,8 +370,8 @@ export default function MessageForm() {
     };
     
     const handleUpdate = async (messageId: string, newBody: string) => {
-        await updateMessageAction((writes) => {
-            writes.messages.update({
+        await updateMessageAction(({ update }) => {
+            update('messages', {
                 id: messageId,
                 body: newBody,
             });
@@ -361,8 +381,16 @@ export default function MessageForm() {
     const handleDelete = async (messageId: string) => {
         if (!confirm('Delete this message?')) return;
         
-        await deleteMessageAction((writes) => {
-            writes.messages.delete(messageId);
+        await deleteMessageAction(({ remove, update }) => {
+            remove('messages', {
+                id: messageId,
+            });
+            
+            // Update user activity
+            update('users', {
+                id: user.id,
+                last_activity_at: new Date().toISOString(),
+            });
         });
     };
     

@@ -20,12 +20,12 @@ A Chorus Action is a server-side class that:
 
 ### Key Features
 
-- ✅ **Multi-table operations** - Create, update, delete across multiple tables in one action
-- ✅ **Automatic offline support** - No configuration needed
-- ✅ **Operation validation** - Table.operation-specific validation rules
-- ✅ **Type generation** - Auto-generated TypeScript functions
-- ✅ **Single operation shorthand** - Simplified API for simple actions
-- ✅ **Optimistic updates** - Instant UI feedback
+- **Multi-table operations** - Create, update, delete across multiple tables in one action
+- **Automatic offline support** - No configuration needed
+- **Operation validation** - Table.operation-specific validation rules
+- **Type generation** - Auto-generated TypeScript functions
+- **Single operation shorthand** - Simplified API for simple actions
+- **Optimistic updates** - Instant UI feedback
 
 ## Creating Chorus Actions
 
@@ -44,8 +44,9 @@ This creates a new action in `app/Actions/ChorusActions/`.
 
 namespace App\Actions\ChorusActions;
 
+use App\Models\Message;
+use App\Models\User;
 use Illuminate\Http\Request;
-use Pixelsprout\LaravelChorus\Support\ActionCollector;
 use Pixelsprout\LaravelChorus\Support\ChorusAction;
 
 final class CreateMessageWithActivityAction extends ChorusAction
@@ -56,7 +57,6 @@ final class CreateMessageWithActivityAction extends ChorusAction
             'messages.create' => [
                 'body' => 'required|string|max:1000',
                 'platform_id' => 'required|uuid|exists:platforms,id',
-                'user_id' => 'required|uuid|exists:users,id',
             ],
             'users.update' => [
                 'id' => 'required|uuid|exists:users,id',
@@ -65,23 +65,29 @@ final class CreateMessageWithActivityAction extends ChorusAction
         ];
     }
 
-    protected function handle(Request $request, ActionCollector $actions): void
+    public function handle(Request $request): void
     {
-        $data = $request->all();
         $user = auth()->user();
 
-        // Create message
-        $actions->messages->create([
-            'id' => Str::uuid(),
-            'body' => $data['body'],
-            'platform_id' => $data['platform_id'],
-            'user_id' => $user->id,
-            'tenant_id' => $user->tenant_id,
-        ]);
+        if (!$user) {
+            throw new \Exception('User must be authenticated');
+        }
+
+        // Get create operations for messages
+        $messageCreateOperations = $this->getOperations('messages', 'create');
+        
+        foreach ($messageCreateOperations as $messageData) {
+            Message::create([
+                'id' => $messageData['id'] ?? Str::uuid(),
+                'body' => $messageData['body'],
+                'platform_id' => $messageData['platform_id'],
+                'user_id' => $user->id,
+                'tenant_id' => $user->tenant_id,
+            ]);
+        }
 
         // Update user activity
-        $actions->users->update([
-            'id' => $user->id,
+        User::where('id', $user->id)->update([
             'last_activity_at' => now(),
         ]);
     }
@@ -126,77 +132,116 @@ Chorus automatically generates UUIDs for create operations when the `id` field i
 
 ```typescript
 // UUID automatically generated
-writes.messages.create({
+create('messages', {
     body: "Hello world",
     user_id: 123,
 });
 
 // You can still provide your own ID if needed
-writes.messages.create({
+create('messages', {
     id: "custom-id-123",
     body: "Hello world", 
     user_id: 123,
 });
 ```
 
-This eliminates the need for manual UUID generation in your client code:
+## Handling Operation Data
 
-```typescript
-// ❌ Before: Manual UUID generation
-import { uuidv7 } from 'uuidv7';
-
-const messageId = uuidv7();
-writes.messages.create({
-    id: messageId,
-    body: "Hello world",
-});
-
-// ✅ After: Automatic UUID generation  
-writes.messages.create({
-    body: "Hello world",
-});
-```
-
-## ActionCollector
-
-The `ActionCollector` provides table-specific proxies for database operations:
+Chorus Actions use the `getOperations()` method to retrieve operation data from the request:
 
 ```php
-protected function handle(Request $request, ActionCollector $actions): void
+public function handle(Request $request): void
 {
-    $data = $request->all();
+    $user = auth()->user();
     
-    // Create operations (UUID auto-generated on client)
-    $message = $actions->messages->create([
-        'id' => $data['id'], // UUID provided by client
-        'body' => $data['body'],
-        'user_id' => auth()->id(),
-    ]);
+    // Get create operations for messages
+    $messageCreateOperations = $this->getOperations('messages', 'create');
+    
+    foreach ($messageCreateOperations as $messageData) {
+        Message::create([
+            'id' => $messageData['id'] ?? Str::uuid(),
+            'body' => $messageData['body'],
+            'user_id' => $user->id,
+        ]);
+    }
 
-    // Update operations
-    $user = $actions->users->update([
-        'id' => auth()->id(),
-        'last_seen_at' => now(),
-    ]);
+    // Get update operations for users
+    $userUpdateOperations = $this->getOperations('users', 'update');
+    
+    foreach ($userUpdateOperations as $userData) {
+        User::where('id', $userData['id'])->update($userData);
+    }
 
-    // Delete operations  
-    $actions->comments->delete($data['comment_id']);
+    // Get delete operations for comments
+    $commentDeleteOperations = $this->getOperations('comments', 'delete');
+    
+    foreach ($commentDeleteOperations as $commentData) {
+        Comment::where('id', $commentData['id'])->delete();
+    }
 }
 ```
 
-### Return Values
+### The getOperations() Method
 
-ActionCollector methods return the actual Eloquent model instances:
+The `getOperations(string $table, string $operation)` method returns an array of operation data:
 
 ```php
-$message = $actions->messages->create($data);
-// $message is now a Message model instance
+// Returns array of data for creating messages
+$creates = $this->getOperations('messages', 'create');
 
-$user = $actions->users->update($userData);
-// $user is the updated User model instance
+// Returns array of data for updating users  
+$updates = $this->getOperations('users', 'update');
 
-$deleted = $actions->posts->delete($postId);
-// $deleted is boolean true/false
+// Returns array of data for deleting posts
+$deletes = $this->getOperations('posts', 'delete');
+```
+
+### Handling Empty Operations
+
+Always check if operations exist before processing:
+
+```php
+public function handle(Request $request): void
+{
+    $messageCreateOperations = $this->getOperations('messages', 'create');
+    
+    if (empty($messageCreateOperations)) {
+        throw new \Exception('No message data found in request');
+    }
+    
+    foreach ($messageCreateOperations as $messageData) {
+        // Process each message...
+    }
+}
+```
+
+### Authorization and Validation
+
+Validate data and check permissions within your operations:
+
+```php
+public function handle(Request $request): void
+{
+    $user = auth()->user();
+    
+    $messageUpdateOperations = $this->getOperations('messages', 'update');
+    
+    foreach ($messageUpdateOperations as $messageData) {
+        // Verify the message belongs to the user's tenant
+        $message = Message::where('id', $messageData['id'])
+            ->where('tenant_id', $user->tenant_id)
+            ->first();
+
+        if (!$message) {
+            throw new \Exception('Message not found or unauthorized');
+        }
+
+        // Update the message
+        $message->update([
+            'body' => $messageData['body'],
+        ]);
+    }
+}
 ```
 
 ## Single Operation Shorthand
@@ -218,17 +263,19 @@ final class SimpleCreateMessageAction extends ChorusAction
         ];
     }
 
-    protected function handle(Request $request, ActionCollector $actions): void
+    public function handle(Request $request): void
     {
-        $data = $request->all();
+        // Get the message create operations
+        $messageCreateOperations = $this->getOperations('messages', 'create');
         
-        // UUID auto-generated on client, just use the provided data
-        $actions->messages->create([
-            'id' => $data['id'], // UUID provided by client
-            'body' => $data['body'],
-            'platform_id' => $data['platform_id'],
-            'user_id' => auth()->id(),
-        ]);
+        foreach ($messageCreateOperations as $messageData) {
+            Message::create([
+                'id' => $messageData['id'] ?? Str::uuid(),
+                'body' => $messageData['body'],
+                'platform_id' => $messageData['platform_id'],
+                'user_id' => auth()->id(),
+            ]);
+        }
     }
 }
 ```
@@ -237,8 +284,8 @@ final class SimpleCreateMessageAction extends ChorusAction
 
 ```typescript
 // Full format (always works) - UUID auto-generated
-await createMessageAction((writes) => {
-    writes.messages.create({
+await createMessageAction(({ create }) => {
+    create('messages', {
         body: "Hello world",
         platform_id: "abc-123"
     });
@@ -260,7 +307,7 @@ Chorus automatically generates TypeScript functions for each action:
 ```typescript
 // Auto-generated in resources/js/_generated/chorus-actions.ts
 export async function createMessageWithActivityAction(
-  callback: (writes: WritesProxy) => void
+  callback: ({ create, update, remove }: ChorusActionMethods) => void
 ): Promise<ChorusActionResponse>;
 ```
 
@@ -271,16 +318,16 @@ import { createMessageWithActivityAction } from '@/_generated/chorus-actions';
 
 export default function CreateMessageForm() {
     const handleSubmit = async (formData) => {
-        const result = await createMessageWithActivityAction((writes) => {
+        const result = await createMessageWithActivityAction(({ create, update }) => {
             // UUID automatically generated for create operations
-            writes.messages.create({
+            create('messages', {
                 body: formData.message,
                 platform_id: formData.platformId,
                 user_id: user.id,
                 tenant_id: user.tenant_id,
             });
             
-            writes.users.update({
+            update('users', {
                 id: user.id,
                 last_activity_at: new Date().toISOString(),
             });
@@ -300,15 +347,15 @@ export default function CreateMessageForm() {
 import { createMessageWithActivityAction } from '@/_generated/chorus-actions';
 
 const handleSubmit = async (formData) => {
-    const result = await createMessageWithActivityAction((writes) => {
+    const result = await createMessageWithActivityAction(({ create, update }) => {
         // UUID automatically generated for create operations
-        writes.messages.create({
+        create('messages', {
             body: formData.message,
             platform_id: formData.platformId,
             user_id: user.id,
         });
         
-        writes.users.update({
+        update('users', {
             id: user.id,
             last_activity_at: new Date().toISOString(),
         });
@@ -322,7 +369,7 @@ const handleSubmit = async (formData) => {
 ### Authorization
 
 ```php
-protected function handle(Request $request, ActionCollector $actions): void
+public function handle(Request $request): void
 {
     // Check permissions before operations
     if (!auth()->user()->can('create', Message::class)) {
@@ -334,20 +381,35 @@ protected function handle(Request $request, ActionCollector $actions): void
     }
     
     // Proceed with operations...
-    $actions->messages->create($data);
+    $messageCreateOperations = $this->getOperations('messages', 'create');
+    
+    foreach ($messageCreateOperations as $messageData) {
+        Message::create($messageData);
+    }
 }
 ```
 
 ### Database Transactions
 
 ```php
-protected function handle(Request $request, ActionCollector $actions): void
+public function handle(Request $request): void
 {
-    DB::transaction(function () use ($request, $actions) {
+    DB::transaction(function () use ($request) {
         // All operations in a single transaction
-        $actions->messages->create($messageData);
-        $actions->users->update($userData);  
-        $actions->platforms->update($platformData);
+        $messageCreateOperations = $this->getOperations('messages', 'create');
+        foreach ($messageCreateOperations as $messageData) {
+            Message::create($messageData);
+        }
+        
+        $userUpdateOperations = $this->getOperations('users', 'update');
+        foreach ($userUpdateOperations as $userData) {
+            User::where('id', $userData['id'])->update($userData);
+        }
+        
+        $platformUpdateOperations = $this->getOperations('platforms', 'update');
+        foreach ($platformUpdateOperations as $platformData) {
+            Platform::where('id', $platformData['id'])->update($platformData);
+        }
     });
 }
 ```
@@ -355,35 +417,39 @@ protected function handle(Request $request, ActionCollector $actions): void
 ### Complex Business Logic
 
 ```php
-protected function handle(Request $request, ActionCollector $actions): void
+public function handle(Request $request): void
 {
-    $data = $request->all();
     $user = auth()->user();
     
-    // Create the message (UUID auto-generated on client)
-    $message = $actions->messages->create([
-        'id' => $data['id'], // UUID provided by client
-        'body' => $data['body'],
-        'user_id' => $user->id,
-        'platform_id' => $data['platform_id'],
-    ]);
+    // Get message create operations
+    $messageCreateOperations = $this->getOperations('messages', 'create');
     
-    // Update user stats based on message content
-    $wordCount = str_word_count($data['body']);
-    $actions->users->update([
-        'id' => $user->id,
-        'total_words' => DB::raw("total_words + {$wordCount}"),
-        'message_count' => DB::raw('message_count + 1'),
-        'last_activity_at' => now(),
-    ]);
-    
-    // Award achievements
-    if ($user->message_count >= 100) {
-        $actions->user_achievements->create([
+    foreach ($messageCreateOperations as $messageData) {
+        // Create the message
+        $message = Message::create([
+            'id' => $messageData['id'] ?? Str::uuid(),
+            'body' => $messageData['body'],
             'user_id' => $user->id,
-            'achievement_id' => 'prolific_writer',
-            'earned_at' => now(),
+            'platform_id' => $messageData['platform_id'],
         ]);
+        
+        // Update user stats based on message content
+        $wordCount = str_word_count($messageData['body']);
+        User::where('id', $user->id)->update([
+            'total_words' => DB::raw("total_words + {$wordCount}"),
+            'message_count' => DB::raw('message_count + 1'),
+            'last_activity_at' => now(),
+        ]);
+        
+        // Award achievements
+        $updatedUser = User::find($user->id);
+        if ($updatedUser->message_count >= 100) {
+            UserAchievement::create([
+                'user_id' => $user->id,
+                'achievement_id' => 'prolific_writer',
+                'earned_at' => now(),
+            ]);
+        }
     }
 }
 ```
