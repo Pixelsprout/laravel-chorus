@@ -79,7 +79,7 @@ This command will:
 - Set up Laravel Reverb (if not already installed)
 - Generate TypeScript utilities in `resources/js/chorus`
 - Configure broadcasting settings
-- Install client-side node module **chorus-js**
+- Install the appropriate Chorus package for your chosen framework
 
 ### Step 3: Run Migrations
 
@@ -266,7 +266,7 @@ Use Chorus hooks to access synchronized data:
 
 ```tsx
 // resources/js/components/MessagesList.tsx
-import { useTable } from '@chorus-js/react';
+import { useTable } from '@pixelsprout/chorus-react';
 import { types, Message } from '@stores/types';
 
 export default function MessagesList() {

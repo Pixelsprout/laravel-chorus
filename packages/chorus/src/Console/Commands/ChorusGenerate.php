@@ -599,8 +599,8 @@ final class ChorusGenerate extends Command
         // Generate the actual implementation file
         $implContent = "// Auto-generated implementation for Chorus Actions\n";
         $implContent .= '// Generated on '.now()->toDateTimeString()."\n\n";
-        $implContent .= "import { getGlobalChorusActionsAPI } from '@pixelsprout/chorus-js/core';\n";
-        $implContent .= "import type { ChorusActionResponse, WritesProxy, ModelProxy, ValidationUtils, ValidationResult } from './actions';\n";
+        $implContent .= "import { getGlobalChorusActionsAPI } from '@pixelsprout/chorus-core';\n";
+        $implContent .= "import type { ChorusActionResponse, WritesProxy } from './action-types';\n";
         $implContent .= 'import { ';
 
         // Import validation schemas as values (not types)
@@ -610,7 +610,7 @@ final class ChorusGenerate extends Command
         }
         $implContent .= implode(', ', $schemaImports);
 
-        $implContent .= " } from './actions';\n\n";
+        $implContent .= " } from './action-types';\n\n";
 
         $implContent .= "// Use the global ChorusActionsAPI instance for optimistic updates integration\n";
         $implContent .= "const chorusAPI = getGlobalChorusActionsAPI();\n\n";
@@ -637,9 +637,9 @@ final class ChorusGenerate extends Command
             $implContent .= "}\n\n";
         }
 
-        File::put("{$directory}/actions.ts", $content);
+        File::put("{$directory}/action-types.ts", $content);
         File::put("{$directory}/chorus-actions.ts", $implContent);
-        info("Action interfaces saved to {$directory}/actions.ts");
+        info("Action interfaces saved to {$directory}/action-types.ts");
         info("Action implementations saved to {$directory}/chorus-actions.ts");
     }
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import AppContent from '@/components/AppContent.vue';
-import ChorusProvider from '@pixelsprout/chorus-js/vue/providers/ChorusProvider.vue';
+import ChorusProvider from '@pixelsprout/chorus-vue/providers/ChorusProvider.vue';
 import { usePage } from '@inertiajs/vue3';
 import AppShell from '@/components/AppShell.vue';
 import AppSidebar from '@/components/AppSidebar.vue';

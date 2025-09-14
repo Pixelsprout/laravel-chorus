@@ -1,9 +1,9 @@
 // Auto-generated implementation for Chorus Actions
-// Generated on 2025-08-19 20:30:58
+// Generated on 2025-09-02 19:14:46
 
-import { getGlobalChorusActionsAPI } from '@pixelsprout/chorus-js/core';
-import type { ChorusActionResponse, WritesProxy, ModelProxy, ValidationUtils, ValidationResult } from './actions';
-import { DeleteMessageValidationSchema, CreateMessageWithActivityValidationSchema, UpdateMessageValidationSchema } from './actions';
+import { getGlobalChorusActionsAPI } from '@pixelsprout/chorus-core';
+import type { ChorusActionResponse, WritesProxy } from './action-types';
+import { DeleteMessageValidationSchema, CreateMessageWithActivityValidationSchema, UpdateMessageValidationSchema } from './action-types';
 
 // Use the global ChorusActionsAPI instance for optimistic updates integration
 const chorusAPI = getGlobalChorusActionsAPI();

@@ -4,9 +4,14 @@ import {
     useChorus,
     useOffline,
     useTable
-} from '@pixelsprout/chorus-js/vue';
+} from '@pixelsprout/chorus-vue';
 import { watch, computed } from 'vue';
-import OfflineIndicator from '@pixelsprout/chorus-js/vue/components/OfflineIndicator.vue';
+import OfflineIndicator from '@pixelsprout/chorus-vue/components/OfflineIndicator.vue';
+
+// shadcn-vue components
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 // Get Chorus state
 const {
@@ -33,124 +38,87 @@ const {
 </script>
 
 <template>
-  <div class="chorus-example">
-      <div v-if="usersIsLoading" class="loading">
-        Loading users data...
+  <div class="space-y-4">
+    <!-- Loading State -->
+    <div v-if="usersIsLoading" class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <Skeleton class="h-4 w-[100px]" />
+          <Skeleton class="h-4 w-[60px]" />
+        </div>
       </div>
-      <div v-else-if="usersError" class="error">
-        Error loading users data: {{ usersError }}
-      </div>
-      <div v-else-if="usersData && usersData.length > 0">
-        <p>Total records: {{ usersData.length }}</p>
-        <div class="users-grid">
-          <div v-for="record in usersData" :key="record.id" class="user-card">
-            <h4>{{ record.name || record.title || `Record ${record.id}` }}</h4>
-            <div v-for="(value, key) in record" :key="key">
-              <p>
-                <span>{{ value }}</span>
-              </p>
-            </div>
+      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div v-for="i in 3" :key="i" class="space-y-3">
+          <Skeleton class="h-[125px] w-full rounded-xl" />
+          <div class="space-y-2">
+            <Skeleton class="h-4 w-[200px]" />
+            <Skeleton class="h-4 w-[160px]" />
           </div>
         </div>
       </div>
-      <div v-else class="no-data">
-        No users records found
+    </div>
+
+    <!-- Error State -->
+    <Alert v-else-if="usersError" variant="destructive">
+      <AlertDescription>
+        Error loading users data: {{ usersError }}
+      </AlertDescription>
+    </Alert>
+
+    <!-- Users Data -->
+    <div v-else-if="usersData && usersData.length > 0" class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <span class="text-sm text-muted-foreground">Total users:</span>
+          <span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10">
+            {{ usersData.length }}
+          </span>
+        </div>
+        <div v-if="usersLastUpdate" class="text-xs text-muted-foreground">
+          Last updated: {{ usersLastUpdate.toLocaleTimeString() }}
+        </div>
+      </div>
+      
+      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card v-for="user in usersData" :key="user.id" class="hover:shadow-md transition-shadow">
+          <CardHeader class="pb-2">
+            <div class="flex items-start justify-between">
+              <CardTitle class="text-base">{{ user.name }}</CardTitle>
+              <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+                Active
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent class="space-y-2">
+            <div class="text-sm text-muted-foreground">
+              {{ user.email }}
+            </div>
+            <div class="text-xs text-muted-foreground font-mono">
+              ID: {{ user.id }}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
+
+    <!-- Empty State -->
+    <div v-else class="flex flex-col items-center justify-center py-12">
+      <div class="text-center space-y-3">
+        <div class="mx-auto h-24 w-24 text-muted-foreground/20">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+          </svg>
+        </div>
+        <div>
+          <h3 class="text-lg font-medium">No users found</h3>
+          <p class="text-sm text-muted-foreground mt-1">
+            Create your first user using the form above.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 
-<style scoped>
-.chorus-example {
-  padding: 20px;
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.status {
-  background: #f5f5f5;
-  padding: 10px;
-  border-radius: 4px;
-  margin-bottom: 20px;
-}
-
-.error {
-  color: #dc2626;
-  font-weight: bold;
-}
-
-.offline-status {
-  background: #e0f2fe;
-  padding: 10px;
-  border-radius: 4px;
-  margin-bottom: 20px;
-}
-
-.schema-info, .table-states, .users-list {
-  margin-bottom: 20px;
-}
-
-.table-state {
-  background: #f9f9f9;
-  padding: 10px;
-  border-radius: 4px;
-  margin-bottom: 10px;
-}
-
-.users-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 15px;
-  margin-top: 15px;
-}
-
-.user-card {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 15px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.user-card h4 {
-  margin: 0 0 10px 0;
-  color: #1f2937;
-  font-size: 1.1em;
-}
-
-.user-card p {
-  margin: 5px 0;
-  font-size: 0.9em;
-  color: #4b5563;
-}
-
-.unverified {
-  color: #dc2626 !important;
-  font-style: italic;
-}
-
-.loading {
-  text-align: center;
-  padding: 20px;
-  color: #6b7280;
-  font-style: italic;
-}
-
-.no-data {
-  text-align: center;
-  padding: 20px;
-  color: #9ca3af;
-  font-style: italic;
-  background: #f9fafb;
-  border-radius: 4px;
-}
-
-h2, h3, h4 {
-  margin-top: 0;
-}
-
-ul {
-  margin: 0;
-  padding-left: 20px;
-}
-</style>
+<!-- No scoped styles needed - using shadcn-vue classes -->

@@ -1,8 +1,8 @@
 import AppLayout from '@/layouts/app-layout';
 import type { Message, Platform, User } from '@/_generated/types';
 import { type BreadcrumbItem } from '@/types';
-import { useTable, useHarmonicsQuery } from '@pixelsprout/chorus-js';
-import { OfflineBanner, OfflineIndicator } from '@pixelsprout/chorus-js';
+import { useTable, useTableQuery } from '@pixelsprout/chorus-react';
+import { OfflineBanner, OfflineIndicator } from '@pixelsprout/chorus-react';
 import { Head, usePage } from '@inertiajs/react';
 import { type SharedData } from '@/types';
 import { ClockIcon } from 'lucide-react';
@@ -26,7 +26,7 @@ function DashboardContent() {
     const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
 
     // Use the helper hook to automatically memoize the query
-    const messagesQuery = useHarmonicsQuery<Message>(
+    const messagesQuery = useTableQuery<Message>(
         (table) => selectedPlatform
             ? table.where('platform_id').equals(selectedPlatform)
             : table,

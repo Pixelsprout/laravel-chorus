@@ -1,0 +1,48 @@
+{
+  "name": "@pixelsprout/chorus-svelte",
+  "version": "0.2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Pixelsprout",
+  "license": "MIT",
+  "description": "Svelte stores and components for Chorus sync engine integration (Coming Soon).",
+  "git repository": "https://github.com/Pixelsprout/laravel-chorus",
+  "keywords": [
+    "laravel",
+    "Sync engine",
+    "Offline first",
+    "Local First",
+    "Svelte",
+    "stores"
+  ],
+  "devDependencies": {
+    "@types/node": "^24.0.10",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@pixelsprout/chorus-core": "file:../chorus-core"
+  },
+  "peerDependencies": {
+    "svelte": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "svelte": {
+      "optional": true
+    }
+  }
+}

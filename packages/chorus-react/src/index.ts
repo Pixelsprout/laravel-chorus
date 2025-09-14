@@ -1,0 +1,11 @@
+export { ChorusProvider, useHarmonics, useTableQuery } from './providers/ChorusProvider';
+export { useOffline } from './hooks/useOffline';
+export { OfflineIndicator, OfflineBanner } from './components/OfflineIndicator';
+export { useTable, useTables } from './hooks/useTable';
+export type { HarmonicEvent } from '@pixelsprout/chorus-core';
+export type { UseOfflineReturn } from './hooks/useOffline';
+export type { OfflineIndicatorProps } from './components/OfflineIndicator';
+
+// Export shared provider types
+export type { ChorusProviderProps } from '@pixelsprout/chorus-core';
+export type { ReactChorusProviderProps } from './provider-types';

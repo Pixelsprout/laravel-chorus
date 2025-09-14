@@ -154,7 +154,7 @@ test('runPackageManagerCommand constructs command correctly', function () {
         ->once()
         ->andReturnSelf();
     Process::shouldReceive('run')
-        ->with('npm install @pixelsprout/chorus-js')
+        ->with('npm install @pixelsprout/chorus-react')
         ->once()
         ->andReturn($processResult);
 
@@ -194,11 +194,11 @@ test('runPackageManagerCommand constructs command correctly', function () {
     $command->setLaravel($this->app);
 
     // Act
-    $command->runPackageManagerCommand('npm', ['install', '@pixelsprout/chorus-js']);
+    $command->runPackageManagerCommand('npm', ['install', '@pixelsprout/chorus-react']);
 
     // Assert
-    expect($command->capturedOutput)->toContain(['info', 'Running: npm install @pixelsprout/chorus-js'])
-        ->and($command->capturedOutput)->toContain(['info', 'Successfully ran: npm install @pixelsprout/chorus-js'])
+    expect($command->capturedOutput)->toContain(['info', 'Running: npm install @pixelsprout/chorus-react'])
+        ->and($command->capturedOutput)->toContain(['info', 'Successfully ran: npm install @pixelsprout/chorus-react'])
         ->and($command->capturedOutput)->toContain(['line', 'Success']);
 });
 
@@ -227,7 +227,7 @@ test('runPackageManagerCommand throws exception on command failure', function ()
         ->once()
         ->andReturnSelf();
     Process::shouldReceive('run')
-        ->with('npm install @pixelsprout/chorus-js')
+        ->with('npm install @pixelsprout/chorus-react')
         ->once()
         ->andReturn($processResult);
 
@@ -271,10 +271,10 @@ test('runPackageManagerCommand throws exception on command failure', function ()
     $command->setLaravel($this->app);
 
     // Act & Assert
-    expect(fn () => $command->runPackageManagerCommand('npm', ['install', '@pixelsprout/chorus-js']))
+    expect(fn () => $command->runPackageManagerCommand('npm', ['install', '@pixelsprout/chorus-react']))
         ->toThrow(Exception::class, 'Package manager command failed')
-        ->and($command->capturedOutput)->toContain(['info', 'Running: npm install @pixelsprout/chorus-js'])
-        ->and($command->capturedOutput)->toContain(['error', 'Failed to run: npm install @pixelsprout/chorus-js'])
+        ->and($command->capturedOutput)->toContain(['info', 'Running: npm install @pixelsprout/chorus-react'])
+        ->and($command->capturedOutput)->toContain(['error', 'Failed to run: npm install @pixelsprout/chorus-react'])
         ->and($command->capturedOutput)->toContain(['error', 'Command failed']);
 
 });

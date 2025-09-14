@@ -1,7 +1,6 @@
-// Default empty schema - run php artisan chorus:generate to populate this file
+// Auto-generated IndexedDB schema for Chorus tables
+// Generated on 2025-09-14 01:15:13
+
 export const chorusSchema: Record<string, string> = {
-  // Schema will be auto-populated when you run php artisan chorus:generate
-  // Example format:
-  // 'users': 'id, name, email',
-  // 'messages': 'id, user_id, content, created_at'
+  'users': 'id, name, email',
 };

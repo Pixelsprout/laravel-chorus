@@ -1,7 +1,7 @@
 import { queryParams, type QueryParams } from './../../../../wayfinder'
 /**
 * @see \App\Actions\ChorusActions\UpdateMessageAction::__invoke
-* @see app/Actions/ChorusActions/UpdateMessageAction.php:22
+* @see app/Actions/ChorusActions/UpdateMessageAction.php:23
 * @route '/api/actions/update-message'
 */
 const UpdateMessageAction = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -19,7 +19,7 @@ UpdateMessageAction.definition = {
 
 /**
 * @see \App\Actions\ChorusActions\UpdateMessageAction::__invoke
-* @see app/Actions/ChorusActions/UpdateMessageAction.php:22
+* @see app/Actions/ChorusActions/UpdateMessageAction.php:23
 * @route '/api/actions/update-message'
 */
 UpdateMessageAction.url = (options?: { query?: QueryParams, mergeQuery?: QueryParams }) => {
@@ -28,7 +28,7 @@ UpdateMessageAction.url = (options?: { query?: QueryParams, mergeQuery?: QueryPa
 
 /**
 * @see \App\Actions\ChorusActions\UpdateMessageAction::__invoke
-* @see app/Actions/ChorusActions/UpdateMessageAction.php:22
+* @see app/Actions/ChorusActions/UpdateMessageAction.php:23
 * @route '/api/actions/update-message'
 */
 UpdateMessageAction.post = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {

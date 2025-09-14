@@ -1,7 +1,7 @@
 import { queryParams, type QueryParams } from './../../../../wayfinder'
 /**
 * @see \App\Actions\ChorusActions\DeleteMessageAction::__invoke
-* @see app/Actions/ChorusActions/DeleteMessageAction.php:22
+* @see app/Actions/ChorusActions/DeleteMessageAction.php:23
 * @route '/api/actions/delete-message'
 */
 const DeleteMessageAction = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {
@@ -19,7 +19,7 @@ DeleteMessageAction.definition = {
 
 /**
 * @see \App\Actions\ChorusActions\DeleteMessageAction::__invoke
-* @see app/Actions/ChorusActions/DeleteMessageAction.php:22
+* @see app/Actions/ChorusActions/DeleteMessageAction.php:23
 * @route '/api/actions/delete-message'
 */
 DeleteMessageAction.url = (options?: { query?: QueryParams, mergeQuery?: QueryParams }) => {
@@ -28,7 +28,7 @@ DeleteMessageAction.url = (options?: { query?: QueryParams, mergeQuery?: QueryPa
 
 /**
 * @see \App\Actions\ChorusActions\DeleteMessageAction::__invoke
-* @see app/Actions/ChorusActions/DeleteMessageAction.php:22
+* @see app/Actions/ChorusActions/DeleteMessageAction.php:23
 * @route '/api/actions/delete-message'
 */
 DeleteMessageAction.post = (options?: { query?: QueryParams, mergeQuery?: QueryParams }): {

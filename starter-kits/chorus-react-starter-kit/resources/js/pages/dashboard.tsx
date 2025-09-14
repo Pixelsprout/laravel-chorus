@@ -1,7 +1,7 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
-import { useTable } from '@pixelsprout/chorus-js';
+import { useTable } from '@pixelsprout/chorus-react';
 import { User } from '@/_generated/types';
 import { ColumnDef } from "@tanstack/react-table"
 import {DataTable} from '@/components/data-table';

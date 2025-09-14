@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Process;
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
+use function Laravel\Prompts\select;
 use function Laravel\Prompts\warning;
 
 final class ChorusInstall extends Command
@@ -170,22 +171,43 @@ TS;
 
     private function installChorusJS(): void
     {
-        info('Installing chorus-js node module...');
+        info('Installing Chorus client library...');
 
         // Check if package.json exists
         $packageJsonPath = base_path('package.json');
         if (! File::exists($packageJsonPath)) {
             warning(
-                "package.json not found. Skipping chorus-js installation. You'll need to install it manually when it's published to npm."
+                "package.json not found. Skipping client library installation. You'll need to install it manually when it's published to npm."
             );
 
             return;
         }
 
-        // For now, we'll just show instructions since the package isn't published yet
+        // Prompt user to select frontend framework
+        $framework = select(
+            label: 'Which frontend framework will you be using?',
+            options: [
+                'react' => 'React',
+                'vue' => 'Vue.js',
+                'svelte' => 'Svelte',
+                'vanilla' => 'Vanilla JavaScript',
+            ],
+            default: 'react'
+        );
+
+        // Map framework to package name
+        $packageMap = [
+            'react' => '@pixelsprout/chorus-react',
+            'vue' => '@pixelsprout/chorus-vue',
+            'svelte' => '@pixelsprout/chorus-svelte',
+            'vanilla' => '@pixelsprout/chorus-react',
+        ];
+
+        $packageName = $packageMap[$framework];
+
         if (
             confirm(
-                label: 'Would you like to install the chorus-js package?',
+                label: "Would you like to install the {$packageName} package?",
                 default: true
             )
         ) {
@@ -196,23 +218,23 @@ TS;
                 if ($packageManager) {
                     info("Detected package manager: {$packageManager}");
 
-                    $this->runPackageManagerCommand($packageManager, ['install', '@pixelsprout/chorus-js']);
-                    info('Successfully installed @chorus/js');
+                    $this->runPackageManagerCommand($packageManager, ['install', $packageName]);
+                    info("Successfully installed {$packageName}");
 
                 } else {
                     warning(
-                        "No package manager detected (npm, yarn, pnpm). Please install chorus-js manually once it's published to npm."
+                        "No package manager detected (npm, yarn, pnpm). Please install {$packageName} manually once it's published to npm."
                     );
                 }
             } catch (Exception $e) {
-                error('Failed to install chorus-js: '.$e->getMessage());
+                error("Failed to install {$packageName}: ".$e->getMessage());
                 info(
-                    "You can install it manually once it's published with: npm install @chorus/js"
+                    "You can install it manually once it's published with: npm install {$packageName}"
                 );
             }
         } else {
             info(
-                'Skipped chorus-js installation. You can install it manually once published with: npm install @chorus/js'
+                "Skipped {$packageName} installation. You can install it manually once published with: npm install {$packageName}"
             );
         }
     }

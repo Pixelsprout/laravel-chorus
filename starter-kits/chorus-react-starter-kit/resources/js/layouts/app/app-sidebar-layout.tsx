@@ -4,7 +4,7 @@ import { AppSidebar } from '@/components/app-sidebar';
 import { AppSidebarHeader } from '@/components/app-sidebar-header';
 import { type BreadcrumbItem, SharedData } from '@/types';
 import { type PropsWithChildren } from 'react';
-import { ChorusProvider } from '@pixelsprout/chorus-js';
+import { ChorusProvider } from '@pixelsprout/chorus-react';
 import { usePage } from '@inertiajs/react';
 
 export default function AppSidebarLayout({ children, breadcrumbs = [] }: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[] }>) {

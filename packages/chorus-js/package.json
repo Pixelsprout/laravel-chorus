@@ -8,26 +8,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./core": {
-      "types": "./dist/core/index.d.ts",
-      "import": "./dist/core/index.js"
-    },
-    "./react": {
-      "types": "./dist/react/index.d.ts",
-      "import": "./dist/react/index.js"
-    },
-    "./vue": {
-      "types": "./dist/vue/index.d.ts",
-      "import": "./dist/vue/index.js"
-    },
-    "./vue/components/*": "./src/vue/components/*",
-    "./vue/providers/*": "./src/vue/providers/*",
-    "./src/vue/providers/ChorusProvider.vue": "./src/vue/providers/ChorusProvider.vue"
+    }
   },
   "files": [
-    "dist",
-    "src/vue/**/*.vue"
+    "dist"
   ],
   "scripts": {
     "build": "tsc",
@@ -36,49 +20,21 @@
   },
   "author": "Pixelsprout",
   "license": "MIT",
-  "description": "This package interfaces directly with the Chorus sync engine for Laravel, processing websocket events from Chorus and writing local data to IndexedDB.",
+  "description": "Pure JavaScript utilities for Chorus sync engine integration (Coming Soon).",
   "git repository": "https://github.com/Pixelsprout/laravel-chorus",
   "keywords": [
     "laravel",
     "Sync engine",
     "Offline first",
     "Local First",
-    "React",
-    "Vue",
-    "Javascript"
+    "Javascript",
+    "vanilla"
   ],
   "devDependencies": {
     "@types/node": "^24.0.10",
-    "@types/react": "^19.1.8",
-    "typescript": "^5.8.3",
-    "vue": "^3.5.0"
+    "typescript": "^5.8.3"
   },
   "dependencies": {
-    "@vueuse/rxjs": "^12.8.2",
-    "axios": "^1.11.0",
-    "dexie": "^4.0.11",
-    "dexie-react-hooks": "^1.1.7",
-    "rxjs": "^7.8.2",
-    "uuidv7": "^1.0.2"
-  },
-  "peerDependencies": {
-    "@laravel/echo-react": "^2.1.4",
-    "@laravel/echo-vue": "^2.1.7",
-    "react": "^19.0.0",
-    "vue": "^3.5.0"
-  },
-  "peerDependenciesMeta": {
-    "@laravel/echo-react": {
-      "optional": true
-    },
-    "@laravel/echo-vue": {
-      "optional": true
-    },
-    "react": {
-      "optional": true
-    },
-    "vue": {
-      "optional": true
-    }
+    "@pixelsprout/chorus-core": "file:../chorus-core"
   }
 }
