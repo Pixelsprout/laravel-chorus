@@ -1,6 +1,6 @@
 {
   "name": "@pixelsprout/chorus-react",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -36,7 +36,7 @@
     "typescript": "^5.8.3"
   },
   "dependencies": {
-    "@pixelsprout/chorus-core": "file:../chorus-core",
+    "@pixelsprout/chorus-core": "@pixelsprout/chorus-core",
     "@laravel/echo-react": "^2.1.4",
     "dexie-react-hooks": "^1.1.7"
   },

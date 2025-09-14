@@ -1,6 +1,6 @@
 {
   "name": "@pixelsprout/chorus-vue",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -41,7 +41,7 @@
     "vue": "^3.5.0"
   },
   "dependencies": {
-    "@pixelsprout/chorus-core": "file:../chorus-core",
+    "@pixelsprout/chorus-core": "@pixelsprout/chorus-core",
     "@laravel/echo-vue": "^2.1.7",
     "@vueuse/rxjs": "^12.8.2",
     "dexie": "^4.0.11"
