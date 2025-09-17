@@ -40,6 +40,7 @@ export function useTable(tableName, options) {
         }
         return table;
     });
+    console.log('Data: ', data);
     return {
         // Data access from harmonics
         data,

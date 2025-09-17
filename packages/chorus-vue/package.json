@@ -11,11 +11,13 @@
     },
     "./components/*": "./src/components/*",
     "./providers/*": "./src/providers/*",
-    "./src/providers/ChorusProvider.vue": "./src/providers/ChorusProvider.vue"
+    "./src/providers/ChorusProvider.vue": "./src/providers/ChorusProvider.vue",
+    "./injection-keys": "./src/injection-keys.ts"
   },
   "files": [
     "dist",
-    "src/**/*.vue"
+    "src/**/*.vue",
+    "src/**/*.ts"
   ],
   "scripts": {
     "build": "tsc",

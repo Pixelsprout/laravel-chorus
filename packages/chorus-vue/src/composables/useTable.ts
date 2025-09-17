@@ -33,7 +33,7 @@ export function useTable<T extends { id: string | number } = any>(
 ) {
   // Get data and actions from harmonics stream
   const { data, isLoading, error, lastUpdate, actions } = useHarmonics<T, T>(tableName, options?.query);
-  
+
   // Get write actions
   const writeActionsTable = computed(() => {
     const table = writeActions.table<T>(tableName);
@@ -59,6 +59,8 @@ export function useTable<T extends { id: string | number } = any>(
     
     return table;
   });
+
+  console.log('Data: ', data)
 
   return {
     // Data access from harmonics

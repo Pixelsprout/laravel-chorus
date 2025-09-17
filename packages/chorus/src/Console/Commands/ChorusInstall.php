@@ -81,12 +81,7 @@ final class ChorusInstall extends Command
         );
 
         if ($setupReverb) {
-            // Run the Laravel broadcasting installer
-            $this->call('reverb:install');
-
-            // Ensure BROADCAST_DRIVER is set to reverb
-            $this->updateEnvFile('BROADCAST_DRIVER', 'reverb');
-
+            $this->call('install:broadcasting --reverb');
         } else {
             warning(
                 'Skipping broadcasting setup. You will need to set up broadcasting manually to use Chorus\'s real-time features.'
@@ -96,7 +91,6 @@ final class ChorusInstall extends Command
 
     private function configureBroadcasting(): void
     {
-        // Check if BroadcastServiceProvider is enabled
         if (File::exists(config_path('app.php'))) {
             $appConfig = File::get(config_path('app.php'));
 

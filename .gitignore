@@ -1,6 +1,10 @@
 /.phpunit.cache
 /node_modules
 /packages/chorus-js/node_modules
+/packages/chorus-core/node_modules
+/packages/chorus-react/node_modules
+/packages/chorus-vue/node_modules
+/packages/chorus-svelte/node_modules
 /public/build
 /public/hot
 /public/storage
