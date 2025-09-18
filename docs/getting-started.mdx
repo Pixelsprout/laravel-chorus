@@ -245,14 +245,12 @@ Wrap your app with the Chorus provider:
 ```tsx
 // resources/js/app.tsx
 import { ChorusProvider } from '@/chorus/react';
-import { types } from '@/stores/types';
 
 function App() {
     return (
         <ChorusProvider
             userId={user.id}
             channelPrefix={user.tenant_id} // Optional for multi-tenancy
-            schema={types}
         >
             <YourAppComponents />
         </ChorusProvider>
@@ -267,7 +265,7 @@ Use Chorus hooks to access synchronized data:
 ```tsx
 // resources/js/components/MessagesList.tsx
 import { useTable } from '@pixelsprout/chorus-react';
-import { types, Message } from '@stores/types';
+import { Message } from '@stores/types';
 
 export default function MessagesList() {
     const { 
@@ -277,7 +275,7 @@ export default function MessagesList() {
         remove,
         isLoading,
         error 
-    } = useTable<Message>('messages', types);
+    } = useTable<Message>('messages');
     
     const handleCreateMessage = async () => {
         await create(

@@ -36,7 +36,7 @@ export declare function useChorusStatus(tableName: string): TableState;
  * Use this when your query depends on reactive values to prevent infinite re-renders.
  *
  * @example
- * const query = useHarmonicsQuery<Message>(
+ * const query = useTableQuery<Message>(
  *   (table) => selectedPlatform
  *     ? table.where('platform_id').equals(selectedPlatform)
  *     : table,
@@ -44,7 +44,7 @@ export declare function useChorusStatus(tableName: string): TableState;
  * );
  * const { data } = useHarmonics('messages', query);
  */
-export declare function useHarmonicsQuery<T extends {
+export declare function useTableQuery<T extends {
     id: string | number;
 }>(queryFn: (table: Table<T>) => Table<T> | Collection<T, any>, deps: React.DependencyList): (table: Table<T>) => Table<T> | Collection<T, any>;
 export {};

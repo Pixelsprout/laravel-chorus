@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Broadcast;
 
 // Chorus channels
 Broadcast::channel('chorus.user.{id}', function ($user, $id) {
-    return $user->id === $id;
+    return (int) $user->id === (int) $id;
 });
 
 // Prefixed Chorus channels (e.g., chorus.tenantId.user.123)

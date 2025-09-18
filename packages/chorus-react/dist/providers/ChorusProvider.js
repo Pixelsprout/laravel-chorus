@@ -335,7 +335,7 @@ export function useChorusStatus(tableName) {
  * Use this when your query depends on reactive values to prevent infinite re-renders.
  *
  * @example
- * const query = useHarmonicsQuery<Message>(
+ * const query = useTableQuery<Message>(
  *   (table) => selectedPlatform
  *     ? table.where('platform_id').equals(selectedPlatform)
  *     : table,
@@ -343,6 +343,6 @@ export function useChorusStatus(tableName) {
  * );
  * const { data } = useHarmonics('messages', query);
  */
-export function useHarmonicsQuery(queryFn, deps) {
+export function useTableQuery(queryFn, deps) {
     return useCallback(queryFn, deps);
 }

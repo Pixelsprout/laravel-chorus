@@ -41,12 +41,6 @@ final class ChorusInstall extends Command
         $this->createGeneratedDirectory();
 
         info('Laravel Chorus has been installed successfully!');
-        info('Next steps:');
-        info('1. Run the migrations with: php artisan migrate');
-        info('2. Generate IndexedDB schema with: php artisan chorus:generate');
-        info('3. Start the Chorus server with: php artisan chorus:start');
-        info("4. Install the @chorus/js package once it's published to npm");
-        info('5. Configure your frontend to use the Chorus JavaScript client');
     }
 
     private function setupReverb(): void
