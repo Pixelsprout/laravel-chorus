@@ -81,7 +81,7 @@ final class ChorusInstall extends Command
         );
 
         if ($setupReverb) {
-            $this->call('install:broadcasting --reverb');
+            $this->call('install:broadcasting', ['--reverb' => true]);
         } else {
             warning(
                 'Skipping broadcasting setup. You will need to set up broadcasting manually to use Chorus\'s real-time features.'
