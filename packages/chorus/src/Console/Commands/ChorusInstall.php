@@ -48,7 +48,7 @@ final class ChorusInstall extends Command
         info('Setting up broadcasting for Laravel Chorus...');
 
         // Check if Reverb is already installed and configured
-        if (File::exists(config_path('reverb.php')) && $this->isReverbConfigured()) {
+        if ($this->isBroadcastingConfigured() && $this->isReverbConfigured()) {
             info('Reverb is already installed and configured.');
 
             // Check if the reverb driver is configured
@@ -314,6 +314,11 @@ TS;
         }
 
         return true;
+    }
+
+    private function isBroadcastingConfigured(): bool
+    {
+        return File::exists(config_path('broadcasting.php')) && File::exists(config_path('reverb.php'));
     }
 
     private function updateEnvFile(string $key, string $value): void
