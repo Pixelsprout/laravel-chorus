@@ -55,12 +55,12 @@ final class ChorusInstall extends Command
             $envFile = base_path('.env');
             if (File::exists($envFile)) {
                 $env = File::get($envFile);
-                if (! str_contains($env, 'BROADCAST_DRIVER=reverb')) {
+                if (! str_contains($env, 'BROADCAST_CONNECTION=reverb') && ! str_contains($env, 'BROADCAST_DRIVER=reverb')) {
                     info(
-                        'Note: For the best experience with Chorus, we recommend using the "reverb" driver.'
+                        'Note: For the best experience with Chorus, we recommend using the "reverb" connection.'
                     );
                     info(
-                        'You can change this in your .env file: BROADCAST_DRIVER=reverb'
+                        'You can change this in your .env file: BROADCAST_CONNECTION=reverb'
                     );
                 }
             }
@@ -304,8 +304,16 @@ TS;
 
         $env = File::get($envFile);
 
-        // Check if REVERB_APP_ID is present and has a value
-        return preg_match('/REVERB_APP_ID=.+/', $env) === 1;
+        // Check if all required Reverb variables are present and have values
+        $requiredVars = ['REVERB_APP_ID', 'REVERB_APP_KEY', 'REVERB_APP_SECRET'];
+
+        foreach ($requiredVars as $var) {
+            if (! preg_match("/{$var}=.+/", $env)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function updateEnvFile(string $key, string $value): void
