@@ -1,57 +1,60 @@
 <?php
 
-declare(strict_types=1);
-
 return [
-    /*
-    |--------------------------------------------------------------------------
-    | Harmonics Table
-    |--------------------------------------------------------------------------
-    |
-    | This value determines the name of the table that will be used to store
-    | harmonics data for persistence. You may change this to any name you wish.
-    |
-    */
-    'harmonics_table' => env('CHORUS_HARMONICS_TABLE', 'harmonics'),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Harmonic Channel Prefix
-    |--------------------------------------------------------------------------
-    |
-    | This value determines the prefix for the WebSocket channels. It can be
-    | a static string or a class that implements the PrefixResolver interface.
-    | If a class is provided, it will be resolved to dynamically generate the prefix.
-    |
-    */
-    'harmonic_channel_prefix' => '',
 
     /*
     |--------------------------------------------------------------------------
     | Harmonic Source Adapter
     |--------------------------------------------------------------------------
     |
-    | This value determines which adapter will be used to track changes to your
-    | models. Available adapters: 'eloquent' (default).
-    |
-    | The 'eloquent' adapter uses Laravel's built-in model events to track
-    | changes to your models and record them in the harmonics table.
+    | This option allows you to specify the adapter that will be used to
+    | source harmonic changes. By default, Chorus will use the Eloquent
+    | adapter which will track changes to your Eloquent models.
     |
     */
-    'harmonic_source_adapter' => env(
-        'CHORUS_HARMONIC_SOURCE_ADAPTER',
-        'eloquent'
-    ),
+
+    'harmonic_source_adapter' => 'eloquent',
 
     /*
     |--------------------------------------------------------------------------
-    | Database Version Tracking
+    | Model Namespace
     |--------------------------------------------------------------------------
     |
-    | Enable automatic database version tracking based on migration state.
-    | When enabled, clients will automatically rebuild their local database
-    | when migrations are run (e.g., migrate:fresh, new migrations, rollbacks).
+    | This value is the namespace that will be used when looking up your
+    | application's models. This namespace will be used when generating
+    | harmonics for your models.
     |
     */
-    'track_database_version' => env('CHORUS_TRACK_DATABASE_VERSION', true),
+
+    'model_namespace' => 'App\\Models',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Database Connection
+    |--------------------------------------------------------------------------
+    |
+    | This is the database connection that will be used to store harmonics.
+    | It should be the same connection that is used by your models that
+    | are using the Harmonics trait.
+    |
+    */
+
+    'database_connection' => env('CHORUS_DB_CONNECTION', config('database.default')),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Broadcasting
+    |--------------------------------------------------------------------------
+    |
+    | This is the broadcasting configuration for Chorus. The channel prefix
+    | will be used to prefix all Chorus channels. The authentication guard
+    | will be used to authenticate users when they connect to Chorus channels.
+    |
+    */
+
+    'broadcasting' => [
+        'channel_prefix' => 'chorus',
+        'auth_guard' => 'web',
+    ],
+
 ];

@@ -6,13 +6,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Fortify\TwoFactorAuthenticatable;
 use Pixelsprout\LaravelChorus\Support\JSType;
 use Pixelsprout\LaravelChorus\Traits\Harmonics;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, Harmonics;
+    use HasFactory, Notifiable, TwoFactorAuthenticatable, Harmonics;
 
     /**
      * The attributes that are mass assignable.
@@ -26,17 +27,6 @@ class User extends Authenticatable
     ];
 
     /**
-     * Fields to sync to client.
-     *
-     * @var array
-     */
-    protected array $syncFields = [
-      'id' => JSType::String,
-      'name' => JSType::String,
-      'email' => JSType::String,
-    ];
-
-    /**
      * The attributes that should be hidden for serialization.
      *
      * @var list<string>
@@ -44,6 +34,17 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+    ];
+
+    /**
+     * Fields to sync to client.
+     *
+     * @var array
+     */
+    protected array $syncFields = [
+        'id' => JSType::String,
+        'name' => JSType::String,
+        'email' => JSType::String,
     ];
 
     /**
