@@ -171,17 +171,25 @@ TS;
             return;
         }
 
-        // Prompt user to select frontend framework
-        $framework = select(
-            label: 'Which frontend framework will you be using?',
-            options: [
-                'react' => 'React',
-                'vue' => 'Vue.js',
-                'svelte' => 'Svelte',
-                'vanilla' => 'Vanilla JavaScript',
-            ],
-            default: 'react'
-        );
+        // Check if React is already configured
+        $detectedFramework = $this->detectFramework();
+
+        if ($detectedFramework) {
+            info("Detected {$detectedFramework} framework already configured.");
+            $framework = $detectedFramework;
+        } else {
+            // Prompt user to select frontend framework
+            $framework = select(
+                label: 'Which frontend framework will you be using?',
+                options: [
+                    'react' => 'React',
+                    'vue' => 'Vue.js',
+                    'svelte' => 'Svelte',
+                    'vanilla' => 'Vanilla JavaScript',
+                ],
+                default: 'react'
+            );
+        }
 
         // Map framework to package name
         $packageMap = [
@@ -319,6 +327,41 @@ TS;
     private function isBroadcastingConfigured(): bool
     {
         return File::exists(config_path('broadcasting.php')) && File::exists(config_path('reverb.php'));
+    }
+
+    private function detectFramework(): ?string
+    {
+        $packageJsonPath = base_path('package.json');
+
+        if (! File::exists($packageJsonPath)) {
+            return null;
+        }
+
+        $packageJson = json_decode(File::get($packageJsonPath), true);
+
+        if (! $packageJson) {
+            return null;
+        }
+
+        $dependencies = array_merge(
+            $packageJson['dependencies'] ?? [],
+            $packageJson['devDependencies'] ?? []
+        );
+
+        // Check for Chorus packages
+        if (isset($dependencies['@pixelsprout/chorus-react'])) {
+            return 'react';
+        }
+
+        if (isset($dependencies['@pixelsprout/chorus-vue'])) {
+            return 'vue';
+        }
+
+        if (isset($dependencies['@pixelsprout/chorus-svelte'])) {
+            return 'svelte';
+        }
+
+        return null;
     }
 
     private function updateEnvFile(string $key, string $value): void
