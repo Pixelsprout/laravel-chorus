@@ -572,6 +572,17 @@ export class ChorusCore {
         await Promise.all(operations);
       }
 
+      // Clean up shadow items and mark deltas as synced for each harmonic
+      for (const harmonic of harmonics) {
+        if (!harmonic.rejected) {
+          await this.cleanupShadowItemsAndDeltas(
+            harmonic.table_name,
+            harmonic.record_id,
+            false
+          );
+        }
+      }
+
       // Only save the latest harmonic ID if all operations succeeded
       // If we get here, all harmonics were processed successfully
       this.saveLatestHarmonicId(harmonics[harmonics.length - 1].id);
@@ -623,6 +634,9 @@ export class ChorusCore {
     // Handle rejected harmonics
     if (event.rejected) {
       this.log(`Processing rejected harmonic: ${event.rejected_reason}`, event);
+      // Clean up shadow items and mark deltas as rejected
+      await this.cleanupShadowItemsAndDeltas(event.table_name, event.record_id, true, event.rejected_reason);
+
       // Only call callback if we haven't processed this rejected harmonic before
       // and if the event has a valid ID
       if (this.onRejectedHarmonic && event.id && !this.processedRejectedHarmonics.has(event.id)) {
@@ -656,6 +670,9 @@ export class ChorusCore {
         default:
           this.log(`Unknown operation type: ${event.operation}`);
       }
+
+      // After harmonics are applied, clean up shadow items and mark deltas as synced
+      await this.cleanupShadowItemsAndDeltas(tableName, event.record_id, false);
 
       // Save the latest harmonic ID
       this.saveLatestHarmonicId(event.id);
@@ -693,6 +710,76 @@ export class ChorusCore {
       });
 
       return false;
+    }
+  }
+
+  /**
+   * Clean up shadow items and update delta sync status when harmonics arrive
+   * Centralizes the logic that was previously duplicated in React/Vue adapters
+   */
+  private async cleanupShadowItemsAndDeltas(
+    tableName: string,
+    recordId: string | number,
+    isRejected: boolean = false,
+    rejectedReason?: string,
+  ): Promise<void> {
+    if (!this.db) {
+      return;
+    }
+
+    try {
+      const deltaTableName = `${tableName}_deltas`;
+      const shadowTableName = `${tableName}_shadow`;
+
+      // Check if delta and shadow tables exist before attempting operations
+      const deltaTable = this.db.table(deltaTableName);
+      const shadowTable = this.db.table(shadowTableName);
+
+      if (!deltaTable || !shadowTable) {
+        this.log(`Delta or shadow table not found for ${tableName}`);
+        return;
+      }
+
+      // Find pending deltas for this record
+      const pendingDeltas = await deltaTable
+        .where("sync_status")
+        .equals("pending")
+        .toArray();
+
+      for (const delta of pendingDeltas) {
+        if (delta.data?.id === recordId) {
+          // Update delta sync status
+          const updateData: Record<string, any> = {
+            sync_status: isRejected ? "rejected" : "synced",
+          };
+
+          if (rejectedReason) {
+            updateData.rejected_reason = rejectedReason;
+          }
+
+          await deltaTable.update(delta.id, updateData);
+          this.log(
+            `Updated delta ${delta.id} sync_status to ${updateData.sync_status}`,
+            updateData
+          );
+
+          // Remove shadow item if not rejected (rejected items should remain visible)
+          if (!isRejected) {
+            await shadowTable.delete(recordId);
+            this.log(`Deleted shadow item for record ID ${recordId}`);
+          }
+
+          break; // Exit after finding and processing the match
+        }
+      }
+    } catch (err) {
+      // Silently handle errors (tables may not exist yet or database may be closed)
+      if (
+        err instanceof Error &&
+        err.name !== "DatabaseClosedError"
+      ) {
+        this.log(`Error during shadow cleanup for ${tableName}:`, err);
+      }
     }
   }
 

@@ -112,6 +112,11 @@ export declare class ChorusCore {
      */
     processHarmonic(event: HarmonicEvent): Promise<boolean>;
     /**
+     * Clean up shadow items and update delta sync status when harmonics arrive
+     * Centralizes the logic that was previously duplicated in React/Vue adapters
+     */
+    private cleanupShadowItemsAndDeltas;
+    /**
      * Initialize all tables with data
      */
     initializeTables(): Promise<void>;
