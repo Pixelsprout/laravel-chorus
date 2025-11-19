@@ -28,6 +28,7 @@
             "pages": [
               "integrations/react",
               "integrations/vue",
+              "integrations/alpine",
               "integrations/vanilla-js"
             ]
           },

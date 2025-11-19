@@ -19,6 +19,8 @@ use Pixelsprout\LaravelChorus\Console\Commands\MakeChorusActionCommand;
 use Pixelsprout\LaravelChorus\Console\Commands\MakePrefixResolverCommand;
 use Pixelsprout\LaravelChorus\Console\Commands\MakeWriteActionCommand;
 use Pixelsprout\LaravelChorus\Listeners\TrackChannelConnections;
+use Pixelsprout\LaravelChorus\Support\BladeDirectives;
+use Pixelsprout\LaravelChorus\Support\BladeRenderer;
 
 final class ChorusServiceProvider extends ServiceProvider
 {
@@ -27,24 +29,27 @@ final class ChorusServiceProvider extends ServiceProvider
         // Register Reverb channel tracking events
         Event::listen(ChannelCreated::class, [
             TrackChannelConnections::class,
-            'handleChannelCreated',
+            "handleChannelCreated",
         ]);
         Event::listen(ChannelRemoved::class, [
             TrackChannelConnections::class,
-            'handleChannelRemoved',
+            "handleChannelRemoved",
         ]);
 
         // Register API routes with configuration from config/chorus.php
         $this->app->booted(function () {
-            $routeConfig = config('chorus.routes');
+            $routeConfig = config("chorus.routes");
 
-            Route::prefix($routeConfig['prefix'])
-                ->middleware($routeConfig['middleware'])
-                ->group(__DIR__.'/../Routes/api.php');
+            Route::prefix($routeConfig["prefix"])
+                ->middleware($routeConfig["middleware"])
+                ->group(__DIR__ . "/../Routes/api.php");
 
             // Note: ChorusActions now use explicit route binding in application routes
             // No automatic route registration needed
         });
+
+        // Register Blade directives
+        BladeDirectives::register();
 
         // Register commands
         if ($this->app->runningInConsole()) {
@@ -62,21 +67,21 @@ final class ChorusServiceProvider extends ServiceProvider
             // Publish migrations
             $this->publishes(
                 [
-                    __DIR__.'/../Database/Migrations' => database_path(
-                        'migrations'
+                    __DIR__ . "/../Database/Migrations" => database_path(
+                        "migrations",
                     ),
                 ],
-                'chorus-migrations'
+                "chorus-migrations",
             );
 
             // Publish config
             $this->publishes(
                 [
-                    __DIR__.'/../Config/chorus.php' => config_path(
-                        'chorus.php'
+                    __DIR__ . "/../Config/chorus.php" => config_path(
+                        "chorus.php",
                     ),
                 ],
-                'chorus-config'
+                "chorus-config",
             );
         }
     }
@@ -84,13 +89,16 @@ final class ChorusServiceProvider extends ServiceProvider
     public function register(): void
     {
         // Register services if needed
-        $this->mergeConfigFrom(__DIR__.'/../Config/chorus.php', 'chorus');
+        $this->mergeConfigFrom(__DIR__ . "/../Config/chorus.php", "chorus");
 
         // Register the HarmonicSourceAdapterManager as a singleton
         $this->app->singleton(HarmonicSourceAdapterManager::class, function (
-            $app
+            $app,
         ) {
             return new HarmonicSourceAdapterManager();
         });
+
+        // Register the BladeRenderer service
+        $this->app->bind("chorus.blade", BladeRenderer::class);
     }
 }

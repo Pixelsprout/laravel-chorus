@@ -1,0 +1,172 @@
+---
+title: "Alpine.js Integration"
+description: "Integrate Laravel Chorus with Alpine.js for real-time, reactive applications."
+---
+
+Chorus provides a lightweight Alpine.js plugin with magic methods for building real-time, reactive applications with minimal JavaScript.
+
+## Setup
+
+### Using the Blade Directive (Recommended)
+
+Add the `@chorus` directive to your layout:
+
+```html
+<!-- resources/views/layouts/app.blade.php -->
+<!DOCTYPE html>
+<html>
+<head>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @chorus
+</head>
+<body>
+    <!-- Your content -->
+</body>
+</html>
+```
+
+Initialize Alpine with the Chorus plugin:
+
+```javascript
+// resources/js/app.js
+import Alpine from 'alpinejs'
+import chorus from '@pixelsprout/chorus-alpine'
+
+window.Alpine = Alpine
+Alpine.plugin(chorus)
+Alpine.start()
+```
+
+**Configuration options:**
+
+```php
+@chorus([
+    'debugMode' => config('app.debug'),
+    'endpoint' => '/api/custom',
+    'websocketUrl' => 'ws://localhost:8080'
+])
+```
+
+### Manual Initialization
+
+For more control, initialize manually:
+
+```javascript
+document.addEventListener('alpine:init', async () => {
+  await Alpine.magic('chorus')().init({
+    userId: 1,
+    debugMode: true
+  })
+})
+```
+
+## Magic Methods
+
+### $table(tableName)
+
+Returns a reactive array that automatically updates in real-time:
+
+```html
+<div x-data="{ users: $table('users') }">
+  <ul>
+    <template x-for="user in users" :key="user.id">
+      <li x-text="user.name"></li>
+    </template>
+  </ul>
+</div>
+```
+
+### $chorus
+
+Access the Chorus instance:
+
+- `$chorus.instance` - The underlying ChorusCore instance
+- `$chorus.init(config)` - Initialize or reconfigure Chorus
+- `$chorus.isInitialized` - Check initialization status
+
+## Usage Examples
+
+### Filtered Data with Computed Properties
+
+```html
+<div x-data="{
+  users: $table('users'),
+  search: '',
+
+  get filteredUsers() {
+    return this.users.filter(user =>
+      user.name.toLowerCase().includes(this.search.toLowerCase())
+    )
+  }
+}">
+  <input x-model="search" placeholder="Search users...">
+
+  <template x-for="user in filteredUsers" :key="user.id">
+    <div x-text="user.name"></div>
+  </template>
+</div>
+```
+
+### Multiple Tables
+
+```html
+<div x-data="{
+  users: $table('users'),
+  posts: $table('posts')
+}">
+  <h2>Users: <span x-text="users.length"></span></h2>
+  <h2>Posts: <span x-text="posts.length"></span></h2>
+</div>
+```
+
+## Configuration
+
+**Blade directive options:**
+
+```php
+@chorus([
+    'debugMode' => config('app.debug'),
+    'endpoint' => '/api',
+    'websocketUrl' => 'ws://localhost:8080'
+])
+```
+
+**Manual init options:**
+
+```javascript
+await $chorus.init({
+  userId: 1,
+  debugMode: true,
+  onRejectedHarmonic: (harmonic) => console.error(harmonic),
+  onSchemaVersionChange: (oldVer, newVer) => console.log('Schema updated')
+})
+```
+
+## TypeScript Support
+
+Import types for magic method auto-completion:
+
+```typescript
+import '@pixelsprout/chorus-alpine/types'
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="React Integration" href="/integrations/react" icon="react">
+Learn about React hooks and patterns
+</Card>
+
+<Card title="Vue Integration" href="/integrations/vue" icon="vuejs">
+Explore Vue composables and components
+</Card>
+
+<Card title="Chorus Actions" href="/chorus-actions" icon="pen">
+Master server-side write operations
+</Card>
+
+<Card title="Core Concepts" href="/concepts/harmonics" icon="book">
+Understand how Chorus works under the hood
+</Card>
+</CardGroup>
+

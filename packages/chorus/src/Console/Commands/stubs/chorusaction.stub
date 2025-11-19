@@ -3,7 +3,6 @@
 namespace {{ namespace }};
 
 use Illuminate\Http\Request;
-use Pixelsprout\LaravelChorus\Support\ActionCollector;
 use Pixelsprout\LaravelChorus\Support\ChorusAction;
 
 final class {{ class }} extends ChorusAction
@@ -18,7 +17,7 @@ final class {{ class }} extends ChorusAction
         ];
     }
 
-    protected function handle(Request $request, ActionCollector $actions): void
+    protected function handle(Request $request      ): void
     {
         $data = $request->all();
 
