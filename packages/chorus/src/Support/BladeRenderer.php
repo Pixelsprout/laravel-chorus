@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Pixelsprout\LaravelChorus\Support;
 
 use Illuminate\Support\Str;
+use Throwable;
 
 final class BladeRenderer
 {
@@ -44,7 +45,7 @@ HTML;
         }
 
         // Remove outer parentheses if present
-        $expression = trim($expression, '()');
+        $expression = mb_trim($expression, '()');
 
         // If it's an array syntax, evaluate it
         if (Str::startsWith($expression, '[') && Str::endsWith($expression, ']')) {
@@ -53,7 +54,7 @@ HTML;
             // Try to parse as a simple variable or function call
             try {
                 $config = eval("return {$expression};");
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 // If parsing fails, treat as default config
                 $config = $this->getDefaultConfig();
             }

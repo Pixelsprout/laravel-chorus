@@ -13,7 +13,7 @@ final class BladeDirectives
      */
     public static function register(): void
     {
-        static::registerChorusDirective();
+        self::registerChorusDirective();
     }
 
     /**
