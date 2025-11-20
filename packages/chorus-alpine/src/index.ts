@@ -1,4 +1,11 @@
-import { ChorusCore, type HarmonicEvent } from "@pixelsprout/chorus-core";
+import {
+  ChorusCore,
+  type HarmonicEvent,
+  ClientWritesCollector,
+  createActionContext,
+  ChorusActionsAPI,
+  connectChorusActionsAPI,
+} from "@pixelsprout/chorus-core";
 import type { Alpine as AlpineType } from "alpinejs";
 
 declare global {
@@ -6,6 +13,8 @@ declare global {
     Alpine?: AlpineType;
     chorusConfig?: ChorusAlpineConfig;
     Echo?: any; // Laravel Echo instance
+    Livewire?: any; // Livewire instance
+    $wire?: any; // Livewire $wire instance
   }
 }
 
@@ -22,6 +31,10 @@ interface ChorusAlpineConfig {
     newVersion: string,
   ) => void;
   debugMode?: boolean;
+}
+
+interface LivewireEl extends HTMLElement {
+    $wire?: any;
 }
 
 /**
@@ -44,6 +57,7 @@ interface ChorusAlpineConfig {
  */
 export default function chorusPlugin(Alpine: AlpineType) {
   let chorusInstance: ChorusCore | null = null;
+  let chorusActionsAPI: ChorusActionsAPI | null = null;
   let initializationPromise: Promise<void> | null = null;
   let isInitialized = false;
   const tableProxies = new Map<string, TableProxy>();
@@ -127,6 +141,10 @@ export default function chorusPlugin(Alpine: AlpineType) {
       await chorusInstance.fetchAndInitializeSchema();
       await chorusInstance.initializeTables();
 
+      // Initialize ChorusActionsAPI for optimistic updates
+      chorusActionsAPI = new ChorusActionsAPI("/api");
+      connectChorusActionsAPI(chorusInstance, chorusActionsAPI);
+
       // Set up Echo listeners for real-time WebSocket updates
       setupEchoListeners(finalConfig.userId ?? "guest", finalConfig.channelPrefix);
 
@@ -181,6 +199,307 @@ export default function chorusPlugin(Alpine: AlpineType) {
       return tableProxies.get(tableName)!.getReactiveData();
     };
   });
+
+  // Add the $harmonize magic method for Livewire action integration
+  Alpine.magic("harmonize", (el) => {
+    return async (actionName: string, callback: (context: any) => void) => {
+      console.log(`[Chorus] $harmonize.${actionName} called`);
+
+      if (!chorusActionsAPI) {
+        throw new Error("Chorus not initialized");
+      }
+
+      // Get the Livewire component from the element
+      const livewireEl: LivewireEl | undefined = el?.closest("[wire\\:id]") || el;
+      const livewireId = livewireEl?.getAttribute("wire:id");
+
+      if (!livewireId) {
+        throw new Error("Could not find Livewire component");
+      }
+      console.log(`[Chorus] Livewire ID found: ${livewireId}`);
+
+      // Get the $wire instance from Livewire's component registry
+      const $wire = livewireEl?.$wire;
+
+      if (!$wire) {
+        console.error("[Chorus] Available Livewire components:", (window as any).Livewire?.components);
+        throw new Error("$wire not available. Make sure this is called from within a Livewire component");
+      }
+
+      // Create a writes collector to capture operations
+      const collector = new ClientWritesCollector();
+      const actionContext = createActionContext(collector);
+
+      console.log("[Chorus] Starting operation collection");
+      collector.startCollecting();
+
+      try {
+        // Execute the callback to collect operations
+        callback(actionContext);
+      } finally {
+        collector.stopCollecting();
+      }
+
+      // Get the collected operations
+      const operations = collector.getOperations();
+      console.log(`[Chorus] Collected ${operations.length} operations:`, operations);
+
+      if (operations.length === 0) {
+        console.log("[Chorus] No operations collected, calling Livewire directly");
+        return $wire[actionName]();
+      }
+
+      // Perform optimistic updates before calling Livewire
+      try {
+        await (chorusActionsAPI as any).handleOptimisticUpdates?.(
+          operations,
+          actionName,
+          {}
+        );
+      } catch (error) {
+        console.warn("[Chorus] Failed to apply optimistic updates:", error);
+      }
+
+      // Call Livewire method with the operations array
+      try {
+        console.log(`[Chorus] Calling $wire.${actionName} with operations`);
+        const response = await $wire[actionName](operations);
+
+        // Mark deltas as synced after successful server response
+        console.log(`[Chorus] Marking deltas as synced for action: ${actionName}`);
+        try {
+          await (chorusActionsAPI as any).markDeltasAsSynced?.(actionName);
+        } catch (syncError) {
+          console.warn("[Chorus] Failed to mark deltas as synced:", syncError);
+        }
+
+        // Refresh affected table proxies after successful response
+        const affectedTables = new Set(operations.map((op) => op.table));
+        affectedTables.forEach((tableName) => {
+          const proxy = tableProxies.get(tableName);
+          if (proxy) {
+            proxy.refreshData();
+          }
+        });
+
+        return response;
+      } catch (error) {
+        // Rollback optimistic updates on error
+        try {
+          await (chorusActionsAPI as any).rollbackOptimisticUpdates?.(operations);
+        } catch (rollbackError) {
+          console.warn("[Chorus] Failed to rollback optimistic updates:", rollbackError);
+        }
+
+        console.error(`[Chorus] Failed to execute Livewire action ${actionName}:`, error);
+        throw error;
+      }
+    };
+  });
+
+  // Hook into Livewire's lifecycle to wrap $wire methods
+  if (typeof window !== "undefined") {
+    document.addEventListener("livewire:init", function () {
+      console.log("[Chorus] livewire:init event fired");
+
+      // Try multiple hooks to ensure we catch component initialization
+      window.Livewire?.hook("component.initialized", (component: any) => {
+        console.log("[Chorus] component.initialized hook fired");
+        setupHarmonizeComponent(component);
+      });
+
+      window.Livewire?.hook("element.updating", (el: any, component: any) => {
+        console.log("[Chorus] element.updating hook fired");
+        setupHarmonizeComponent(component);
+      });
+
+      window.Livewire?.hook("element.updated", (el: any, component: any) => {
+        console.log("[Chorus] element.updated hook fired");
+        setupHarmonizeComponent(component);
+      });
+
+      // Also wrap $wire globally as a fallback
+      setTimeout(() => {
+        console.log("[Chorus] Setting up global $wire wrapper");
+        const originalWire = window.$wire;
+        if (originalWire && typeof originalWire === 'object') {
+          window.$wire = new Proxy(originalWire, {
+            get(target, prop: string | symbol) {
+              const original = target[prop as any];
+
+              if (typeof original === "function") {
+                return async function wrappedMethod(...args: any[]) {
+                  console.log(`[Chorus] $wire.${String(prop)} called with ${args.length} args`);
+
+                  if (args.length > 0 && typeof args[0] === "function" && chorusActionsAPI) {
+                    console.log("[Chorus] Intercepting callback-based Livewire call");
+                    const callback = args[0];
+                    const actionName = prop as string;
+
+                    const collector = new ClientWritesCollector();
+                    const actionContext = createActionContext(collector);
+
+                    collector.startCollecting();
+                    try {
+                      callback(actionContext);
+                    } finally {
+                      collector.stopCollecting();
+                    }
+
+                    const operations = collector.getOperations();
+                    console.log(`[Chorus] Collected ${operations.length} operations`);
+
+                    if (operations.length > 0) {
+                      try {
+                        await (chorusActionsAPI as any).handleOptimisticUpdates?.(
+                          operations,
+                          actionName,
+                          {}
+                        );
+                      } catch (error) {
+                        console.warn("[Chorus] Failed to apply optimistic updates:", error);
+                      }
+                    }
+
+                    return original.call(target, operations);
+                  }
+
+                  return original.apply(target, args);
+                };
+              }
+
+              return original;
+            },
+          });
+          console.log("[Chorus] Global $wire wrapper installed");
+        }
+      }, 100);
+    });
+  }
+
+  /**
+   * Set up a Livewire component for Harmonize operation collection
+   */
+  function setupHarmonizeComponent(component: any): void {
+    if (!chorusActionsAPI) {
+      console.log("[Chorus] ChorusActionsAPI not ready, skipping component setup");
+      return; // Chorus not initialized yet
+    }
+
+    if (!component || !component.$wire) {
+      console.log("[Chorus] Component or $wire not ready");
+      return; // Component not ready yet
+    }
+
+    console.log("[Chorus] Setting up Harmonize component proxy");
+
+    const originalWire = component.$wire;
+
+    // Create a proxy that intercepts method calls
+    const wireProxy = new Proxy(originalWire, {
+      get(target, prop: string | symbol) {
+        const original = target[prop as any];
+
+        // If it's a method, wrap it to handle operation collection
+        if (typeof original === "function") {
+          return async function wrappedMethod(...args: any[]) {
+            // Check if the first argument is a callback (operation collection pattern)
+            if (args.length > 0 && typeof args[0] === "function") {
+              const callback = args[0];
+              const actionName = prop as string;
+
+              // Create a writes collector to capture operations
+              const collector = new ClientWritesCollector();
+              const actionContext = createActionContext(collector);
+
+              // Start collecting operations
+              collector.startCollecting();
+
+              try {
+                // Execute the callback to collect operations
+                callback(actionContext);
+              } finally {
+                collector.stopCollecting();
+              }
+
+              // Get the collected operations
+              const operations = collector.getOperations();
+
+              if (operations.length === 0) {
+                // No operations, call normally
+                return original.apply(target, args);
+              }
+
+              // Perform optimistic updates before calling Livewire
+              try {
+                await (chorusActionsAPI as any).handleOptimisticUpdates?.(
+                  operations,
+                  actionName,
+                  {}
+                );
+              } catch (error) {
+                console.warn("[Chorus] Failed to apply optimistic updates:", error);
+              }
+
+              // Call Livewire method with the operations array
+              try {
+                const response = await original.call(target, operations);
+
+                // Mark deltas as synced after successful server response
+                try {
+                  await (chorusActionsAPI as any).markDeltasAsSynced?.(actionName);
+                } catch (syncError) {
+                  console.warn("[Chorus] Failed to mark deltas as synced:", syncError);
+                }
+
+                // Refresh affected table proxies after successful response
+                const affectedTables = new Set(operations.map((op) => op.table));
+                affectedTables.forEach((tableName) => {
+                  const proxy = tableProxies.get(tableName);
+                  if (proxy) {
+                    proxy.refreshData();
+                  }
+                });
+
+                return response;
+              } catch (error) {
+                // Rollback optimistic updates on error
+                try {
+                  await (chorusActionsAPI as any).rollbackOptimisticUpdates?.(
+                    operations
+                  );
+                } catch (rollbackError) {
+                  console.warn(
+                    "[Chorus] Failed to rollback optimistic updates:",
+                    rollbackError
+                  );
+                }
+
+                console.error(
+                  `[Chorus] Failed to execute Livewire action ${actionName}:`,
+                  error
+                );
+                throw error;
+              }
+            }
+
+            // Normal method call
+            return original.apply(target, args);
+          };
+        }
+
+        return original;
+      },
+    });
+
+    // Replace the component's $wire with our proxy
+    Object.defineProperty(component, "$wire", {
+      get() {
+        return wireProxy;
+      },
+      configurable: true,
+    });
+  }
 }
 
 /**

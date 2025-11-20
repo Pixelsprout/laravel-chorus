@@ -5,6 +5,8 @@ declare global {
         Alpine?: AlpineType;
         chorusConfig?: ChorusAlpineConfig;
         Echo?: any;
+        Livewire?: any;
+        $wire?: any;
     }
 }
 interface ChorusAlpineConfig {
