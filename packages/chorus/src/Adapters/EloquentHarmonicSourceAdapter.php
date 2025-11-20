@@ -90,11 +90,10 @@ final class EloquentHarmonicSourceAdapter implements HarmonicSourceAdapterInterf
         $data = [];
         $syncFields = $this->getSyncFields($model);
 
-        // Only sync fields that are explicitly defined including whatever is the primary key
+        // Include all sync fields in the harmonic data
+        // This ensures fields like completed_at are included even when null
         foreach ($syncFields as $field) {
-            if (array_key_exists($field, $model->getAttributes())) {
-                $data[$field] = $model->getAttribute($field);
-            }
+            $data[$field] = $model->getAttribute($field);
         }
 
         // Create harmonic payload

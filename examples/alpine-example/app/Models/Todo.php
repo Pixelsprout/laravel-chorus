@@ -14,7 +14,7 @@ class Todo extends Model
 
     protected $guarded = [];
 
-    protected array $syncFields = ['title', 'completed_at'];
+    protected array $syncFields = ['title', 'completed_at', 'created_at', 'updated_at'];
 
     protected function syncFilter(): Builder
     {

@@ -42,7 +42,13 @@ new class extends Component {
 
             try {
                 await $harmonize('createTodo', ({ create }) => {
-                    create('todos', { title })
+                    const now = new Date().toISOString();
+                    create('todos', {
+                        title,
+                        completed_at: null,
+                        created_at: now,
+                        updated_at: now,
+                    })
                 })
             } catch (error) {
                 console.error('Error creating todo:', error);

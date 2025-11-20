@@ -129,6 +129,10 @@ final class SyncController extends Controller
 
                 $records = $query->take($limit)->get();
 
+                // Transform records to only include sync fields
+                // This ensures consistency with harmonic data
+                $records = $records->map(fn ($record) => $record->only($syncFields));
+
                 $latestHarmonic = Harmonic::where('table_name', $table)
                     ->latest('id')
                     ->first();
