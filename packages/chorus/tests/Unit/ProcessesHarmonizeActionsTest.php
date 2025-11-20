@@ -11,14 +11,10 @@ final class TestLivewireComponent
     use ProcessesHarmonizeActions;
 
     #[Harmonize(tables: ['todos'], operations: ['create'])]
-    public function createTodo(array $operations): void
-    {
-    }
+    public function createTodo(array $operations): void {}
 
     #[Harmonize(tables: ['todos', 'posts'], operations: ['create', 'update'])]
-    public function complexAction(array $operations): void
-    {
-    }
+    public function complexAction(array $operations): void {}
 }
 
 it('retrieves harmonize metadata for all methods', function () {

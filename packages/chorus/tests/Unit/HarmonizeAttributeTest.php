@@ -25,7 +25,8 @@ it('can be instantiated with custom values', function () {
 });
 
 it('can be applied to methods', function () {
-    $testClass = new class {
+    $testClass = new class
+    {
         #[Harmonize(tables: ['todos'], operations: ['create'])]
         public function createTodo(array $operations): void
         {
@@ -47,20 +48,15 @@ it('can be applied to methods', function () {
 });
 
 it('can detect multiple methods with Harmonize attribute', function () {
-    $testClass = new class {
+    $testClass = new class
+    {
         #[Harmonize(tables: ['todos'])]
-        public function createTodo(array $operations): void
-        {
-        }
+        public function createTodo(array $operations): void {}
 
         #[Harmonize(tables: ['todos'])]
-        public function updateTodo(array $operations): void
-        {
-        }
+        public function updateTodo(array $operations): void {}
 
-        public function regularMethod(): void
-        {
-        }
+        public function regularMethod(): void {}
     };
 
     $reflection = new ReflectionClass($testClass);
@@ -68,7 +64,7 @@ it('can detect multiple methods with Harmonize attribute', function () {
 
     foreach ($reflection->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
         $attributes = $method->getAttributes(Harmonize::class);
-        if (!empty($attributes)) {
+        if (! empty($attributes)) {
             $harmonizeMethods[] = $method->getName();
         }
     }

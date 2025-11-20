@@ -12,7 +12,8 @@ uses(DatabaseMigrations::class);
 
 test('Livewire component can receive and process operations', function () {
     // Create a test Livewire component with Harmonize
-    $component = new class {
+    $component = new class
+    {
         use ProcessesHarmonizeActions;
 
         public function createTodo(array $operations): void
@@ -60,7 +61,8 @@ test('Livewire component can receive and process operations', function () {
 });
 
 test('Livewire component rejects operations with invalid tables', function () {
-    $component = new class {
+    $component = new class
+    {
         use ProcessesHarmonizeActions;
 
         public function createTodo(array $operations): void
@@ -81,7 +83,8 @@ test('Livewire component rejects operations with invalid tables', function () {
 })->throws(ValidationException::class);
 
 test('operations can be organized by table and operation type', function () {
-    $component = new class {
+    $component = new class
+    {
         use ProcessesHarmonizeActions;
 
         public function handleMultipleOperations(array $operations): void
@@ -131,18 +134,15 @@ test('operations can be organized by table and operation type', function () {
 });
 
 test('Harmonize attribute can be retrieved from component methods', function () {
-    $component = new class {
+    $component = new class
+    {
         use ProcessesHarmonizeActions;
 
         #[Harmonize(tables: ['todos'], operations: ['create'])]
-        public function createTodo(array $operations): void
-        {
-        }
+        public function createTodo(array $operations): void {}
 
         #[Harmonize(tables: ['todos'], operations: ['update', 'delete'])]
-        public function modifyTodo(array $operations): void
-        {
-        }
+        public function modifyTodo(array $operations): void {}
     };
 
     $metadata = $component->getHarmonizeMetadata();
@@ -154,7 +154,8 @@ test('Harmonize attribute can be retrieved from component methods', function () 
 });
 
 test('filtering operations preserves only matching records', function () {
-    $component = new class {
+    $component = new class
+    {
         use ProcessesHarmonizeActions;
     };
 

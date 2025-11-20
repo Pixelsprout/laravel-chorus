@@ -29,9 +29,9 @@ use Attribute;
 final class Harmonize
 {
     /**
-     * @param array<string> $tables List of tables this action can operate on
-     * @param array<string> $operations List of allowed operations (create, update, delete)
-     * @param bool $supportsBatch Whether this action supports batch operations
+     * @param  array<string>  $tables  List of tables this action can operate on
+     * @param  array<string>  $operations  List of allowed operations (create, update, delete)
+     * @param  bool  $supportsBatch  Whether this action supports batch operations
      */
     public function __construct(
         public readonly array $tables = [],

@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace Pixelsprout\LaravelChorus\Traits;
 
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
-use Livewire\Attributes\On;
 use Pixelsprout\LaravelChorus\Attributes\Harmonize;
 use ReflectionClass;
 use ReflectionMethod;
