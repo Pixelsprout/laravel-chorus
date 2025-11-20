@@ -117,17 +117,30 @@ export default function chorusPlugin(Alpine) {
     });
     // Add the $table magic method to Alpine
     Alpine.magic("table", () => {
-        return (tableName) => {
+        return (tableName, queryFn) => {
             if (!chorusInstance) {
                 throw new Error("Chorus not initialized. Call await $chorus.init() first or set window.chorusConfig.");
             }
-            // Reuse existing proxy or create new one
-            if (!tableProxies.has(tableName)) {
-                const tableProxy = new TableProxy(tableName, chorusInstance, initializationPromise, Alpine);
-                tableProxies.set(tableName, tableProxy);
+            // Generate a cache key that includes the query function
+            // For queries, we create a new proxy each time to support Alpine.effect() reactivity
+            // For non-query calls, we reuse the proxy
+            if (queryFn) {
+                // For queries, always create a new TableProxy to enable Alpine.effect() reactivity
+                const queryKey = `${tableName}_query_${Math.random()}`;
+                const tableProxy = new TableProxy(tableName, chorusInstance, initializationPromise, Alpine, queryFn);
+                tableProxies.set(queryKey, tableProxy);
+                // Return the reactive items array
+                return tableProxy.getReactiveData();
             }
-            // Return the reactive items array, not the proxy object itself
-            return tableProxies.get(tableName).getReactiveData();
+            else {
+                // Reuse existing proxy for non-query calls
+                if (!tableProxies.has(tableName)) {
+                    const tableProxy = new TableProxy(tableName, chorusInstance, initializationPromise, Alpine);
+                    tableProxies.set(tableName, tableProxy);
+                }
+                // Return the reactive items array, not the proxy object itself
+                return tableProxies.get(tableName).getReactiveData();
+            }
         };
     });
     // Add the $harmonize magic method for Livewire action integration
@@ -374,29 +387,61 @@ export default function chorusPlugin(Alpine) {
     }
 }
 /**
- * Manager class for reactive table data
+ * Manager class for reactive table data with optional query support
  */
 class TableProxy {
-    constructor(tableName, chorus, initializationPromise, alpine) {
+    constructor(tableName, chorus, initializationPromise, alpine, queryFn) {
         this.initialized = false;
         this.data = [];
         this.tableName = tableName;
         this.chorus = chorus;
         this.data = [];
         this.alpine = alpine;
+        this.queryFn = queryFn;
         // Create reactive wrapper once and reuse it
         this.reactiveData = alpine.reactive(this.data);
         // Wait for initialization before loading table data
         if (initializationPromise) {
             initializationPromise.then(() => {
-                this.loadTableData();
+                this.setupEffectAndLoad();
                 this.initialized = true;
             });
         }
         else {
             // If no initialization promise, load immediately
-            this.loadTableData();
+            this.setupEffectAndLoad();
             this.initialized = true;
+        }
+    }
+    setupEffectAndLoad() {
+        // If we have a query function, set up Alpine.effect() to track reactive dependencies
+        if (this.queryFn) {
+            // Use the global Alpine's effect method to track reactive dependencies
+            const Alpine = this.alpine;
+            // First load
+            this.loadTableData().catch((error) => console.error(`Error loading table ${this.tableName}:`, error));
+            // Set up effect to track reactive dependencies accessed in the query function
+            this.effectCleanup = Alpine.effect(() => {
+                // Call the query function to establish reactive dependencies
+                // This ensures Alpine.effect tracks any reactive data accessed within queryFn
+                try {
+                    const db = this.chorus.getDb();
+                    if (db && db.isOpen()) {
+                        const mainTable = db.table(this.tableName);
+                        // Just call the query to establish dependency tracking
+                        this.queryFn(mainTable);
+                    }
+                }
+                catch (e) {
+                    // Ignore errors during dependency tracking
+                }
+                // Now actually load the data
+                this.loadTableData().catch((error) => console.error(`Error in Alpine.effect for ${this.tableName}:`, error));
+            });
+        }
+        else {
+            // No query, just load data normally
+            this.loadTableData().catch((error) => console.error(`Error loading table ${this.tableName}:`, error));
         }
     }
     getTableName() {
@@ -410,16 +455,72 @@ class TableProxy {
     }
     async loadTableData() {
         try {
-            const freshData = await this.chorus.getTableData(this.tableName);
-            // Mutate through the reactive proxy to ensure Alpine detects changes
-            this.reactiveData.splice(0, this.reactiveData.length, ...freshData);
+            const db = this.chorus.getDb();
+            if (!db || !db.isOpen()) {
+                console.log(`[Chorus] Database not available or not open for ${this.tableName}`);
+                return;
+            }
+            const shadowTableName = `${this.tableName}_shadow`;
+            const deltaTableName = `${this.tableName}_deltas`;
+            const mainTable = db.table(this.tableName);
+            const shadowTable = db.table(shadowTableName);
+            if (!mainTable || !shadowTable) {
+                console.warn(`[Chorus] Tables not found: ${this.tableName}, ${shadowTableName}`);
+                return;
+            }
+            // Apply query function if provided, otherwise get all data
+            const mainQuery = this.queryFn ? this.queryFn(mainTable) : mainTable;
+            const shadowQuery = this.queryFn ? this.queryFn(shadowTable) : shadowTable;
+            // Execute queries
+            const mainData = await this.toArray(mainQuery);
+            const shadowData = await this.toArray(shadowQuery);
+            // Merge shadow data with main data (shadow takes precedence for optimistic updates)
+            const shadowDataMap = new Map((shadowData ?? []).map((item) => [item.id, item]));
+            const merged = (mainData ?? []).map((item) => shadowDataMap.has(item.id) ? shadowDataMap.get(item.id) : item);
+            const mainDataIds = new Set((mainData ?? []).map((item) => item.id));
+            // Add shadow items that don't exist in main table
+            if (shadowData && shadowData.length) {
+                for (const item of shadowData) {
+                    if (!mainDataIds.has(item.id)) {
+                        merged.push(item);
+                    }
+                }
+            }
+            // Filter out pending deletes
+            const deltaTable = db.table(deltaTableName);
+            if (deltaTable) {
+                const pendingDeletes = await deltaTable
+                    .where('[operation+sync_status]')
+                    .equals(['delete', 'pending'])
+                    .toArray();
+                const deleteIds = new Set(pendingDeletes.map((delta) => delta.data.id));
+                const filtered = merged.filter((item) => !deleteIds.has(item.id));
+                // Mutate through the reactive proxy to ensure Alpine detects changes
+                this.reactiveData.splice(0, this.reactiveData.length, ...filtered);
+            }
+            else {
+                // No delta table, just use merged data
+                this.reactiveData.splice(0, this.reactiveData.length, ...merged);
+            }
         }
         catch (error) {
             console.error(`Error loading table ${this.tableName}:`, error);
         }
     }
+    async toArray(result) {
+        if (Array.isArray(result)) {
+            return result;
+        }
+        if (result && typeof result.toArray === 'function') {
+            return await result.toArray();
+        }
+        return result ?? [];
+    }
     // Clean up resources when the proxy is no longer needed
     destroy() {
-        // No more interval to clean up - using WebSocket instead
+        // Clean up the Alpine.effect if it exists
+        if (this.effectCleanup) {
+            this.effectCleanup();
+        }
     }
 }

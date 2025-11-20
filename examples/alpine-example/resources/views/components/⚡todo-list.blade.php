@@ -27,10 +27,87 @@ new class extends Component {
 };
 ?>
 
-<div
-    x-data="{ todos: $table('todos') }"
+<div class="w-full max-w-4xl mx-auto"
+    x-data="{
+        filter: 'all',
+        sortBy: 'newest',
+        todos: [],
+        init() {
+            // Initialize todos with query that references this component's reactive data
+            this.todos = $table('todos', (table) => {
+                // Access filter and sortBy through closure to enable Alpine.effect() tracking
+                let query = table;
+
+                // Apply sort first (before filter, for proper Dexie chaining)
+                if (this.sortBy === 'newest') {
+                    query = query.orderBy('created_at').reverse();
+                } else if (this.sortBy === 'oldest') {
+                    query = query.orderBy('created_at');
+                }
+
+                // Apply filter after sort
+                if (this.filter === 'pending') {
+                    // Use filter() for null comparisons
+                    query = query.filter(item => item.completed_at === null);
+                } else if (this.filter === 'completed') {
+                    // Use filter() for null comparisons
+                    query = query.filter(item => item.completed_at !== null);
+                }
+
+                return query;
+            });
+        }
+    }"
 >
     <h2 class="text-2xl font-bold mb-4">My Todos</h2>
+
+    <!-- Filter and Sort buttons -->
+    <div class="mb-6 flex flex-wrap gap-4">
+        <!-- Filter section -->
+        <div class="flex gap-2">
+            <span class="text-sm font-medium text-gray-600 dark:text-gray-400 self-center">Filter:</span>
+            <button
+                @click="filter = 'all'"
+                :class="{ 'opacity-50': filter !== 'all' }"
+                class="px-4 py-2 bg-zinc-200 dark:bg-zinc-800 rounded-lg hover:opacity-100 transition"
+            >
+                All
+            </button>
+            <button
+                @click="filter = 'pending'"
+                :class="{ 'opacity-50': filter !== 'pending' }"
+                class="px-4 py-2 bg-zinc-200 dark:bg-zinc-800 rounded-lg hover:opacity-100 transition"
+            >
+                Pending
+            </button>
+            <button
+                @click="filter = 'completed'"
+                :class="{ 'opacity-50': filter !== 'completed' }"
+                class="px-4 py-2 bg-zinc-200 dark:bg-zinc-800 rounded-lg hover:opacity-100 transition"
+            >
+                Completed
+            </button>
+        </div>
+
+        <!-- Sort section -->
+        <div class="flex gap-2">
+            <span class="text-sm font-medium text-gray-600 dark:text-gray-400 self-center">Sort:</span>
+            <button
+                @click="sortBy = 'newest'"
+                :class="{ 'opacity-50': sortBy !== 'newest' }"
+                class="px-4 py-2 bg-zinc-200 dark:bg-zinc-800 rounded-lg hover:opacity-100 transition"
+            >
+                Newest
+            </button>
+            <button
+                @click="sortBy = 'oldest'"
+                :class="{ 'opacity-50': sortBy !== 'oldest' }"
+                class="px-4 py-2 bg-zinc-200 dark:bg-zinc-800 rounded-lg hover:opacity-100 transition"
+            >
+                Oldest
+            </button>
+        </div>
+    </div>
 
     <form @submit.prevent="
         (async () => {
@@ -58,35 +135,36 @@ new class extends Component {
         })()
     " class="mb-6">
         <div class="flex gap-2">
-            <input
+            <flux:input
                 type="text"
                 name="newTitle"
                 placeholder="Add a new todo..."
-                class="flex-1 px-4 py-2 border border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100"
             />
-            <button
+            <flux:button
                 type="submit"
-                class="px-4 py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-lg hover:bg-zinc-700 dark:hover:bg-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100 disabled:opacity-50"
             >
                 <span wire:loading.remove>Add Todo</span>
                 <span wire:loading>Adding...</span>
-            </button>
+            </flux:button>
         </div>
-        @error('newTitle')
-            <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-        @enderror
     </form>
 
-    <div class="space-y-2" x-init="init()">
+    <div class="space-y-2">
         <template x-for="todo in todos" :key="todo.id">
             <div class="p-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg flex items-center gap-3">
                 <div class="flex-1">
                     <p class="font-medium" x-text="todo.title"></p>
                 </div>
-                <span class="text-sm px-2 py-1 rounded"
-                    :class="todo.completed_at ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100' : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'"
-                    x-text="todo.completed_at ? 'Done' : 'Pending'">
-                </span>
+                <template x-if="todo.completed_at">
+                    <flux:badge color="blue">
+                        Done
+                    </flux:badge>
+                </template>
+                <template x-if="!todo.completed_at">
+                    <flux:badge color="gray">
+                        Pending
+                    </flux:badge>
+                </template>
             </div>
         </template>
 
