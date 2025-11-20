@@ -62,88 +62,8 @@ const handleHarmonicEvent = async (event: HarmonicEvent) => {
     return;
   }
 
-  const db = chorusCore.getDb();
-  if (!db) return;
-
-  // Process the harmonic first to update the main table
+  // Process the harmonic - chorus-core now handles shadow cleanup and delta sync status
   await chorusCore.processHarmonic(event);
-
-  // If this is a rejected harmonic, we need to update the delta status and remove from shadow
-  if (event.rejected) {
-    // Find and update the corresponding delta to mark it as rejected
-    if (event.data) {
-      try {
-        const eventData = event.data === 'string' ? JSON.parse(event.data) : event.data;
-        if (eventData.id) {
-          // Find all tables to check for matching deltas
-          const tableNames = Object.keys(chorusCore.getAllTableStates());
-          for (const tableName of tableNames) {
-            const deltaTableName = `${tableName}_deltas`;
-            const shadowTableName = `${tableName}_shadow`;
-            const deltaTable = db.table(deltaTableName);
-            const shadowTable = db.table(shadowTableName);
-
-            const pendingDeltas = await deltaTable
-                .where("sync_status")
-                .equals("pending")
-                .toArray();
-
-            for (const delta of pendingDeltas) {
-              if (delta.data?.id === eventData.id) {
-                // Mark delta as rejected (keeping it as a log)
-                await deltaTable.update(delta.id, {
-                  sync_status: "rejected",
-                  rejected_reason: event.rejected_reason
-                });
-
-                // Remove the item from shadow table so it disappears from UI
-                await shadowTable.delete(eventData.id);
-                break;
-              }
-            }
-          }
-        }
-      } catch (err) {
-        // Only log DatabaseClosedError as warning, others as errors
-        if (err instanceof Error && err.name === 'DatabaseClosedError') {
-          console.warn('Database was closed during rejected delta processing:', err.message);
-        } else {
-          console.error('Failed to update rejected delta:', err);
-        }
-      }
-    }
-    updateTables();
-    return;
-  }
-
-  // Now, find the matching pending delta and mark it as synced
-  const deltaTableName = `${event.table_name}_deltas`;
-  const shadowTableName = `${event.table_name}_shadow`;
-  const deltaTable = db.table(deltaTableName);
-  const shadowTable = db.table(shadowTableName);
-  const eventData = JSON.parse(event.data as unknown as string);
-
-  const pendingDeltas = await deltaTable
-      .where("sync_status")
-      .equals("pending")
-      .toArray();
-  for (const delta of pendingDeltas) {
-    if (delta.data.id === eventData.id) {
-      try {
-        const syncStatus = event.rejected ? "rejected" : "synced";
-        await deltaTable.update(delta.id, {
-          sync_status: syncStatus,
-          rejected_reason: event.rejected_reason
-        });
-        if (!event.rejected) {
-          await shadowTable.delete(delta.data.id);
-        }
-      } catch (err) {
-        console.error(`[Chorus] Failed to update delta ${delta.id}:`, err);
-      }
-      break; // Exit after finding and processing the match
-    }
-  }
 
   // Refresh the UI state
   updateTables();
