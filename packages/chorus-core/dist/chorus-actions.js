@@ -22,8 +22,8 @@ export class ChorusActionsAPI {
             } }, axiosConfig));
         // Add CSRF token handling for Laravel
         this.setupCSRFHandling();
-        // Set up automatic offline sync when coming back online
-        this.setupOfflineSync();
+        // Note: Consuming libraries should call setupAutoSync() manually if they want automatic offline sync
+        // This provides better control and maintainability for different adapter implementations
     }
     setupCSRFHandling() {
         var _a;
@@ -33,7 +33,11 @@ export class ChorusActionsAPI {
             this.axios.defaults.headers.common['X-CSRF-TOKEN'] = token;
         }
     }
-    setupOfflineSync() {
+    /**
+     * Set up automatic offline sync when coming back online
+     * Consuming libraries should call this if they want automatic syncing behavior
+     */
+    setupAutoSync() {
         window.addEventListener('online', () => {
             this.syncOfflineActions().catch(error => {
                 console.error('[ChorusActionsAPI] Failed to sync offline actions after coming online:', error);
@@ -968,6 +972,8 @@ export function getGlobalChorusActionsAPI() {
 export function connectChorusActionsAPI(chorusCore, chorusActionsAPI) {
     const api = chorusActionsAPI || getGlobalChorusActionsAPI();
     api.setChorusCore(chorusCore);
+    // Set up automatic offline sync when coming back online
+    api.setupAutoSync();
     // Trigger initial sync if we're online and have pending actions
     if (navigator.onLine) {
         const offlineActions = JSON.parse(localStorage.getItem('chorus_offline_actions') || '[]');

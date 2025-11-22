@@ -1,8 +1,11 @@
 import { type HarmonicEvent } from "@pixelsprout/chorus-core";
 import type { Alpine as AlpineType } from "alpinejs";
+interface AlpineWithEffect extends AlpineType {
+    effect(callback: () => void): () => void;
+}
 declare global {
     interface Window {
-        Alpine?: AlpineType;
+        Alpine?: AlpineWithEffect;
         chorusConfig?: ChorusAlpineConfig;
         Echo?: any;
         Livewire?: any;
@@ -35,6 +38,6 @@ interface ChorusAlpineConfig {
  *   1. window.chorusConfig (set by Blade directive)
  *   2. await $chorus.init(config) - Manual initialization
  */
-export default function chorusPlugin(Alpine: AlpineType): void;
+export default function chorusPlugin(Alpine: AlpineWithEffect): void;
 export type { ChorusAlpineConfig };
 export type { ChorusCore, HarmonicEvent, TableState, SyncError, } from "@pixelsprout/chorus-core";

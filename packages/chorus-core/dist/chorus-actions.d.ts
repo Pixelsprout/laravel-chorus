@@ -47,7 +47,11 @@ export declare class ChorusActionsAPI {
     private chorusCore;
     constructor(baseURL?: string, axiosConfig?: any, chorusCore?: ChorusCore);
     private setupCSRFHandling;
-    private setupOfflineSync;
+    /**
+     * Set up automatic offline sync when coming back online
+     * Consuming libraries should call this if they want automatic syncing behavior
+     */
+    setupAutoSync(): void;
     /**
      * Set the ChorusCore instance for database integration
      */

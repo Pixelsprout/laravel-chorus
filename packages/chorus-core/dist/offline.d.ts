@@ -28,6 +28,12 @@ export interface OfflineState {
     pendingRequests: OfflineRequest[];
     lastSyncAttempt: Date | null;
 }
+export interface OfflineLivewireCall {
+    componentId: string;
+    methodName: string;
+    params: any[];
+    timestamp: number;
+}
 export declare class OfflineManager {
     private isOnline;
     private onlineCallbacks;
@@ -78,6 +84,18 @@ export declare class OfflineManager {
      * Clear all pending requests (useful for testing or manual cleanup)
      */
     clearPendingRequests(): void;
+    /**
+     * Cache a Livewire method call for replay when online
+     */
+    cacheLivewireMethodCall(call: OfflineLivewireCall): void;
+    /**
+     * Get all cached Livewire method calls
+     */
+    getLivewireMethodCalls(): OfflineLivewireCall[];
+    /**
+     * Clear all cached Livewire method calls
+     */
+    clearLivewireMethodCalls(): void;
     /**
      * Generate unique request ID
      */

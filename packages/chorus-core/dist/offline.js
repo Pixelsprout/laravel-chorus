@@ -10,6 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 // Offline support for Chorus
 import axios from 'axios';
 const OFFLINE_REQUESTS_KEY = 'chorus_offline_requests';
+const OFFLINE_LIVEWIRE_CALLS_KEY = 'chorus_offline_livewire_calls';
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 second base delay
 export class OfflineManager {
@@ -61,6 +62,11 @@ export class OfflineManager {
      * Cache a request for later processing when online
      */
     cacheRequest(url, method, body, headers, optimisticData) {
+        // Skip caching Livewire requests - let Livewire handle retry natively
+        if (url.includes('/livewire/update') || url.includes('/livewire/message')) {
+            this.log(`Skipping offline cache for Livewire request: ${method} ${url} (Livewire handles retries natively)`);
+            return '';
+        }
         // CSRF tokens are now handled automatically by axios
         const requestHeaders = Object.assign({}, headers);
         const request = {
@@ -201,6 +207,45 @@ export class OfflineManager {
     clearPendingRequests() {
         localStorage.removeItem(OFFLINE_REQUESTS_KEY);
         this.log('Cleared all pending requests');
+    }
+    /**
+     * Cache a Livewire method call for replay when online
+     */
+    cacheLivewireMethodCall(call) {
+        try {
+            const calls = this.getLivewireMethodCalls();
+            calls.push(call);
+            localStorage.setItem(OFFLINE_LIVEWIRE_CALLS_KEY, JSON.stringify(calls));
+            this.log(`Cached Livewire method call: ${call.methodName} for component ${call.componentId}`, call);
+        }
+        catch (err) {
+            console.error('Error caching Livewire method call:', err);
+        }
+    }
+    /**
+     * Get all cached Livewire method calls
+     */
+    getLivewireMethodCalls() {
+        try {
+            const stored = localStorage.getItem(OFFLINE_LIVEWIRE_CALLS_KEY);
+            return stored ? JSON.parse(stored) : [];
+        }
+        catch (err) {
+            console.error('Error loading Livewire method calls:', err);
+            return [];
+        }
+    }
+    /**
+     * Clear all cached Livewire method calls
+     */
+    clearLivewireMethodCalls() {
+        try {
+            localStorage.removeItem(OFFLINE_LIVEWIRE_CALLS_KEY);
+            this.log('Cleared all cached Livewire method calls');
+        }
+        catch (err) {
+            console.error('Error clearing Livewire method calls:', err);
+        }
     }
     /**
      * Generate unique request ID

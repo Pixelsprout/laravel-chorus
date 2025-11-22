@@ -33,9 +33,9 @@ new class extends Component {
         sortBy: 'newest',
         todos: [],
         init() {
-            // Initialize todos with query that references this component's reactive data
+            // Initialize todos with reactive liveQuery that automatically updates when filter/sortBy change
+            // Alpine.effect() automatically tracks filter and sortBy access, re-running the query when they change
             this.todos = $table('todos', (table) => {
-                // Access filter and sortBy through closure to enable Alpine.effect() tracking
                 let query = table;
 
                 // Apply sort first (before filter, for proper Dexie chaining)
@@ -47,10 +47,8 @@ new class extends Component {
 
                 // Apply filter after sort
                 if (this.filter === 'pending') {
-                    // Use filter() for null comparisons
                     query = query.filter(item => item.completed_at === null);
                 } else if (this.filter === 'completed') {
-                    // Use filter() for null comparisons
                     query = query.filter(item => item.completed_at !== null);
                 }
 

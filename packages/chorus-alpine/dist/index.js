@@ -1,4 +1,5 @@
-import { ChorusCore, ClientWritesCollector, createActionContext, ChorusActionsAPI, connectChorusActionsAPI, } from "@pixelsprout/chorus-core";
+import { ChorusCore, ClientWritesCollector, createActionContext, ChorusActionsAPI, offlineManager, } from "@pixelsprout/chorus-core";
+import { liveQuery } from "dexie";
 /**
  * Chorus Alpine.js Plugin
  *
@@ -41,13 +42,8 @@ export default function chorusPlugin(Alpine) {
                 return;
             }
             // Process the harmonic to update DexieDB
+            // liveQuery automatically detects database changes and updates reactive data
             await chorusInstance.processHarmonic(event);
-            // Update all table proxies that might be affected
-            tableProxies.forEach((proxy) => {
-                if (proxy.getTableName() === event.table_name) {
-                    proxy.refreshData();
-                }
-            });
         };
         // Subscribe to main channel (private channel requires authorization)
         const mainChannel = `chorus.user.${userId}`;
@@ -57,6 +53,81 @@ export default function chorusPlugin(Alpine) {
             const prefixChannel = `chorus.${channelPrefix}.user.${userId}`;
             echo.private(prefixChannel).listen(".harmonic.created", handleHarmonicEvent);
         }
+    }
+    /**
+     * Phase 2: Set up Livewire request interceptor to prevent requests when offline
+     */
+    function setupLivewireRequestInterceptor() {
+        if (!window.Livewire) {
+            console.warn('[Chorus] Livewire not available for request interception');
+            return;
+        }
+        window.Livewire.interceptRequest(({ abort }) => {
+            if (!offlineManager.getIsOnline()) {
+                console.log('[Chorus] Aborting Livewire request (offline)');
+                abort();
+            }
+        });
+    }
+    /**
+     * Set up offline sync - replay cached Livewire method calls when coming back online
+     */
+    function setupOfflineSync(api) {
+        // Listen for online event
+        offlineManager.onOnline(async () => {
+            console.log("[Chorus] Browser came online");
+            try {
+                // Replay cached Livewire method calls
+                const cachedCalls = offlineManager.getLivewireMethodCalls();
+                if (cachedCalls.length > 0) {
+                    for (const call of cachedCalls) {
+                        try {
+                            const component = window.Livewire?.find(call.componentId);
+                            if (!component) {
+                                console.warn(`[Chorus] Component ${call.componentId} not found for replay`);
+                                continue;
+                            }
+                            // Try to call the method directly on the Livewire component
+                            // This is the most direct path that avoids any proxies or interceptors
+                            const method = component[call.methodName];
+                            if (method && typeof method === 'function') {
+                                try {
+                                    await method.apply(component, call.params);
+                                    continue;
+                                }
+                                catch (directCallError) {
+                                    console.warn(`[Chorus] Direct component method call failed, will try via $wire:`, directCallError);
+                                }
+                            }
+                            // Fallback: try to get the original unwrapped Livewire $wire
+                            // This is stored when setupHarmonizeComponent wraps the component
+                            const originalWire = component.__chorusOriginalWire;
+                            if (!originalWire) {
+                                console.warn(`[Chorus] Original wire not found and method not callable directly. Cannot replay ${call.methodName}.`);
+                                continue;
+                            }
+                            if (typeof originalWire[call.methodName] !== 'function') {
+                                console.warn(`[Chorus] Method ${call.methodName} not found on original wire for component ${call.componentId}`);
+                                continue;
+                            }
+                            // Call via the original Livewire $wire (fallback if direct method didn't work)
+                            await originalWire[call.methodName](...call.params);
+                        }
+                        catch (error) {
+                            console.error(`[Chorus] Failed to replay ${call.methodName}:`, error);
+                        }
+                    }
+                    // Clear the cached calls after replay
+                    offlineManager.clearLivewireMethodCalls();
+                }
+                // Give Livewire a moment to process any updates
+                await new Promise(resolve => setTimeout(resolve, 100));
+                // liveQuery automatically detects database changes and updates reactive data
+            }
+            catch (error) {
+                console.error("[Chorus] Error processing online reconnection:", error);
+            }
+        });
     }
     /**
      * Initialize Chorus with the provided configuration
@@ -84,11 +155,17 @@ export default function chorusPlugin(Alpine) {
             // Fetch schema and initialize tables
             await chorusInstance.fetchAndInitializeSchema();
             await chorusInstance.initializeTables();
-            // Initialize ChorusActionsAPI for optimistic updates
+            // Initialize ChorusActionsAPI for optimistic updates only
+            // Don't call connectChorusActionsAPI because it sets up Livewire hooks that route through /api/actions/
+            // For Alpine, we want native Livewire calls
+            // Note: We don't call setupAutoSync() because we handle offline replay through Livewire's native mechanism
             chorusActionsAPI = new ChorusActionsAPI("/api");
-            connectChorusActionsAPI(chorusInstance, chorusActionsAPI);
+            // Manually connect just the core instance without the Livewire routing
+            chorusActionsAPI.setChorusCore(chorusInstance);
             // Set up Echo listeners for real-time WebSocket updates
             setupEchoListeners(finalConfig.userId ?? "guest", finalConfig.channelPrefix);
+            // Set up automatic sync when coming back online
+            setupOfflineSync(chorusActionsAPI);
             isInitialized = true;
             console.log("Chorus Alpine.js plugin initialized");
         })();
@@ -121,24 +198,19 @@ export default function chorusPlugin(Alpine) {
             if (!chorusInstance) {
                 throw new Error("Chorus not initialized. Call await $chorus.init() first or set window.chorusConfig.");
             }
-            // Generate a cache key that includes the query function
-            // For queries, we create a new proxy each time to support Alpine.effect() reactivity
-            // For non-query calls, we reuse the proxy
             if (queryFn) {
-                // For queries, always create a new TableProxy to enable Alpine.effect() reactivity
-                const queryKey = `${tableName}_query_${Math.random()}`;
+                // For queries with filter/sort functions, always create a new TableProxy
+                // Alpine.effect() inside TableProxy will automatically track the reactive dependencies
                 const tableProxy = new TableProxy(tableName, chorusInstance, initializationPromise, Alpine, queryFn);
-                tableProxies.set(queryKey, tableProxy);
-                // Return the reactive items array
+                // We don't cache query-based proxies as they're created fresh for each Alpine.effect scope
                 return tableProxy.getReactiveData();
             }
             else {
-                // Reuse existing proxy for non-query calls
+                // Reuse existing proxy for simple table access (no filters)
                 if (!tableProxies.has(tableName)) {
                     const tableProxy = new TableProxy(tableName, chorusInstance, initializationPromise, Alpine);
                     tableProxies.set(tableName, tableProxy);
                 }
-                // Return the reactive items array, not the proxy object itself
                 return tableProxies.get(tableName).getReactiveData();
             }
         };
@@ -146,7 +218,6 @@ export default function chorusPlugin(Alpine) {
     // Add the $harmonize magic method for Livewire action integration
     Alpine.magic("harmonize", (el) => {
         return async (actionName, callback) => {
-            console.log(`[Chorus] $harmonize.${actionName} called`);
             if (!chorusActionsAPI) {
                 throw new Error("Chorus not initialized");
             }
@@ -156,7 +227,6 @@ export default function chorusPlugin(Alpine) {
             if (!livewireId) {
                 throw new Error("Could not find Livewire component");
             }
-            console.log(`[Chorus] Livewire ID found: ${livewireId}`);
             // Get the $wire instance from Livewire's component registry
             const $wire = livewireEl?.$wire;
             if (!$wire) {
@@ -166,7 +236,6 @@ export default function chorusPlugin(Alpine) {
             // Create a writes collector to capture operations
             const collector = new ClientWritesCollector();
             const actionContext = createActionContext(collector);
-            console.log("[Chorus] Starting operation collection");
             collector.startCollecting();
             try {
                 // Execute the callback to collect operations
@@ -177,42 +246,61 @@ export default function chorusPlugin(Alpine) {
             }
             // Get the collected operations
             const operations = collector.getOperations();
-            console.log(`[Chorus] Collected ${operations.length} operations:`, operations);
             if (operations.length === 0) {
-                console.log("[Chorus] No operations collected, calling Livewire directly");
                 return $wire[actionName]();
             }
             // Perform optimistic updates before calling Livewire
             try {
-                await chorusActionsAPI.handleOptimisticUpdates?.(operations, actionName, {});
+                if (!chorusActionsAPI) {
+                    console.warn("[Chorus] chorusActionsAPI not initialized");
+                }
+                const result = await chorusActionsAPI.handleOptimisticUpdates?.(operations, actionName, {});
             }
             catch (error) {
                 console.warn("[Chorus] Failed to apply optimistic updates:", error);
             }
-            // Call Livewire method with the operations array
+            // Check if we're offline BEFORE calling Livewire
+            // This prevents relying on Livewire's interceptor to throw an exception
+            if (!offlineManager.getIsOnline()) {
+                // Cache the method call for replay when online
+                const offlineCall = {
+                    componentId: livewireId,
+                    methodName: actionName,
+                    params: [operations],
+                    timestamp: Date.now(),
+                };
+                offlineManager.cacheLivewireMethodCall(offlineCall);
+                // liveQuery automatically detects the optimistic updates in the database and updates reactive data
+                // No need to manually refresh proxies
+                // Return optimistic response so the caller thinks it succeeded
+                return {
+                    success: true,
+                    operations: operations.map((op, index) => ({
+                        success: true,
+                        index,
+                        operation: {
+                            table: op.table,
+                            operation: op.operation,
+                            data: op.data,
+                        },
+                        data: op.data,
+                    })),
+                    summary: {
+                        total: operations.length,
+                        successful: operations.length,
+                        failed: 0,
+                    },
+                };
+            }
+            // Call Livewire method with the operations array (we're online)
             try {
-                console.log(`[Chorus] Calling $wire.${actionName} with operations`);
                 const response = await $wire[actionName](operations);
-                // Mark deltas as synced after successful server response
-                console.log(`[Chorus] Marking deltas as synced for action: ${actionName}`);
-                try {
-                    await chorusActionsAPI.markDeltasAsSynced?.(actionName);
-                }
-                catch (syncError) {
-                    console.warn("[Chorus] Failed to mark deltas as synced:", syncError);
-                }
-                // Refresh affected table proxies after successful response
-                const affectedTables = new Set(operations.map((op) => op.table));
-                affectedTables.forEach((tableName) => {
-                    const proxy = tableProxies.get(tableName);
-                    if (proxy) {
-                        proxy.refreshData();
-                    }
-                });
+                // liveQuery automatically detects the database changes and updates reactive data
                 return response;
             }
             catch (error) {
-                // Rollback optimistic updates on error
+                console.log(`[Chorus] Exception caught in $harmonize:`, error);
+                // If we're online and got an error, rollback optimistic updates
                 try {
                     await chorusActionsAPI.rollbackOptimisticUpdates?.(operations);
                 }
@@ -227,65 +315,58 @@ export default function chorusPlugin(Alpine) {
     // Hook into Livewire's lifecycle to wrap $wire methods
     if (typeof window !== "undefined") {
         document.addEventListener("livewire:init", function () {
-            console.log("[Chorus] livewire:init event fired");
+            setupLivewireRequestInterceptor();
             // Try multiple hooks to ensure we catch component initialization
             window.Livewire?.hook("component.initialized", (component) => {
-                console.log("[Chorus] component.initialized hook fired");
                 setupHarmonizeComponent(component);
             });
             window.Livewire?.hook("element.updating", (el, component) => {
-                console.log("[Chorus] element.updating hook fired");
                 setupHarmonizeComponent(component);
             });
             window.Livewire?.hook("element.updated", (el, component) => {
-                console.log("[Chorus] element.updated hook fired");
                 setupHarmonizeComponent(component);
             });
             // Also wrap $wire globally as a fallback
-            setTimeout(() => {
-                console.log("[Chorus] Setting up global $wire wrapper");
-                const originalWire = window.$wire;
-                if (originalWire && typeof originalWire === 'object') {
-                    window.$wire = new Proxy(originalWire, {
-                        get(target, prop) {
-                            const original = target[prop];
-                            if (typeof original === "function") {
-                                return async function wrappedMethod(...args) {
-                                    console.log(`[Chorus] $wire.${String(prop)} called with ${args.length} args`);
-                                    if (args.length > 0 && typeof args[0] === "function" && chorusActionsAPI) {
-                                        console.log("[Chorus] Intercepting callback-based Livewire call");
-                                        const callback = args[0];
-                                        const actionName = prop;
-                                        const collector = new ClientWritesCollector();
-                                        const actionContext = createActionContext(collector);
-                                        collector.startCollecting();
-                                        try {
-                                            callback(actionContext);
-                                        }
-                                        finally {
-                                            collector.stopCollecting();
-                                        }
-                                        const operations = collector.getOperations();
-                                        console.log(`[Chorus] Collected ${operations.length} operations`);
-                                        if (operations.length > 0) {
-                                            try {
-                                                await chorusActionsAPI.handleOptimisticUpdates?.(operations, actionName, {});
-                                            }
-                                            catch (error) {
-                                                console.warn("[Chorus] Failed to apply optimistic updates:", error);
-                                            }
-                                        }
-                                        return original.call(target, operations);
+            const originalWire = window.$wire;
+            if (originalWire && typeof originalWire === 'object') {
+                window.$wire = new Proxy(originalWire, {
+                    get(target, prop) {
+                        const original = target[prop];
+                        if (typeof original === "function") {
+                            return async function wrappedMethod(...args) {
+                                console.log(`[Chorus] $wire.${String(prop)} called with ${args.length} args`);
+                                if (args.length > 0 && typeof args[0] === "function" && chorusActionsAPI) {
+                                    console.log("[Chorus] Intercepting callback-based Livewire call");
+                                    const callback = args[0];
+                                    const actionName = prop;
+                                    const collector = new ClientWritesCollector();
+                                    const actionContext = createActionContext(collector);
+                                    collector.startCollecting();
+                                    try {
+                                        callback(actionContext);
                                     }
-                                    return original.apply(target, args);
-                                };
-                            }
-                            return original;
-                        },
-                    });
-                    console.log("[Chorus] Global $wire wrapper installed");
-                }
-            }, 100);
+                                    finally {
+                                        collector.stopCollecting();
+                                    }
+                                    const operations = collector.getOperations();
+                                    console.log(`[Chorus] Collected ${operations.length} operations`);
+                                    if (operations.length > 0) {
+                                        try {
+                                            await chorusActionsAPI.handleOptimisticUpdates?.(operations, actionName, {});
+                                        }
+                                        catch (error) {
+                                            console.warn("[Chorus] Failed to apply optimistic updates:", error);
+                                        }
+                                    }
+                                    return original.call(target, operations);
+                                }
+                                return original.apply(target, args);
+                            };
+                        }
+                        return original;
+                    },
+                });
+            }
         });
     }
     /**
@@ -333,33 +414,59 @@ export default function chorusPlugin(Alpine) {
                             }
                             // Perform optimistic updates before calling Livewire
                             try {
-                                await chorusActionsAPI.handleOptimisticUpdates?.(operations, actionName, {});
+                                console.log("[Chorus] Applying optimistic updates in setupHarmonizeComponent...");
+                                if (!chorusActionsAPI) {
+                                    console.warn("[Chorus] chorusActionsAPI not initialized");
+                                }
+                                const result = await chorusActionsAPI.handleOptimisticUpdates?.(operations, actionName, {});
+                                console.log("[Chorus] Optimistic updates applied:", result);
                             }
                             catch (error) {
                                 console.warn("[Chorus] Failed to apply optimistic updates:", error);
                             }
-                            // Call Livewire method with the operations array
+                            // Check if we're offline BEFORE calling Livewire
+                            // This prevents relying on Livewire's interceptor to throw an exception
+                            if (!offlineManager.getIsOnline()) {
+                                console.log(`[Chorus] Browser is offline in setupHarmonizeComponent, caching method call for replay`);
+                                // Cache the method call for replay when online
+                                const offlineCall = {
+                                    componentId: component.$id || 'unknown',
+                                    methodName: actionName,
+                                    params: [operations],
+                                    timestamp: Date.now(),
+                                };
+                                offlineManager.cacheLivewireMethodCall(offlineCall);
+                                console.log(`[Chorus] Cached Livewire method call for replay when online`);
+                                // liveQuery automatically detects the optimistic updates in the database and updates reactive data
+                                // No need to manually refresh proxies
+                                // Return optimistic response so the caller thinks it succeeded
+                                return {
+                                    success: true,
+                                    operations: operations.map((op, index) => ({
+                                        success: true,
+                                        index,
+                                        operation: {
+                                            table: op.table,
+                                            operation: op.operation,
+                                            data: op.data,
+                                        },
+                                        data: op.data,
+                                    })),
+                                    summary: {
+                                        total: operations.length,
+                                        successful: operations.length,
+                                        failed: 0,
+                                    },
+                                };
+                            }
+                            // Call Livewire method with the operations array (we're online)
                             try {
                                 const response = await original.call(target, operations);
-                                // Mark deltas as synced after successful server response
-                                try {
-                                    await chorusActionsAPI.markDeltasAsSynced?.(actionName);
-                                }
-                                catch (syncError) {
-                                    console.warn("[Chorus] Failed to mark deltas as synced:", syncError);
-                                }
-                                // Refresh affected table proxies after successful response
-                                const affectedTables = new Set(operations.map((op) => op.table));
-                                affectedTables.forEach((tableName) => {
-                                    const proxy = tableProxies.get(tableName);
-                                    if (proxy) {
-                                        proxy.refreshData();
-                                    }
-                                });
+                                // liveQuery automatically detects the database changes and updates reactive data
                                 return response;
                             }
                             catch (error) {
-                                // Rollback optimistic updates on error
+                                // If we're online and got an error, rollback optimistic updates
                                 try {
                                     await chorusActionsAPI.rollbackOptimisticUpdates?.(operations);
                                 }
@@ -377,6 +484,8 @@ export default function chorusPlugin(Alpine) {
                 return original;
             },
         });
+        // Store the original unwrapped wire for offline replay
+        component.__chorusOriginalWire = originalWire;
         // Replace the component's $wire with our proxy
         Object.defineProperty(component, "$wire", {
             get() {
@@ -388,124 +497,108 @@ export default function chorusPlugin(Alpine) {
 }
 /**
  * Manager class for reactive table data with optional query support
+ * Uses Alpine.effect() to bridge Alpine's reactivity with Dexie's liveQuery
  */
 class TableProxy {
     constructor(tableName, chorus, initializationPromise, alpine, queryFn) {
-        this.initialized = false;
-        this.data = [];
         this.tableName = tableName;
         this.chorus = chorus;
-        this.data = [];
         this.alpine = alpine;
         this.queryFn = queryFn;
-        // Create reactive wrapper once and reuse it
-        this.reactiveData = alpine.reactive(this.data);
-        // Wait for initialization before loading table data
+        this.reactiveData = alpine.reactive([]);
+        // Wait for initialization before setting up liveQuery with reactivity
         if (initializationPromise) {
             initializationPromise.then(() => {
-                this.setupEffectAndLoad();
-                this.initialized = true;
+                this.setupReactiveQuery();
             });
         }
         else {
-            // If no initialization promise, load immediately
-            this.setupEffectAndLoad();
-            this.initialized = true;
+            this.setupReactiveQuery();
         }
     }
-    setupEffectAndLoad() {
-        // If we have a query function, set up Alpine.effect() to track reactive dependencies
-        if (this.queryFn) {
-            // Use the global Alpine's effect method to track reactive dependencies
-            const Alpine = this.alpine;
-            // First load
-            this.loadTableData().catch((error) => console.error(`Error loading table ${this.tableName}:`, error));
-            // Set up effect to track reactive dependencies accessed in the query function
-            this.effectCleanup = Alpine.effect(() => {
-                // Call the query function to establish reactive dependencies
-                // This ensures Alpine.effect tracks any reactive data accessed within queryFn
+    setupReactiveQuery() {
+        const db = this.chorus.getDb();
+        if (!db || !db.isOpen()) {
+            console.warn(`[Chorus] Database not available for liveQuery on ${this.tableName}`);
+            return;
+        }
+        // Use Alpine.effect to track reactive dependencies from the query function
+        // Call queryFn synchronously so Alpine can track its reactive property accesses
+        this.alpineEffect = this.alpine.effect(() => {
+            // Clean up old subscription before creating a new one
+            if (this.liveQuerySubscription) {
+                this.liveQuerySubscription.unsubscribe();
+            }
+            // IMPORTANT: Call queryFn synchronously here so Alpine.effect() tracks reactive property access
+            // This ensures the effect re-runs when filter/sort/etc properties change
+            let mainQuery;
+            let shadowQuery;
+            try {
+                const shadowTableName = `${this.tableName}_shadow`;
+                const mainTable = db.table(this.tableName);
+                const shadowTable = db.table(shadowTableName);
+                if (!mainTable || !shadowTable) {
+                    console.warn(`[Chorus] Tables not found: ${this.tableName}, ${shadowTableName}`);
+                    mainQuery = mainTable;
+                    shadowQuery = shadowTable;
+                }
+                else {
+                    // Call queryFn synchronously to capture reactive dependencies
+                    mainQuery = this.queryFn ? this.queryFn(mainTable) : mainTable;
+                    shadowQuery = this.queryFn ? this.queryFn(shadowTable) : shadowTable;
+                }
+            }
+            catch (error) {
+                console.error(`[Chorus] Error building query for ${this.tableName}:`, error);
+                return;
+            }
+            // Now create liveQuery with the captured query objects
+            this.liveQuerySubscription = liveQuery(async () => {
                 try {
-                    const db = this.chorus.getDb();
-                    if (db && db.isOpen()) {
-                        const mainTable = db.table(this.tableName);
-                        // Just call the query to establish dependency tracking
-                        this.queryFn(mainTable);
+                    const shadowTableName = `${this.tableName}_shadow`;
+                    const deltaTableName = `${this.tableName}_deltas`;
+                    const deltaTable = db.table(deltaTableName);
+                    // Execute queries
+                    const mainData = await this.toArray(mainQuery);
+                    const shadowData = await this.toArray(shadowQuery);
+                    // Merge shadow data with main data (shadow takes precedence for optimistic updates)
+                    const shadowDataMap = new Map((shadowData ?? []).map((item) => [item.id, item]));
+                    const merged = (mainData ?? []).map((item) => shadowDataMap.has(item.id) ? shadowDataMap.get(item.id) : item);
+                    const mainDataIds = new Set((mainData ?? []).map((item) => item.id));
+                    // Add shadow items that don't exist in main table
+                    if (shadowData && shadowData.length) {
+                        for (const item of shadowData) {
+                            if (!mainDataIds.has(item.id)) {
+                                merged.push(item);
+                            }
+                        }
                     }
+                    // Filter out pending deletes
+                    if (deltaTable) {
+                        const pendingDeletes = await deltaTable
+                            .where('[operation+sync_status]')
+                            .equals(['delete', 'pending'])
+                            .toArray();
+                        const deleteIds = new Set(pendingDeletes.map((delta) => delta.data.id));
+                        return merged.filter((item) => !deleteIds.has(item.id));
+                    }
+                    return merged;
                 }
-                catch (e) {
-                    // Ignore errors during dependency tracking
+                catch (error) {
+                    console.error(`Error in liveQuery for ${this.tableName}:`, error);
+                    return [];
                 }
-                // Now actually load the data
-                this.loadTableData().catch((error) => console.error(`Error in Alpine.effect for ${this.tableName}:`, error));
+            }).subscribe((data) => {
+                // Update reactive data whenever the query results change
+                this.reactiveData.splice(0, this.reactiveData.length, ...(data ?? []));
             });
-        }
-        else {
-            // No query, just load data normally
-            this.loadTableData().catch((error) => console.error(`Error loading table ${this.tableName}:`, error));
-        }
+        });
     }
     getTableName() {
         return this.tableName;
     }
     getReactiveData() {
         return this.reactiveData;
-    }
-    async refreshData() {
-        await this.loadTableData();
-    }
-    async loadTableData() {
-        try {
-            const db = this.chorus.getDb();
-            if (!db || !db.isOpen()) {
-                console.log(`[Chorus] Database not available or not open for ${this.tableName}`);
-                return;
-            }
-            const shadowTableName = `${this.tableName}_shadow`;
-            const deltaTableName = `${this.tableName}_deltas`;
-            const mainTable = db.table(this.tableName);
-            const shadowTable = db.table(shadowTableName);
-            if (!mainTable || !shadowTable) {
-                console.warn(`[Chorus] Tables not found: ${this.tableName}, ${shadowTableName}`);
-                return;
-            }
-            // Apply query function if provided, otherwise get all data
-            const mainQuery = this.queryFn ? this.queryFn(mainTable) : mainTable;
-            const shadowQuery = this.queryFn ? this.queryFn(shadowTable) : shadowTable;
-            // Execute queries
-            const mainData = await this.toArray(mainQuery);
-            const shadowData = await this.toArray(shadowQuery);
-            // Merge shadow data with main data (shadow takes precedence for optimistic updates)
-            const shadowDataMap = new Map((shadowData ?? []).map((item) => [item.id, item]));
-            const merged = (mainData ?? []).map((item) => shadowDataMap.has(item.id) ? shadowDataMap.get(item.id) : item);
-            const mainDataIds = new Set((mainData ?? []).map((item) => item.id));
-            // Add shadow items that don't exist in main table
-            if (shadowData && shadowData.length) {
-                for (const item of shadowData) {
-                    if (!mainDataIds.has(item.id)) {
-                        merged.push(item);
-                    }
-                }
-            }
-            // Filter out pending deletes
-            const deltaTable = db.table(deltaTableName);
-            if (deltaTable) {
-                const pendingDeletes = await deltaTable
-                    .where('[operation+sync_status]')
-                    .equals(['delete', 'pending'])
-                    .toArray();
-                const deleteIds = new Set(pendingDeletes.map((delta) => delta.data.id));
-                const filtered = merged.filter((item) => !deleteIds.has(item.id));
-                // Mutate through the reactive proxy to ensure Alpine detects changes
-                this.reactiveData.splice(0, this.reactiveData.length, ...filtered);
-            }
-            else {
-                // No delta table, just use merged data
-                this.reactiveData.splice(0, this.reactiveData.length, ...merged);
-            }
-        }
-        catch (error) {
-            console.error(`Error loading table ${this.tableName}:`, error);
-        }
     }
     async toArray(result) {
         if (Array.isArray(result)) {
@@ -518,9 +611,13 @@ class TableProxy {
     }
     // Clean up resources when the proxy is no longer needed
     destroy() {
-        // Clean up the Alpine.effect if it exists
-        if (this.effectCleanup) {
-            this.effectCleanup();
+        // Unsubscribe from liveQuery
+        if (this.liveQuerySubscription) {
+            this.liveQuerySubscription.unsubscribe();
+        }
+        // Stop the Alpine effect
+        if (this.alpineEffect) {
+            this.alpineEffect();
         }
     }
 }

@@ -30,6 +30,7 @@ export {
   OfflineManager,
   OfflineRequest,
   OfflineState,
+  OfflineLivewireCall,
   offlineManager,
 } from "./offline";
 export { offlineFetch, OfflineFetchOptions } from "./fetch";
