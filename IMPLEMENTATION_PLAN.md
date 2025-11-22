@@ -179,3 +179,337 @@ If issues arise:
 - [ ] No delta/shadow logic duplication across adapters
 - [ ] All existing tests pass
 - [ ] New chorus-core tests verify shadow cleanup behavior
+
+---
+
+# Offline Write Support for chorus-alpine Implementation Plan
+
+## Problem Statement
+
+The chorus-alpine adapter needs offline write support where:
+1. When offline, Livewire requests should be prevented from being sent
+2. Method calls should be cached (not HTTP requests with stale tokens)
+3. When back online, cached method calls should be automatically replayed
+4. Optimistic updates (shadow/delta) should work seamlessly
+
+## Key Insight
+
+Instead of caching HTTP requests (which contain stale CSRF tokens and headers), cache the high-level **method call** (component ID, method name, parameters). This allows Livewire to construct fresh requests with current tokens when replaying.
+
+```
+❌ Cache HTTP request: { url, headers: {CSRF: 'abc123'}, body }
+✅ Cache method call: { componentId, methodName, params: [operations] }
+```
+
+## Implementation Phases
+
+### Phase 1: Add Method Call Cache Helpers
+**File:** `packages/chorus-alpine/src/index.ts`
+
+Add TypeScript interface and helper functions:
+```typescript
+interface OfflineLivewireCall {
+  componentId: string;
+  methodName: string;
+  params: any[];
+  timestamp: number;
+}
+
+function getOfflineLivewireCalls(): OfflineLivewireCall[] {
+  const stored = localStorage.getItem('chorus_offline_livewire_calls');
+  return stored ? JSON.parse(stored) : [];
+}
+
+function cacheOfflineLivewireCall(call: OfflineLivewireCall): void {
+  const calls = getOfflineLivewireCalls();
+  calls.push(call);
+  localStorage.setItem('chorus_offline_livewire_calls', JSON.stringify(calls));
+}
+
+function clearOfflineLivewireCalls(): void {
+  localStorage.removeItem('chorus_offline_livewire_calls');
+}
+```
+
+### Phase 2: Add Livewire Request Interceptor
+**File:** `packages/chorus-alpine/src/index.ts`
+
+Add safety net to abort any requests that slip through when offline:
+```typescript
+function setupLivewireRequestInterceptor(): void {
+  if (!window.Livewire) {
+    console.warn('[Chorus] Livewire not available for request interception');
+    return;
+  }
+
+  window.Livewire.interceptRequest(({ abort }) => {
+    if (!offlineManager.getIsOnline()) {
+      console.log('[Chorus] Aborting Livewire request (offline)');
+      abort();
+    }
+  });
+}
+```
+
+Call this during `livewire:init`:
+```typescript
+document.addEventListener("livewire:init", function () {
+  console.log("[Chorus] livewire:init event fired");
+  setupLivewireRequestInterceptor();
+  // ... rest of existing code
+});
+```
+
+### Phase 3: Update $harmonize to Cache Method Calls
+**File:** `packages/chorus-alpine/src/index.ts`
+
+Modify the `$harmonize` magic method to cache method calls when offline:
+```typescript
+// Check if we're offline before calling Livewire
+if (!offlineManager.getIsOnline()) {
+  console.log('[Chorus] Offline: Caching method call for replay');
+
+  // Perform optimistic updates (shadow/delta)
+  try {
+    await (chorusActionsAPI as any).handleOptimisticUpdates?.(
+      operations,
+      actionName,
+      {}
+    );
+  } catch (error) {
+    console.warn("[Chorus] Failed to apply optimistic updates:", error);
+  }
+
+  // Cache the method call for replay when online
+  cacheOfflineLivewireCall({
+    componentId: livewireId,
+    methodName: actionName,
+    params: [operations],
+    timestamp: Date.now()
+  });
+
+  // Return optimistic response immediately
+  return {
+    success: true,
+    operations: operations.map((op, index) => ({
+      success: true,
+      index,
+      operation: {
+        table: op.table,
+        operation: op.operation,
+        data: op.data,
+      },
+      data: op.data,
+    })),
+    summary: {
+      total: operations.length,
+      successful: operations.length,
+      failed: 0,
+    },
+  };
+}
+
+// Online: proceed with normal Livewire call
+try {
+  console.log(`[Chorus] Calling $wire.${actionName} with operations`);
+  const response = await $wire[actionName](operations);
+
+  // Mark deltas as synced after successful server response
+  console.log(`[Chorus] Marking deltas as synced for action: ${actionName}`);
+  try {
+    await (chorusActionsAPI as any).markDeltasAsSynced?.(actionName);
+  } catch (syncError) {
+    console.warn("[Chorus] Failed to mark deltas as synced:", syncError);
+  }
+
+  // Refresh affected table proxies after successful response
+  const affectedTables = new Set(operations.map((op) => op.table));
+  affectedTables.forEach((tableName) => {
+    const proxy = tableProxies.get(tableName);
+    if (proxy) {
+      proxy.refreshData();
+    }
+  });
+
+  return response;
+} catch (error) {
+  // Rollback optimistic updates on error
+  try {
+    await (chorusActionsAPI as any).rollbackOptimisticUpdates?.(operations);
+  } catch (rollbackError) {
+    console.warn("[Chorus] Failed to rollback optimistic updates:", rollbackError);
+  }
+
+  console.error(`[Chorus] Failed to execute Livewire action ${actionName}:`, error);
+  throw error;
+}
+```
+
+### Phase 4: Update setupHarmonizeComponent
+**File:** `packages/chorus-alpine/src/index.ts`
+
+Apply the same offline caching logic to the `setupHarmonizeComponent` function's wrapped method:
+```typescript
+// Check if we're offline before making the request
+if (!offlineManager.getIsOnline()) {
+  console.log("[Chorus] Browser is offline, caching method call");
+
+  // Perform optimistic updates
+  try {
+    await (chorusActionsAPI as any).handleOptimisticUpdates?.(
+      operations,
+      actionName,
+      {}
+    );
+  } catch (error) {
+    console.warn("[Chorus] Failed to apply optimistic updates:", error);
+  }
+
+  // Cache the method call
+  cacheOfflineLivewireCall({
+    componentId: component.$id || 'unknown',
+    methodName: actionName,
+    params: [operations],
+    timestamp: Date.now()
+  });
+
+  // Return optimistic response
+  return {
+    success: true,
+    operations: operations.map((op, index) => ({
+      success: true,
+      index,
+      operation: {
+        table: op.table,
+        operation: op.operation,
+        data: op.data,
+      },
+      data: op.data,
+    })),
+    summary: {
+      total: operations.length,
+      successful: operations.length,
+      failed: 0,
+    },
+  };
+}
+
+// Online: proceed with normal call
+const response = await original.call(target, operations);
+// ... handle success
+```
+
+### Phase 5: Update setupOfflineSync for Method Call Replay
+**File:** `packages/chorus-alpine/src/index.ts`
+
+Modify the `setupOfflineSync` function to replay cached method calls:
+```typescript
+function setupOfflineSync(api: ChorusActionsAPI): void {
+  offlineManager.onOnline(async () => {
+    console.log("[Chorus] Browser came online, processing pending requests and method calls");
+    try {
+      // Get and replay cached Livewire method calls
+      const offlineCalls = getOfflineLivewireCalls();
+
+      if (offlineCalls.length > 0) {
+        console.log(`[Chorus] Replaying ${offlineCalls.length} cached method calls`);
+
+        for (const call of offlineCalls) {
+          try {
+            const component = window.Livewire.find(call.componentId);
+
+            if (component?.$wire) {
+              console.log(`[Chorus] Replaying ${call.methodName} for component ${call.componentId}`);
+              await component.$wire[call.methodName](...call.params);
+            } else {
+              console.warn(`[Chorus] Component ${call.componentId} not found for replay`);
+            }
+          } catch (error) {
+            console.error(`[Chorus] Failed to replay ${call.methodName}:`, error);
+          }
+        }
+
+        clearOfflineLivewireCalls();
+      }
+
+      // Process any OfflineManager requests (for consistency)
+      await offlineManager.processPendingRequests();
+
+      // Refresh all table proxies after sync
+      tableProxies.forEach(proxy => proxy.refreshData());
+    } catch (error) {
+      console.error("[Chorus] Error processing pending requests:", error);
+    }
+  });
+}
+```
+
+### Phase 6: Remove API Endpoint Code
+**Files to delete:**
+- `examples/alpine-example/routes/api.php`
+- `examples/alpine-example/app/Http/Controllers/Api/WriteActionsController.php`
+
+**Reason:** These were created for the previous (incorrect) approach of caching HTTP requests. With method call caching, they're no longer needed.
+
+### Phase 7: Rebuild and Test
+**Command:**
+```bash
+cd packages/chorus-alpine && npm run build
+cd ../../examples/alpine-example && npm run build
+```
+
+## How It Works End-to-End
+
+1. **User creates todo while offline:**
+   - `$harmonize('createTodo', ({ create }) => { create('todos', { ... }) })` called
+   - Offline check: `!offlineManager.getIsOnline()` returns true
+   - Optimistic updates to shadow/delta tables
+   - Method call cached: `{ componentId: 'xyz', methodName: 'createTodo', params: [operations] }`
+   - Request interceptor aborts any network attempt
+   - Optimistic response returned immediately
+   - UI shows the new todo
+
+2. **Browser comes back online:**
+   - Window `online` event fires
+   - `offlineManager.onOnline()` callback executes
+   - Cached method call retrieved: `{ componentId, methodName, params }`
+   - Component found via `window.Livewire.find(componentId)`
+   - Method replayed: `component.$wire.createTodo(operations)`
+   - Fresh Livewire request sent with current CSRF token
+   - Server processes the request
+   - Harmonics trigger delta sync status update
+   - Shadow items are removed
+   - UI refreshed with final data
+
+## Advantages
+
+✅ **Fresh tokens** - Method calls are replayed, generating new CSRF tokens
+✅ **Native Livewire** - Uses Livewire's `$wire` API, no low-level HTTP manipulation
+✅ **Clean separation** - Offline caching is independent from HTTP layer
+✅ **Graceful ordering** - Method calls replayed in order they were made
+✅ **Component lifecycle aware** - Uses Livewire's component lookup
+✅ **No API endpoints** - Works with existing Livewire action routes
+
+## Testing Checklist
+
+- [ ] Go offline in Chrome DevTools
+- [ ] Create a todo → see optimistic update in UI
+- [ ] Network tab shows NO requests attempted to `/livewire/update`
+- [ ] Request interceptor log shows abort message
+- [ ] localStorage contains `chorus_offline_livewire_calls` with method call
+- [ ] IndexedDB contains `todos_shadow` and `todos_deltas` entries with correct sync_status
+- [ ] Go online
+- [ ] Automatic Livewire request to `/livewire/update` sent
+- [ ] Delta sync_status updated to 'synced' via harmonic
+- [ ] Shadow item removed
+- [ ] Todo persists in main `todos` table
+- [ ] No console errors
+
+## Success Criteria
+
+- [ ] Method calls are cached when offline (not HTTP requests)
+- [ ] Request interceptor prevents Livewire requests when offline
+- [ ] Cached calls are replayed when online with fresh tokens
+- [ ] Optimistic updates work seamlessly throughout flow
+- [ ] All existing Alpine adapter tests pass
+- [ ] No API endpoints needed (fully Livewire-native)

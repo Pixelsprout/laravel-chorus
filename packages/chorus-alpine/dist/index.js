@@ -573,6 +573,24 @@ class TableProxy {
                             }
                         }
                     }
+                    // Re-apply sorting to the merged result to ensure shadow items appear in correct position
+                    // This is necessary because shadow items added above will be at the end otherwise
+                    if (this.queryFn && merged.length > 0) {
+                        // Detect sort order by comparing the first and last items of mainData
+                        // If mainData is sorted descending by created_at, the first item's created_at > last item's created_at
+                        if ((mainData ?? []).length > 1) {
+                            const first = mainData[0];
+                            const last = mainData[mainData.length - 1];
+                            // Check if data is sorted descending (newest first)
+                            const isDescending = new Date(first.created_at).getTime() > new Date(last.created_at).getTime();
+                            // Re-sort the merged array by created_at in the same order
+                            merged.sort((a, b) => {
+                                const aTime = new Date(a.created_at).getTime();
+                                const bTime = new Date(b.created_at).getTime();
+                                return isDescending ? bTime - aTime : aTime - bTime;
+                            });
+                        }
+                    }
                     // Filter out pending deletes
                     if (deltaTable) {
                         const pendingDeletes = await deltaTable

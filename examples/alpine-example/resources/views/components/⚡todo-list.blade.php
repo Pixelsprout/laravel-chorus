@@ -33,8 +33,6 @@ new class extends Component {
         sortBy: 'newest',
         todos: [],
         init() {
-            // Initialize todos with reactive liveQuery that automatically updates when filter/sortBy change
-            // Alpine.effect() automatically tracks filter and sortBy access, re-running the query when they change
             this.todos = $table('todos', (table) => {
                 let query = table;
 
